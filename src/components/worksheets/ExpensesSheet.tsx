@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   CategoryItem,
   ExpenseTransaction,
@@ -19,6 +19,7 @@ import {
   Hash,
   Layers,
   Plus,
+  Pencil,
   Receipt,
   RefreshCw,
   Repeat,
@@ -50,7 +51,9 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
   recurringTransactions = [],
   onUpdateRecurringTransactions,
 }) => {
-  const [newDate, setNewDate] = useState('2026-01-28');
+  const monthNumber = ['January','February','March','April','May','June','July','August','September','October','November','December'].indexOf(settings.month) + 1;
+  const activePeriodStart = `${settings.year}-${String(monthNumber).padStart(2, '0')}-01`;
+  const [newDate, setNewDate] = useState(activePeriodStart);
   const [newCategory, setNewCategory] = useState(categories[0]?.name || 'Housing');
   const [newDescription, setNewDescription] = useState('');
   const [newPaymentMethod, setNewPaymentMethod] = useState(paymentMethods[0] || 'Credit Card');
@@ -59,10 +62,24 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editingId) setNewDate(activePeriodStart);
+  }, [activePeriodStart, editingId]);
 
   const totalExpenses = sumExpenseTransactions(transactions);
   const txCount = transactions.length;
   const avgExpense = txCount > 0 ? totalExpenses / txCount : 0;
+
+  const monthIndex = ['January','February','March','April','May','June','July','August','September','October','November','December'].indexOf(settings.month);
+  const previousMonthIndex = monthIndex === 0 ? 11 : monthIndex - 1;
+  const previousYear = monthIndex === 0 ? settings.year - 1 : settings.year;
+  const previousMonthTotal = sumExpenseTransactions(transactions.filter((tx) => {
+    const d = new Date(`${tx.date}T00:00:00`);
+    return d.getFullYear() === previousYear && d.getMonth() === previousMonthIndex;
+  }));
+  const expenseTrendPercent = previousMonthTotal > 0 ? ((totalExpenses - previousMonthTotal) / previousMonthTotal) * 100 : null;
   
   const largestTx = transactions.reduce((max, tx) => (tx.amount > max.amount ? tx : max), {
     amount: 0,
@@ -79,6 +96,18 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
     const amountNum = parseFloat(newAmount);
     if (isNaN(amountNum) || amountNum <= 0) return;
 
+    if (editingId) {
+      onUpdateTransactions(transactions.map((tx) =>
+        tx.id === editingId
+          ? { ...tx, date: newDate, category: newCategory, description: newDescription.trim() || 'Expense', paymentMethod: newPaymentMethod, amount: amountNum }
+          : tx
+      ));
+      setEditingId(null);
+      setNewDescription('');
+      setNewAmount('');
+      return;
+    }
+
     const newTx: ExpenseTransaction = {
       id: `exp_tx_${Date.now()}`,
       date: newDate,
@@ -91,6 +120,15 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
     onUpdateTransactions([...transactions, newTx]);
     setNewDescription('');
     setNewAmount('');
+  };
+
+  const handleEditTransaction = (tx: ExpenseTransaction) => {
+    setEditingId(tx.id);
+    setNewDate(tx.date);
+    setNewCategory(tx.category);
+    setNewDescription(tx.description);
+    setNewPaymentMethod(tx.paymentMethod);
+    setNewAmount(String(tx.amount));
   };
 
   const handleDeleteTransaction = (id: string) => {
@@ -167,7 +205,7 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
           subtitle="Sum of recorded spending"
           icon={<Receipt className="h-5 w-5" />}
           theme="red"
-          trend={{ text: '↓ 4.2% vs. last month', isPositive: true }}
+          trend={{ text: expenseTrendPercent === null ? 'No prior-month data' : `${expenseTrendPercent >= 0 ? '↑' : '↓'} ${Math.abs(expenseTrendPercent).toFixed(1)}% vs. last month`, isPositive: expenseTrendPercent === null ? true : expenseTrendPercent <= 0 }}
           onClick={() =>
             onSelectCell({
               reference: 'tbl_Expenses[[#Totals],[Amount]]',
@@ -350,9 +388,22 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
               type="submit"
               className="mt-auto inline-flex items-center justify-center gap-1 rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 cursor-pointer h-[34px]"
             >
-              <Plus className="h-4 w-4" />
-              <span>Add</span>
+              {editingId ? <CheckCircle2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              <span>{editingId ? 'Save' : 'Add'}</span>
             </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingId(null);
+                  setNewDescription('');
+                  setNewAmount('');
+                }}
+                className="mt-auto inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer h-[34px]"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </form>
       </div>
@@ -548,6 +599,16 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
 
                     {/* Column F: Action */}
                     <td className="px-2 py-2.5 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditTransaction(tx);
+                        }}
+                        className="mr-2 text-slate-400 hover:text-blue-600 cursor-pointer p-1 rounded hover:bg-blue-50"
+                        title="Edit transaction"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
