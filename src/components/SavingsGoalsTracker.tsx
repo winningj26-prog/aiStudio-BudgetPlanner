@@ -33,6 +33,8 @@ interface SavingsGoalsTrackerProps {
   incomeCategories: CategoryItem[];
   settings: SettingsState;
   onSelectCell?: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
+  currentMonthlySavings?: number;
+  currentSavingsRate?: number;
 }
 
 export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
@@ -42,6 +44,8 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   incomeCategories,
   settings,
   onSelectCell,
+  currentMonthlySavings = 500, // default fallback
+  currentSavingsRate = 20,     // default fallback
 }) => {
   // Modal states
   const [isAddGoalModalOpen, setIsAddGoalModalOpen] = useState(false);
@@ -471,29 +475,89 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                     </span>
                   </div>
 
-                  {/* Visual Goal Progress Bar */}
-                  <div className="space-y-1">
-                    <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner">
+                  {/* Visual Goal Progress Bar with Milestone Markers */}
+                  <div className="space-y-2">
+                    <div className="relative h-4.5 w-full rounded-full bg-slate-100 border border-slate-200/80 shadow-inner flex items-center overflow-hidden">
+                      {/* Milestone Indicators (25%, 50%, 75% tick marks) */}
+                      {[25, 50, 75].map((ms) => {
+                        const isReached = progress >= ms;
+                        return (
+                          <div
+                            key={ms}
+                            style={{ left: `${ms}%` }}
+                            className="absolute top-0 bottom-0 w-px border-l border-dashed border-slate-400/60 z-10 flex flex-col justify-between items-center"
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${isReached ? 'bg-emerald-600 scale-110' : 'bg-slate-300'}`} />
+                            <span className="absolute bottom-0 text-[6.5px] font-extrabold text-slate-400 -translate-x-1/2">{ms}%</span>
+                          </div>
+                        );
+                      })}
+
+                      {/* Actual progress bar */}
                       <div
-                        className="h-full rounded-full transition-all duration-500"
+                        className="h-full rounded-full transition-all duration-500 shadow-3xs"
                         style={{
                           width: `${progress}%`,
                           backgroundColor: colorHex,
                         }}
                       />
                     </div>
-                    <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 pt-0.5">
+
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 pt-0.5">
                       <span>
                         {remaining > 0
                           ? `${formatCurrency(remaining, settings.currency)} remaining`
                           : '100% Funded 🎉'}
                       </span>
                       {goal.targetDate && (
-                        <span className="inline-flex items-center gap-1">
+                        <span className="inline-flex items-center gap-1 font-medium text-slate-400">
                           <Calendar className="h-3 w-3 text-slate-400" />
                           <span>Target: {goal.targetDate}</span>
                         </span>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Milestone badges & Time-to-Goal Projections */}
+                  <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-100 text-xs text-slate-600 flex flex-col gap-2">
+                    <div className="flex items-center justify-between text-[9px] text-slate-400 font-extrabold uppercase tracking-wider leading-none">
+                      <span>Milestones Progress</span>
+                      <span>Target Date Projection</span>
+                    </div>
+
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      {/* Milestone Badges */}
+                      <div className="flex items-center gap-2">
+                        {[25, 50, 75].map((ms) => {
+                          const isMet = progress >= ms;
+                          return (
+                            <span
+                              key={ms}
+                              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-black border ${
+                                isMet
+                                  ? 'bg-emerald-100/90 text-emerald-800 border-emerald-200/60 shadow-3xs'
+                                  : 'bg-slate-100 text-slate-400 border-slate-200'
+                              }`}
+                            >
+                              <span>{ms}%</span>
+                              <span>{isMet ? '★' : '🔒'}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+
+                      {/* Time-to-Goal Projections side by side */}
+                      <div className="text-right space-y-0.5 shrink-0">
+                        {goal.monthlyContribution ? (
+                          <div className="text-[10px] text-slate-500 font-medium leading-tight">
+                            Allocated Contribution: <strong className="text-slate-800 font-bold">{monthsLeft !== null ? `~${monthsLeft} mo` : 'Funded'}</strong>
+                          </div>
+                        ) : null}
+
+                        <div className="text-[10px] text-slate-500 font-medium leading-tight">
+                          Actual Surplus Rate: <strong className="text-blue-700 font-black">{remaining > 0 ? (currentMonthlySavings > 0 ? `~${Math.ceil(remaining / currentMonthlySavings)} mo` : 'Infinite') : 'Funded'}</strong>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -503,12 +567,12 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                   <div className="flex items-center gap-2 text-[11px] text-slate-500">
                     {goal.monthlyContribution ? (
                       <span className="font-semibold text-slate-700">
-                        +{formatCurrency(goal.monthlyContribution, settings.currency)}/mo
+                        Planned: +{formatCurrency(goal.monthlyContribution, settings.currency)}/mo
                       </span>
                     ) : null}
                     {monthsLeft !== null && (
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 font-medium">
-                        ~{monthsLeft} {monthsLeft === 1 ? 'month' : 'months'} left
+                      <span className="rounded bg-slate-150 px-1.5 py-0.5 text-slate-600 font-bold text-[10px] uppercase tracking-wider">
+                        ~{monthsLeft} mo remaining
                       </span>
                     )}
                   </div>

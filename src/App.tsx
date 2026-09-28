@@ -404,6 +404,7 @@ export default function App() {
             onOpenExportModal={() => setIsExportModalOpen(true)}
             savingsGoals={savingsGoals}
             onUpdateSavingsGoals={setSavingsGoals}
+            debts={debts}
           />
         )}
 

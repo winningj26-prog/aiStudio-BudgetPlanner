@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   CategoryItem,
+  Debt,
   ExpenseTransaction,
   IncomeTransaction,
   MonthSummary,
@@ -8,6 +9,7 @@ import {
   SettingsState,
 } from '../../types/budget';
 import { SavingsGoalsTracker } from '../SavingsGoalsTracker';
+import { NetWorthForecaster } from './NetWorthForecaster';
 import { formatCurrency, formatDate, formatPercent } from '../../utils/formatters';
 import {
   sumExpenseTransactions,
@@ -23,6 +25,7 @@ import { SavingsRateLineChart } from '../charts/SavingsRateLineChart';
 import { ExportWorkbookModal } from '../ExportWorkbookModal';
 import {
   AlertCircle,
+  AlertTriangle,
   Calendar,
   CheckCircle2,
   DollarSign,
@@ -32,9 +35,11 @@ import {
   HardDriveDownload,
   Info,
   Lightbulb,
+  Loader2,
   PieChart,
   PiggyBank,
   Receipt,
+  RefreshCw,
   Sparkles,
   TrendingDown,
   TrendingUp,
@@ -55,6 +60,7 @@ interface DashboardSheetProps {
   onOpenExportModal?: () => void;
   savingsGoals: SavingsGoal[];
   onUpdateSavingsGoals: (goals: SavingsGoal[]) => void;
+  debts: Debt[];
 }
 
 export const DashboardSheet: React.FC<DashboardSheetProps> = ({
@@ -71,8 +77,74 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   onOpenExportModal,
   savingsGoals,
   onUpdateSavingsGoals,
+  debts,
 }) => {
   const [isLocalExportModalOpen, setIsLocalExportModalOpen] = useState(false);
+
+  // Dashboard Sub-Tab selection
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'net_worth'>('overview');
+
+  // AI Insights State
+  const [aiInsights, setAiInsights] = useState<string | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  // Function to fetch AI insights from Express proxy backend
+  const fetchAiInsights = async () => {
+    setIsAiLoading(true);
+    setAiError(null);
+    try {
+      const response = await fetch('/api/insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          incomeTransactions,
+          expenseTransactions,
+          settings,
+          categories,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to reach AI insights server.');
+      }
+      const data = await response.json();
+      setAiInsights(data.insights);
+    } catch (err: any) {
+      console.error(err);
+      setAiError(err.message || 'An error occurred while generating insights.');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  // Fetch on mount and when transaction lists or month changes
+  useEffect(() => {
+    fetchAiInsights();
+  }, [incomeTransactions.length, expenseTransactions.length, settings.month]);
+
+  // Budget Alerts logic: Warning if spent is >= 90% of budget
+  const budgetAlerts = useMemo(() => {
+    const alerts: { category: string; planned: number; actual: number; percentage: number; severity: 'warning' | 'danger' }[] = [];
+    
+    categories.filter(c => c.isActive).forEach((cat) => {
+      const planned = plannedExpenses[cat.name] || 0;
+      const actual = sumExpensesByCategory(expenseTransactions, cat.name);
+      if (planned > 0) {
+        const percentage = (actual / planned) * 100;
+        if (percentage >= 90) {
+          alerts.push({
+            category: cat.name,
+            planned,
+            actual,
+            percentage,
+            severity: percentage > 100 ? 'danger' : 'warning'
+          });
+        }
+      }
+    });
+
+    return alerts.sort((a, b) => b.percentage - a.percentage);
+  }, [categories, plannedExpenses, expenseTransactions]);
 
   const handleTriggerExport = () => {
     if (onOpenExportModal) {
@@ -290,13 +362,41 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         </div>
       </div>
 
-      {/* 5 Top KPI Cards with dynamic trend arrows relative to previous month:
-          - Total Income
-          - Total Expenses
-          - Savings
-          - Savings Rate
-          - Remaining Budget
-      */}
+      {/* Sub-Tab Navigation Bar inside Dashboard */}
+      <div className="flex border-b border-slate-200 gap-1 overflow-x-auto select-none">
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('overview')}
+          className={`border-b-2 px-4 py-2.5 text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            activeSubTab === 'overview'
+              ? 'border-blue-600 text-blue-700 font-black'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Overview & Cashflow
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('net_worth')}
+          className={`border-b-2 px-4 py-2.5 text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            activeSubTab === 'net_worth'
+              ? 'border-blue-600 text-blue-700 font-black'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Net Worth & Wealth Forecasting
+        </button>
+      </div>
+
+      {activeSubTab === 'overview' ? (
+        <>
+          {/* 5 Top KPI Cards with dynamic trend arrows relative to previous month:
+              - Total Income
+              - Total Expenses
+              - Savings
+              - Savings Rate
+              - Remaining Budget
+          */}
       <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KPICard
           title="Total Income"
@@ -467,7 +567,231 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         incomeCategories={incomeCategories}
         settings={settings}
         onSelectCell={onSelectCell}
+        currentMonthlySavings={savings}
+        currentSavingsRate={savingsRate}
       />
+
+      {/* ---------------------------------------------------------------------- */}
+      {/* Financial Health Diagnostic Center: Budget Alerts & AI Spending Insights */}
+      {/* ---------------------------------------------------------------------- */}
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Card 1: Budget Alerts Notification System */}
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-800 shadow-2xs shrink-0">
+                  <AlertTriangle className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">
+                    Budget Alerts & Threshold Monitor
+                  </h3>
+                  <p className="text-[10px] font-medium text-slate-500">
+                    Monitors planned vs. actual categories at &gt;90% limit
+                  </p>
+                </div>
+              </div>
+              <span className="rounded-full bg-slate-150 px-2 py-0.5 text-[10px] font-bold text-slate-600 border border-slate-200 uppercase tracking-wider">
+                Live Scanner
+              </span>
+            </div>
+
+            {/* List of active warnings */}
+            <div className="space-y-3.5">
+              {budgetAlerts.length > 0 ? (
+                budgetAlerts.map((alert) => (
+                  <div
+                    key={alert.category}
+                    className={`rounded-lg border p-3.5 space-y-2 transition-colors ${
+                      alert.severity === 'danger'
+                        ? 'border-rose-100 bg-rose-50/40 text-rose-900'
+                        : 'border-amber-100 bg-amber-50/40 text-amber-900'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold flex items-center gap-1.5">
+                        <span
+                          className={`h-2 w-2 rounded-full shrink-0 ${
+                            alert.severity === 'danger' ? 'bg-rose-600 animate-pulse' : 'bg-amber-500'
+                          }`}
+                        />
+                        {alert.category}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border uppercase tracking-wider ${
+                          alert.severity === 'danger'
+                            ? 'bg-rose-100 text-rose-800 border-rose-200'
+                            : 'bg-amber-100 text-amber-800 border-amber-200'
+                        }`}
+                      >
+                        {alert.percentage.toFixed(0)}% Limit Exceeded
+                      </span>
+                    </div>
+
+                    {/* Progress indicator */}
+                    <div className="space-y-1">
+                      <div className="relative h-2 w-full rounded-full bg-slate-200/80 overflow-hidden">
+                        <div
+                          style={{ width: `${Math.min(100, alert.percentage)}%` }}
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            alert.severity === 'danger' ? 'bg-rose-600' : 'bg-amber-500'
+                          }`}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                        <span>Spent: {formatCurrency(alert.actual, settings.currency)}</span>
+                        <span>Planned Limit: {formatCurrency(alert.planned, settings.currency)}</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] font-medium leading-relaxed">
+                      {alert.severity === 'danger' ? (
+                        <span>
+                          🔴 <strong>Over Budget!</strong> Spending on {alert.category} has exceeded your planned limit by{' '}
+                          <strong className="underline">
+                            {formatCurrency(alert.actual - alert.planned, settings.currency)}
+                          </strong>.
+                        </span>
+                      ) : (
+                        <span>
+                          🟡 <strong>Warning!</strong> Spending on {alert.category} has exceeded 90% of its budget. Remaining buffer is{' '}
+                          <strong className="underline">
+                            {formatCurrency(alert.planned - alert.actual, settings.currency)}
+                          </strong>.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-500 mb-2" />
+                  <span className="font-bold text-slate-700">Perfect Budget Discipline!</span>
+                  <span className="text-[11px] text-slate-500 mt-0.5 max-w-[260px] text-center leading-normal">
+                    All spending categories are currently below 90% of their planned budget limits.
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-medium">
+            <span>Threshold monitored in real-time</span>
+            <span className="text-slate-500 font-semibold uppercase">Verification code: 200 OK</span>
+          </div>
+        </div>
+
+        {/* Card 2: AI-Powered Spending Insights */}
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-800 shadow-2xs shrink-0">
+                  <Sparkles className="h-4.5 w-4.5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">
+                    AI-Powered Spending Insights Advisor
+                  </h3>
+                  <p className="text-[10px] font-medium text-slate-500">
+                    Discretionary expense analyzer powered by Gemini AI
+                  </p>
+                </div>
+              </div>
+              
+              {/* Manual regenerate button */}
+              <button
+                type="button"
+                onClick={fetchAiInsights}
+                disabled={isAiLoading}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-700 transition-all cursor-pointer shadow-3xs disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3 w-3 text-slate-500 ${isAiLoading ? 'animate-spin' : ''}`} />
+                <span>Ask AI Advisor</span>
+              </button>
+            </div>
+
+            {/* Insights Content */}
+            <div className="space-y-4">
+              {isAiLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-500 text-xs">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-2" />
+                  <span className="font-extrabold text-slate-800 animate-pulse">Generative AI analysis in progress...</span>
+                  <span className="text-[10px] text-slate-400 mt-1 max-w-[240px] text-center leading-relaxed">
+                    Analyzing cashflow patterns & drafting discretionary reduction tips.
+                  </span>
+                </div>
+              ) : aiError ? (
+                <div className="flex flex-col items-center justify-center py-10 text-rose-700 text-xs bg-rose-50/50 border border-rose-100 rounded-xl p-4">
+                  <AlertCircle className="h-8 w-8 text-rose-500 mb-2" />
+                  <span className="font-bold text-slate-800">API Gateway Error</span>
+                  <p className="text-[11px] text-rose-600 text-center mt-0.5 leading-normal">
+                    {aiError}. Make sure your local Express server is running and the Gemini API is correctly configured.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={fetchAiInsights}
+                    className="mt-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 text-[10px] shadow-3xs transition-colors cursor-pointer"
+                  >
+                    Retry Query
+                  </button>
+                </div>
+              ) : aiInsights ? (
+                <div className="space-y-3.5">
+                  <div className="rounded-lg border border-blue-50 bg-blue-50/30 p-3 flex items-start gap-2.5">
+                    <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-blue-900 leading-normal font-medium">
+                      Gemini has scanned your active ledger accounts for this month to identify recurrent spending and optimize your cashflow rate.
+                    </p>
+                  </div>
+                  
+                  {/* Visual listing of the 3 bullets */}
+                  <div className="space-y-2.5">
+                    {aiInsights
+                      .split('\n')
+                      .filter((line) => line.trim().startsWith('-') || line.trim().startsWith('*') || line.trim().length > 10)
+                      .slice(0, 3)
+                      .map((bullet, idx) => {
+                        const cleanText = bullet.replace(/^[-*\s\d.]+/g, '').trim();
+                        return (
+                          <div key={idx} className="flex gap-2.5 rounded-lg border border-slate-100 bg-slate-50/40 p-3 hover:bg-slate-50 transition-colors">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white font-mono">
+                              {idx + 1}
+                            </span>
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-bold text-slate-800 uppercase block">Action Plan #{idx + 1}</span>
+                              <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+                                {cleanText}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                  <Sparkles className="h-8 w-8 text-blue-400 mb-2" />
+                  <span className="font-bold text-slate-700">No Insights Seeded</span>
+                  <button
+                    type="button"
+                    onClick={fetchAiInsights}
+                    className="mt-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 text-xs shadow-3xs transition-all cursor-pointer"
+                  >
+                    Analyze Ledger History
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-medium">
+            <span>Powered by Gemini 3.8 Flash</span>
+            <span className="text-slate-500 font-semibold uppercase">Ready • Secured</span>
+          </div>
+        </div>
+      </div>
 
       {/* Bottom Row: Recent Transactions Table (Left) + Key Insights List (Right) */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
@@ -623,8 +947,17 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
           </div>
         </div>
       </div>
+    </>
+  ) : (
+    <NetWorthForecaster
+      debts={debts}
+      settings={settings}
+      currentMonthlySavings={savings}
+      onSelectCell={onSelectCell}
+    />
+  )}
 
-      {/* Offline Backup Export Modal */}
+  {/* Offline Backup Export Modal */}
       <ExportWorkbookModal
         isOpen={isLocalExportModalOpen}
         onClose={() => setIsLocalExportModalOpen(false)}

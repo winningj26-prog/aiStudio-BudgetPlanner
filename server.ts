@@ -1,0 +1,98 @@
+import express from 'express';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { GoogleGenAI } from '@google/genai';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+app.use(express.json());
+
+// Initialize Gemini Client
+const apiKey = process.env.GEMINI_API_KEY;
+const ai = new GoogleGenAI({
+  apiKey: apiKey,
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
+    },
+  },
+});
+
+// AI Spending Insights Endpoint
+app.post('/api/insights', async (req, res) => {
+  try {
+    const { incomeTransactions = [], expenseTransactions = [], settings = {}, categories = [] } = req.body;
+    
+    // Construct transaction summaries to send to Gemini as context
+    const textContext = `
+Monthly Income: ${incomeTransactions.reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0)}
+Monthly Expenses: ${expenseTransactions.reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0)}
+Month/Year: ${settings?.month} ${settings?.year}
+Categories: ${categories?.map((c: any) => c.name).join(', ')}
+
+Transactions list:
+${expenseTransactions.slice(0, 40).map((t: any) => `- ${t.date} ${t.category}: ${t.description} (${t.amount})`).join('\n')}
+`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: `
+You are a brilliant and practical financial advisor. Analyze the following monthly financial snapshot and transactions:
+${textContext}
+
+Provide exactly 3 actionable, highly specific, and creative bullet points on how the user can reduce their discretionary expenses based on these transactions. Keep the tone encouraging, professional, and clear. Each bullet point should be no longer than two sentences and should directly reference categories or patterns seen in the transaction log. No introductory or concluding text, just the 3 bullet points. Do not include asterisks or numbering, just the bullet points themselves.
+`,
+    });
+
+    const text = response.text || "Could not generate insights at this moment.";
+    res.json({ insights: text });
+  } catch (error: any) {
+    console.error("Gemini API Error:", error);
+    res.status(500).json({ error: error.message || "Failed to generate AI insights." });
+  }
+});
+
+// Configure Vite integration
+const isProd = process.env.NODE_ENV === 'production';
+const port = process.env.PORT || 3000;
+
+if (!isProd) {
+  // Use Vite middlewares in dev mode
+  const vite = await import('vite').then((v) =>
+    v.createServer({
+      server: { middlewareMode: true },
+      appType: 'custom',
+    })
+  );
+  app.use(vite.middlewares);
+  
+  // Serve HTML
+  app.use('*', async (req, res, next) => {
+    const url = req.originalUrl;
+    try {
+      let template = await import('fs').then((fs) =>
+        fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8')
+      );
+      template = await vite.transformIndexHtml(url, template);
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+    } catch (e) {
+      vite.ssrFixStacktrace(e as Error);
+      next(e);
+    }
+  });
+} else {
+  // Serve static files in production
+  app.use(express.static(path.resolve(__dirname, 'dist')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'dist/index.html'));
+  });
+}
+
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
+});

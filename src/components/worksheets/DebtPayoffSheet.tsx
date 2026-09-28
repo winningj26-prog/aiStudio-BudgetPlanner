@@ -148,7 +148,8 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
     if (debts.length === 0) {
       return {
         monthlySchedule: [],
-        debtStats: {},
+        debtStats: {} as Record<string, { payoffMonth: number; totalInterest: number }>,
+        scenarios: [] as { name: string; extra: number; label: string; months: number; interest: number; totalPayments: number }[],
         overallStats: {
           totalMonths: 0,
           totalInterest: 0,
@@ -323,9 +324,27 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
     const interestSaved = Math.max(0, baselineSimResult.totalInterest - activeSimResult.totalInterest);
     const monthsSaved = Math.max(0, baselineSimResult.totalMonths - activeSimResult.totalMonths);
 
+    // Dynamic Multi-Scenario Payoff Planner
+    const scenarios = [
+      { name: 'Minimum Payments', extra: 0, label: 'Minimums Only' },
+      { name: 'Moderate Extra', extra: 150, label: '+$150/mo' },
+      { name: 'Accelerated Plan', extra: 300, label: '+$300/mo' },
+      { name: 'Power Paydown', extra: 500, label: '+$500/mo' },
+      { name: 'Debt Crusher', extra: 1000, label: '+$1,000/mo' },
+    ].map((scenario) => {
+      const res = runSimulation(strategy, scenario.extra);
+      return {
+        ...scenario,
+        months: res.totalMonths,
+        interest: res.totalInterest,
+        totalPayments: res.totalPayments,
+      };
+    });
+
     return {
       monthlySchedule: activeSimResult.monthlySchedule,
       debtStats: activeSimResult.debtStats,
+      scenarios,
       overallStats: {
         totalMonths: activeSimResult.totalMonths,
         totalInterest: activeSimResult.totalInterest,
@@ -593,6 +612,91 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                       <span className="font-mono text-slate-500">({formatCurrency(debt.balance, settings.currency)})</span>
                     </div>
                   ))}
+                </div>
+
+                {/* Scenario payoff timeline simulator */}
+                <div className="mt-5 pt-4 border-t border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        Interactive Timeline Multi-Scenario Simulator
+                      </h4>
+                      <p className="text-[10px] text-slate-400">
+                        Varying additional monthly payment levels compared side-by-side. Click to select a budget level.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                      Live Simulation
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {payoffSimulation.scenarios?.map((scen) => {
+                      const isActive = scen.extra === additionalPayment;
+                      const isMinOnly = scen.extra === 0;
+                      const monthsSaved = Math.max(0, payoffSimulation.overallStats.minimumsTotalMonths - scen.months);
+                      const interestSaved = Math.max(0, payoffSimulation.overallStats.minimumsTotalInterest - scen.interest);
+
+                      return (
+                        <div
+                          key={scen.name}
+                          onClick={() => {
+                            if (scen.extra !== undefined) {
+                              setAdditionalPayment(scen.extra);
+                            }
+                          }}
+                          className={`group/scen rounded-xl border p-3 transition-all cursor-pointer text-left ${
+                            isActive
+                              ? 'border-rose-300 bg-rose-50/20 shadow-3xs ring-1 ring-rose-200'
+                              : 'border-slate-150 bg-slate-50/30 hover:bg-slate-50 hover:border-slate-200'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`flex h-4.5 w-4.5 items-center justify-center rounded-full text-[9px] font-bold ${
+                                  isActive ? 'bg-rose-600 text-white font-bold' : 'bg-slate-200 text-slate-600'
+                                }`}
+                              >
+                                {isMinOnly ? 'M' : `+`}
+                              </span>
+                              <span className={`text-xs font-extrabold ${isActive ? 'text-rose-900' : 'text-slate-800'}`}>
+                                {scen.name} <span className="font-mono text-slate-500 font-medium">({scen.label})</span>
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-mono text-xs font-black text-slate-900">
+                                {scen.months} months
+                              </span>
+                              <span className="text-[10px] text-slate-400 block font-semibold leading-none">
+                                to zero debt
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Graphical timeline bar */}
+                          <div className="relative w-full h-2 rounded-full bg-slate-200/60 overflow-hidden">
+                            <div
+                              style={{ width: `${Math.max(12, Math.min(100, (scen.months / (payoffSimulation.overallStats.minimumsTotalMonths || 120)) * 100))}%` }}
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                isActive ? 'bg-rose-600' : 'bg-slate-400 group-hover/scen:bg-slate-500'
+                              }`}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 font-medium">
+                            <span className="font-mono">Total Interest: {formatCurrency(scen.interest, settings.currency)}</span>
+                            {monthsSaved > 0 && (
+                              <span className="font-bold text-emerald-600">
+                                Saved {monthsSaved} months & {formatCurrency(interestSaved, settings.currency)}
+                              </span>
+                            )}
+                            {isMinOnly && <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px]">Baseline</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             ) : (
