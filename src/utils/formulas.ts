@@ -26,6 +26,48 @@ export function calculateBudgetStatus(percentUsed: number): BudgetStatus {
   return 'Over Budget';
 }
 
+export function buildAnnualSummary(
+  incomeTransactions: IncomeTransaction[],
+  expenseTransactions: ExpenseTransaction[],
+  year: number
+): MonthSummary[] {
+  const months = [
+    { month: 'Jan', fullName: 'January' },
+    { month: 'Feb', fullName: 'February' },
+    { month: 'Mar', fullName: 'March' },
+    { month: 'Apr', fullName: 'April' },
+    { month: 'May', fullName: 'May' },
+    { month: 'Jun', fullName: 'June' },
+    { month: 'Jul', fullName: 'July' },
+    { month: 'Aug', fullName: 'August' },
+    { month: 'Sep', fullName: 'September' },
+    { month: 'Oct', fullName: 'October' },
+    { month: 'Nov', fullName: 'November' },
+    { month: 'Dec', fullName: 'December' },
+  ];
+
+  return months.map((month, index) => {
+    const monthNumber = String(index + 1).padStart(2, '0');
+    const prefix = `${year}-${monthNumber}-`;
+
+    const income = sumIncomeTransactions(
+      incomeTransactions.filter((tx) => tx.date.startsWith(prefix))
+    );
+    const expenses = sumExpenseTransactions(
+      expenseTransactions.filter((tx) => tx.date.startsWith(prefix))
+    );
+    const savings = income - expenses;
+
+    return {
+      ...month,
+      income,
+      expenses,
+      savings,
+      savingsRate: income > 0 ? (savings / income) * 100 : 0,
+    };
+  });
+}
+
 export function calculateBudgetItem(
   category: string,
   type: 'income' | 'expense',
@@ -33,14 +75,14 @@ export function calculateBudgetItem(
   actual: number
 ): BudgetItem {
   const diff = type === 'expense' ? planned - actual : actual - planned;
-  const percentUsed = planned > 0 ? (actual / planned) * 100 : 0;
-  
+  const percentUsed = planned > 0 ? (actual / planned) * 100 : actual > 0 ? 100 : 0;
+
   let status: BudgetStatus = 'On Track';
   if (type === 'expense') {
     status = calculateBudgetStatus(percentUsed);
   } else {
-    // For income, reaching or exceeding goal is On Track
-    status = percentUsed >= 100 ? 'On Track' : percentUsed >= 80 ? 'Near Limit' : 'Over Budget';
+    // Income is a target: below 80% is not an "over budget" condition.
+    status = percentUsed >= 100 ? 'On Track' : percentUsed >= 80 ? 'Near Target' : 'Below Target';
   }
 
   return {
