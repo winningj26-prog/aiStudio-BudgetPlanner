@@ -1,6 +1,7 @@
 import React from 'react';
-import { MonthSummary, SettingsState } from '../../types/budget';
+import { ExpenseTransaction, MonthSummary, SettingsState } from '../../types/budget';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
+import { sumExpensesByCategory } from '../../utils/formulas';
 import { KPICard } from '../KPICard';
 import { MonthlyTrendChart } from '../charts/MonthlyTrendChart';
 import { SavingsRateLineChart } from '../charts/SavingsRateLineChart';
@@ -17,12 +18,14 @@ import {
 
 interface AnnualSummarySheetProps {
   data: MonthSummary[];
+  expenseTransactions: ExpenseTransaction[];
   settings: SettingsState;
   onSelectCell: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
 }
 
 export const AnnualSummarySheet: React.FC<AnnualSummarySheetProps> = ({
   data,
+  expenseTransactions,
   settings,
   onSelectCell,
 }) => {
@@ -32,15 +35,20 @@ export const AnnualSummarySheet: React.FC<AnnualSummarySheetProps> = ({
   const avgSavingsRate =
     totalAnnualIncome > 0 ? (totalAnnualSavings / totalAnnualIncome) * 100 : 0;
 
-  // Annual top categories (from reference image 1000209470)
-  const annualTopCategories = [
-    { category: 'Housing', amount: 9600.0, percent: 40.6 },
-    { category: 'Food & Groceries', amount: 4200.0, percent: 17.8 },
-    { category: 'Utilities', amount: 2640.0, percent: 11.2 },
-    { category: 'Transportation', amount: 2280.0, percent: 9.6 },
-    { category: 'Healthcare', amount: 1800.0, percent: 7.6 },
-    { category: 'Other Categories', amount: 11520.0, percent: 13.2 },
-  ];
+  const annualTopCategories = Array.from(
+    new Set(expenseTransactions.map((tx) => tx.category.trim()).filter(Boolean))
+  )
+    .map((category) => ({
+      category,
+      amount: sumExpensesByCategory(expenseTransactions, category),
+    }))
+    .filter((item) => item.amount > 0)
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 6)
+    .map((item) => ({
+      ...item,
+      percent: totalAnnualExpenses > 0 ? (item.amount / totalAnnualExpenses) * 100 : 0,
+    }));
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
@@ -111,7 +119,7 @@ export const AnnualSummarySheet: React.FC<AnnualSummarySheetProps> = ({
           subtitle="Net accumulated wealth"
           icon={<PiggyBank className="h-5 w-5" />}
           theme="green"
-          trend={{ text: '+$31,960 net growth', isPositive: true }}
+          trend={{ text: `${totalAnnualSavings >= 0 ? '+' : ''}${formatCurrency(totalAnnualSavings, settings.currency)} net`, isPositive: totalAnnualSavings >= 0 }}
           onClick={() =>
             onSelectCell({
               reference: 'tbl_AnnualSummary[[#Totals],[Savings]]',
@@ -128,7 +136,7 @@ export const AnnualSummarySheet: React.FC<AnnualSummarySheetProps> = ({
           subtitle="Year-to-date average"
           icon={<TrendingUp className="h-5 w-5" />}
           theme="purple"
-          trend={{ text: 'Excellent health', isPositive: true }}
+          trend={{ text: `${avgSavingsRate.toFixed(1)}% annual rate`, isPositive: avgSavingsRate >= 0 }}
           onClick={() =>
             onSelectCell({
               reference: 'tbl_AnnualSummary[[#Totals],[Savings Rate]]',
