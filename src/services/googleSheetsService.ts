@@ -32,12 +32,18 @@ export interface SyncPayload {
 function parseSheetAmount(value: unknown, context: string): number {
   const raw = String(value ?? '').trim();
   if (!raw) throw new Error(`Invalid amount in ${context}: value is empty`);
-  const normalized = raw.replace(/[^0-9.-]/g, '');
+
+  // Allow common currency formatting (symbols, commas, and spaces), but reject
+  // arbitrary trailing/embedded characters instead of silently coercing them.
+  const normalized = raw.replace(/[$,€£¥\s]/g, '');
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) {
+    throw new Error(`Invalid amount in ${context}: "${raw}"`);
+  }
+
   const amount = Number(normalized);
   if (!Number.isFinite(amount)) throw new Error(`Invalid amount in ${context}: "${raw}"`);
   return amount;
 }
-
 function parseSheetDate(value: unknown, context: string): string {
   const raw = String(value ?? '').trim();
   let year: number;
