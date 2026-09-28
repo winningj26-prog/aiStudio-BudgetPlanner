@@ -7,6 +7,7 @@ import {
   MonthSummary,
   SavingsGoal,
   SettingsState,
+  RecurringTransaction,
 } from '../../types/budget';
 import { SavingsGoalsTracker } from '../SavingsGoalsTracker';
 import { NetWorthForecaster } from './NetWorthForecaster';
@@ -19,6 +20,7 @@ import {
 import { KPICard } from '../KPICard';
 import { IncomeExpensesBarChart } from '../charts/IncomeExpensesBarChart';
 import { Last6MonthsBarChart } from '../charts/Last6MonthsBarChart';
+import { IncomeExpensesLineTrendChart } from '../charts/IncomeExpensesLineTrendChart';
 import { ExpenseDonutChart } from '../charts/ExpenseDonutChart';
 import { MonthlyTrendChart } from '../charts/MonthlyTrendChart';
 import { SavingsRateLineChart } from '../charts/SavingsRateLineChart';
@@ -44,6 +46,8 @@ import {
   TrendingDown,
   TrendingUp,
   Wallet,
+  Bell,
+  BellRing,
 } from 'lucide-react';
 
 interface DashboardSheetProps {
@@ -61,6 +65,7 @@ interface DashboardSheetProps {
   savingsGoals: SavingsGoal[];
   onUpdateSavingsGoals: (goals: SavingsGoal[]) => void;
   debts: Debt[];
+  recurringTransactions?: RecurringTransaction[];
 }
 
 export const DashboardSheet: React.FC<DashboardSheetProps> = ({
@@ -78,11 +83,58 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   savingsGoals,
   onUpdateSavingsGoals,
   debts,
+  recurringTransactions = [],
 }) => {
   const [isLocalExportModalOpen, setIsLocalExportModalOpen] = useState(false);
 
   // Dashboard Sub-Tab selection
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'net_worth'>('overview');
+
+  // Notification center dismissed list
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
+
+  // In-app Notifications logic
+  const notifications = useMemo(() => {
+    const list: { id: string; type: 'warning' | 'info' | 'success'; title: string; message: string; dateLabel?: string }[] = [];
+
+    // 1. Check Upcoming Recurrings (due in next 5 days, or dayOfMonth >= 25)
+    recurringTransactions.filter(r => r.isActive).forEach((rec) => {
+      const currentDay = 28; // standard baseline for demo date Sep 28
+      const diff = rec.dayOfMonth - currentDay;
+      const isDueSoon = (diff >= 0 && diff <= 5) || (rec.dayOfMonth <= 3 && currentDay >= 28);
+      
+      if (isDueSoon) {
+        list.push({
+          id: `recur-${rec.id}`,
+          type: 'warning',
+          title: `Upcoming Recurring ${rec.type === 'expense' ? 'Bill' : 'Deposit'}`,
+          message: `"${rec.description}" of ${formatCurrency(rec.amount, settings.currency)} is scheduled for Day ${rec.dayOfMonth}.`,
+          dateLabel: `Day ${rec.dayOfMonth}`,
+        });
+      }
+    });
+
+    // 2. Check Savings Goals Deadlines (Target date is close, and not fully funded)
+    savingsGoals.forEach((goal) => {
+      if (goal.currentAmount < goal.targetAmount) {
+        if (goal.targetDate) {
+          const isUpcoming = goal.targetDate.includes('2026-09') || goal.targetDate.includes('2026-10') || goal.targetDate.includes('2026-11') || goal.targetDate.includes('2026-12');
+          if (isUpcoming) {
+            const deficit = goal.targetAmount - goal.currentAmount;
+            list.push({
+              id: `goal-${goal.id}`,
+              type: 'info',
+              title: `Approaching Goal Deadline`,
+              message: `Goal "${goal.name}" (Target: ${goal.targetDate}) is approaching. You need ${formatCurrency(deficit, settings.currency)} more to be fully funded.`,
+              dateLabel: goal.targetDate,
+            });
+          }
+        }
+      }
+    });
+
+    return list.filter(n => !dismissedNotificationIds.includes(n.id));
+  }, [recurringTransactions, savingsGoals, settings.currency, dismissedNotificationIds]);
 
   // AI Insights State
   const [aiInsights, setAiInsights] = useState<string | null>(null);
@@ -408,7 +460,58 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
       </div>
 
       {activeSubTab === 'overview' ? (
-        <>
+        <div className="space-y-4">
+          {/* System Alerts & Notifications Hub */}
+          {notifications.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/45 p-4 shadow-3xs space-y-3">
+              <div className="flex items-center justify-between border-b border-amber-100 pb-2">
+                <div className="flex items-center gap-2 text-xs font-black text-amber-800 uppercase tracking-wider">
+                  <BellRing className="h-4 w-4 text-amber-600 animate-bounce" />
+                  <span>Interactive Alert Center ({notifications.length} Active Alerts)</span>
+                </div>
+                <button
+                  onClick={() => setDismissedNotificationIds(notifications.map(n => n.id))}
+                  className="text-[10px] text-amber-700 hover:text-amber-900 font-bold hover:underline cursor-pointer"
+                >
+                  Dismiss All
+                </button>
+              </div>
+
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {notifications.map((notif) => (
+                  <div
+                    key={notif.id}
+                    className={`rounded-lg border p-3 flex items-start justify-between gap-3 transition-all ${
+                      notif.type === 'warning'
+                        ? 'border-rose-100 bg-rose-50/60 text-rose-900'
+                        : 'border-blue-100 bg-blue-50/60 text-blue-900'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${notif.type === 'warning' ? 'bg-rose-500' : 'bg-blue-500'}`} />
+                        <h4 className="text-xs font-black truncate leading-none">
+                          {notif.title}
+                        </h4>
+                      </div>
+                      <p className="text-[11px] font-medium leading-relaxed opacity-90">
+                        {notif.message}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setDismissedNotificationIds((prev) => [...prev, notif.id])}
+                      className="text-[10px] font-bold p-0.5 rounded-full hover:bg-black/5 shrink-0 transition-colors cursor-pointer"
+                      title="Dismiss alert"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 5 Top KPI Cards with dynamic trend arrows relative to previous month:
               - Total Income
               - Total Expenses
@@ -546,7 +649,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         </div>
 
         <div className="lg:col-span-8">
-          <Last6MonthsBarChart
+          <IncomeExpensesLineTrendChart
             data={annualData}
             currency={settings.currency}
             settings={settings}
@@ -966,7 +1069,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
           </div>
         </div>
       </div>
-    </>
+    </div>
   ) : (
     <NetWorthForecaster
       debts={debts}

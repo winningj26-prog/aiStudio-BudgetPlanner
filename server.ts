@@ -72,6 +72,50 @@ Provide exactly 3 actionable, highly specific, and creative bullet points on how
   }
 });
 
+// AI Category Suggestion Endpoint
+app.post('/api/suggest-category', async (req, res) => {
+  const { description = '', categories = [] } = req.body || {};
+  try {
+    if (!description.trim() || categories.length === 0) {
+      return res.json({ category: categories[0]?.name || '' });
+    }
+
+    // Graceful fallback if apiKey is missing
+    if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+      const desc = description.toLowerCase();
+      let matched = categories[0]?.name || '';
+      for (const cat of categories) {
+        const catName = cat.name.toLowerCase();
+        if (desc.includes(catName) || catName.includes(desc)) {
+          matched = cat.name;
+          break;
+        }
+      }
+      return res.json({ category: matched });
+    }
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: `
+You are a highly efficient financial transaction classification assistant.
+Given the transaction description: "${description}"
+And the list of available categories: ${categories.map((c: any) => c.name).join(', ')}
+
+Suggest the single best matching category name from the provided list that fits the description.
+Respond with ONLY the exact category name from the list, with no extra characters, quotes, explanation, or punctuation.
+If no category fits well, return the first item in the list: "${categories[0]?.name}".
+`,
+    });
+
+    const category = (response.text || "").trim().replace(/['"‘“’”]/g, "");
+    const finalCategory = categories.find((c: any) => c.name.toLowerCase() === category.toLowerCase())?.name || categories[0]?.name;
+    res.json({ category: finalCategory });
+  } catch (error: any) {
+    console.error("Gemini Category Suggester Error, falling back:", error);
+    res.json({ category: categories[0]?.name || '' });
+  }
+});
+
 // Configure Vite integration
 const isProd = process.env.NODE_ENV === 'production';
 const port = process.env.PORT || 3000;

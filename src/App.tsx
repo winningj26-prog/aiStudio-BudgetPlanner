@@ -407,6 +407,7 @@ export default function App() {
             savingsGoals={savingsGoals}
             onUpdateSavingsGoals={setSavingsGoals}
             debts={debts}
+            recurringTransactions={recurringTransactions}
           />
         )}
 

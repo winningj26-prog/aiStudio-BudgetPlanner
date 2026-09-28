@@ -82,6 +82,40 @@ export const IncomeSheet: React.FC<IncomeSheetProps> = ({
   const activeIncomeRules = recurringTransactions.filter((r) => r.type === 'income' && r.isActive);
   const monthlyRecurringIncome = activeIncomeRules.reduce((sum, r) => sum + r.amount, 0);
 
+  const [isSuggesting, setIsSuggesting] = useState(false);
+
+  const handleSuggestCategory = async (desc: string) => {
+    if (!desc || desc.trim().length < 3) return;
+    setIsSuggesting(true);
+    try {
+      const response = await fetch('/api/suggest-category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: desc,
+          categories: categories,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.category) {
+          setNewCategory(data.category);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to suggest category, falling back to client rules:", err);
+      const match = categories.find(c => 
+        desc.toLowerCase().includes(c.name.toLowerCase()) || 
+        c.name.toLowerCase().includes(desc.toLowerCase())
+      );
+      if (match) {
+        setNewCategory(match.name);
+      }
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
+
   const handleAddTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = parseFloat(newAmount);
@@ -325,13 +359,21 @@ export const IncomeSheet: React.FC<IncomeSheetProps> = ({
           </div>
 
           {/* 3. Description */}
-          <div className="space-y-1 sm:col-span-2 lg:col-span-4">
-            <label className="text-xs font-semibold text-slate-600">3. Description</label>
+          <div className="space-y-1 sm:col-span-2 lg:col-span-4 relative">
+            <label className="text-xs font-semibold text-slate-600 flex items-center justify-between">
+              <span>3. Description</span>
+              {isSuggesting && (
+                <span className="text-[10px] text-teal-600 animate-pulse font-bold flex items-center gap-0.5">
+                  ✨ Auto-classifying...
+                </span>
+              )}
+            </label>
             <input
               type="text"
               placeholder="e.g. Regular Salary, Freelance project..."
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
+              onBlur={() => handleSuggestCategory(newDescription)}
               required
               className={`w-full rounded-lg border px-3 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-teal-500 focus:outline-hidden ${inputCellClass}`}
             />
