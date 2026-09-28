@@ -60,7 +60,7 @@ export interface RecurringTransaction {
   notes?: string;
 }
 
-export type BudgetStatus = 'On Track' | 'Near Limit' | 'Over Budget';
+export type BudgetStatus = 'On Track' | 'Near Limit' | 'Over Budget' | 'Near Target' | 'Below Target';
 
 export interface BudgetItem {
   category: string;
