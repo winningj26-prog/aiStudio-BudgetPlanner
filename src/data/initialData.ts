@@ -1,5 +1,6 @@
 import {
   CategoryItem,
+  Debt,
   ExpenseTransaction,
   IncomeTransaction,
   MonthSummary,
@@ -270,6 +271,36 @@ export const INITIAL_SAVINGS_GOALS: SavingsGoal[] = [
     monthlyContribution: 750,
     color: '#d97706', // Amber
     notes: 'Long-term home down payment savings reserve.',
+  },
+];
+
+export const INITIAL_DEBTS: Debt[] = [
+  {
+    id: 'debt_1',
+    name: 'Chase Sapphire Credit Card',
+    balance: 4500,
+    interestRate: 19.99,
+    minimumPayment: 135,
+    notes: 'High interest credit card debt from moving expenses.',
+    color: '#e11d48', // Rose
+  },
+  {
+    id: 'debt_2',
+    name: 'Auto Loan (Honda Civic)',
+    balance: 12500,
+    interestRate: 4.75,
+    minimumPayment: 260,
+    notes: 'Fixed-rate car financing, paid monthly.',
+    color: '#0284c7', // Sky Blue
+  },
+  {
+    id: 'debt_3',
+    name: 'Federal Student Loans',
+    balance: 24000,
+    interestRate: 5.80,
+    minimumPayment: 190,
+    notes: 'Consolidated federal graduate school loans.',
+    color: '#8b5cf6', // Violet
   },
 ];
 

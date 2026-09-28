@@ -4,8 +4,10 @@ import {
   ExpenseTransaction,
   IncomeTransaction,
   MonthSummary,
+  SavingsGoal,
   SettingsState,
 } from '../../types/budget';
+import { SavingsGoalsTracker } from '../SavingsGoalsTracker';
 import { formatCurrency, formatDate, formatPercent } from '../../utils/formatters';
 import {
   sumExpenseTransactions,
@@ -14,6 +16,7 @@ import {
 } from '../../utils/formulas';
 import { KPICard } from '../KPICard';
 import { IncomeExpensesBarChart } from '../charts/IncomeExpensesBarChart';
+import { Last6MonthsBarChart } from '../charts/Last6MonthsBarChart';
 import { ExpenseDonutChart } from '../charts/ExpenseDonutChart';
 import { MonthlyTrendChart } from '../charts/MonthlyTrendChart';
 import { SavingsRateLineChart } from '../charts/SavingsRateLineChart';
@@ -50,6 +53,8 @@ interface DashboardSheetProps {
   settings: SettingsState;
   onSelectCell: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
   onOpenExportModal?: () => void;
+  savingsGoals: SavingsGoal[];
+  onUpdateSavingsGoals: (goals: SavingsGoal[]) => void;
 }
 
 export const DashboardSheet: React.FC<DashboardSheetProps> = ({
@@ -64,6 +69,8 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   settings,
   onSelectCell,
   onOpenExportModal,
+  savingsGoals,
+  onUpdateSavingsGoals,
 }) => {
   const [isLocalExportModalOpen, setIsLocalExportModalOpen] = useState(false);
 
@@ -409,7 +416,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
 
       {/* Row of Charts: Chart 1 (Income vs Expenses) + Chart 2 (Expense Breakdown Donut) */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-6">
+        <div className="lg:col-span-4">
           <IncomeExpensesBarChart
             income={totalIncome}
             expenses={totalExpenses}
@@ -419,30 +426,48 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
           />
         </div>
 
-        <div className="lg:col-span-6">
-          <ExpenseDonutChart
-            data={expenseBreakdown}
+        <div className="lg:col-span-8">
+          <Last6MonthsBarChart
+            data={annualData}
             currency={settings.currency}
+            settings={settings}
           />
         </div>
       </div>
 
       {/* Row of Trend Charts: Chart 3 (Monthly Trend 12 Months) + Chart 4 (Savings Rate Progression) */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-7">
-          <MonthlyTrendChart
-            data={annualData}
+        <div className="lg:col-span-4">
+          <ExpenseDonutChart
+            data={expenseBreakdown}
             currency={settings.currency}
           />
         </div>
 
-        <div className="lg:col-span-5">
+        <div className="lg:col-span-4">
           <SavingsRateLineChart
             data={annualData}
             currentRate={savingsRate}
           />
         </div>
+
+        <div className="lg:col-span-4">
+          <MonthlyTrendChart
+            data={annualData}
+            currency={settings.currency}
+          />
+        </div>
       </div>
+
+      {/* Savings Goals Tracker Feature Section */}
+      <SavingsGoalsTracker
+        savingsGoals={savingsGoals}
+        onUpdateSavingsGoals={onUpdateSavingsGoals}
+        categories={categories}
+        incomeCategories={incomeCategories}
+        settings={settings}
+        onSelectCell={onSelectCell}
+      />
 
       {/* Bottom Row: Recent Transactions Table (Left) + Key Insights List (Right) */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">

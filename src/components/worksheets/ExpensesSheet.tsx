@@ -14,6 +14,7 @@ import {
   ArrowDownRight,
   Calculator,
   Calendar,
+  CheckCircle2,
   CreditCard,
   Flame,
   Hash,

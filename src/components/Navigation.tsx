@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Receipt,
   Settings as SettingsIcon,
+  TrendingDown,
   Wallet2,
 } from 'lucide-react';
 import { WorksheetTab } from '../types/budget';
@@ -28,7 +29,8 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'expenses', label: 'Expenses', number: 4, icon: <Receipt className="h-4 w-4" /> },
     { id: 'monthly_budget', label: 'Monthly Budget', number: 5, icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'dashboard', label: 'Dashboard', number: 6, icon: <LayoutDashboard className="h-4 w-4" /> },
-    { id: 'annual_summary', label: 'Annual Summary', number: 7, icon: <CalendarDays className="h-4 w-4" /> },
+    { id: 'debt_payoff', label: 'Debt Payoff', number: 7, icon: <TrendingDown className="h-4 w-4" /> },
+    { id: 'annual_summary', label: 'Annual Summary', number: 8, icon: <CalendarDays className="h-4 w-4" /> },
   ];
 
   return (

@@ -14,6 +14,7 @@ import {
   Menu,
   PieChart,
   Settings as SettingsIcon,
+  TrendingDown,
   X,
 } from 'lucide-react';
 import { CURRENCIES, MONTHS } from '../utils/formatters';
@@ -78,6 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'income', label: 'Income', icon: <Coins className="h-4 w-4 sm:h-5 sm:w-5" /> },
     { id: 'expenses', label: 'Expenses', icon: <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" /> },
     { id: 'monthly_budget', label: 'Monthly Budget', icon: <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" /> },
+    { id: 'debt_payoff', label: 'Debt Payoff', icon: <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5" /> },
     { id: 'annual_summary', label: 'Annual Summary', icon: <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" /> },
     { id: 'settings', label: 'Settings', icon: <SettingsIcon className="h-4 w-4 sm:h-5 sm:w-5" /> },
   ];

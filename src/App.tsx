@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   CategoryItem,
+  Debt,
   ExpenseTransaction,
   IncomeTransaction,
   MonthSummary,
@@ -23,6 +24,7 @@ import {
   INITIAL_PLANNED_INCOME,
   INITIAL_RECURRING_TRANSACTIONS,
   INITIAL_SAVINGS_GOALS,
+  INITIAL_DEBTS,
   INITIAL_SETTINGS,
   PAYMENT_METHODS,
 } from './data/initialData';
@@ -51,6 +53,7 @@ import { IncomeSheet } from './components/worksheets/IncomeSheet';
 import { ExpensesSheet } from './components/worksheets/ExpensesSheet';
 import { MonthlyBudgetSheet } from './components/worksheets/MonthlyBudgetSheet';
 import { DashboardSheet } from './components/worksheets/DashboardSheet';
+import { DebtPayoffSheet } from './components/worksheets/DebtPayoffSheet';
 import { AnnualSummarySheet } from './components/worksheets/AnnualSummarySheet';
 import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
 
@@ -104,6 +107,11 @@ export default function App() {
   // Savings Goals & Targets tracking (persistent)
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() =>
     loadFromStorage<SavingsGoal[]>(STORAGE_KEYS.SAVINGS_GOALS, INITIAL_SAVINGS_GOALS)
+  );
+
+  // Outstanding Debts tracking (persistent)
+  const [debts, setDebts] = useState<Debt[]>(() =>
+    loadFromStorage<Debt[]>(STORAGE_KEYS.DEBTS, INITIAL_DEBTS)
   );
 
   // Recurring transactions automation rules (persistent)
@@ -161,6 +169,10 @@ export default function App() {
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.SAVINGS_GOALS, savingsGoals);
   }, [savingsGoals]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.DEBTS, debts);
+  }, [debts]);
 
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.RECURRING_TRANSACTIONS, recurringTransactions);
@@ -293,6 +305,7 @@ export default function App() {
       setPlannedIncome(INITIAL_PLANNED_INCOME);
       setPlannedExpenses(INITIAL_PLANNED_EXPENSES);
       setSavingsGoals(INITIAL_SAVINGS_GOALS);
+      setDebts(INITIAL_DEBTS);
       setRecurringTransactions(INITIAL_RECURRING_TRANSACTIONS);
       clearBudgetStorage();
     }
@@ -437,9 +450,20 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'debt_payoff' && (
+          <DebtPayoffSheet
+            debts={debts}
+            onUpdateDebts={setDebts}
+            settings={settings}
+            highlightInputs={highlightInputs}
+            onSelectCell={setSelectedCell}
+          />
+        )}
+
         {activeTab === 'annual_summary' && (
           <AnnualSummarySheet
             data={annualData}
+            expenseTransactions={expenseTransactions}
             settings={settings}
             onSelectCell={setSelectedCell}
           />

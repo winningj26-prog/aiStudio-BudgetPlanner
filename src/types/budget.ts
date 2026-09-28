@@ -47,6 +47,16 @@ export interface SavingsGoal {
   notes?: string;
 }
 
+export interface Debt {
+  id: string;
+  name: string;
+  balance: number;
+  interestRate: number; // e.g. 18.5 for 18.5%
+  minimumPayment: number;
+  notes?: string;
+  color?: string;
+}
+
 export interface RecurringTransaction {
   id: string;
   type: 'income' | 'expense';
@@ -95,6 +105,7 @@ export type WorksheetTab =
   | 'expenses'
   | 'monthly_budget'
   | 'dashboard'
+  | 'debt_payoff'
   | 'annual_summary'
   | 'tech_specs';
 

@@ -79,6 +79,7 @@ export const SpreadsheetFooter: React.FC<SpreadsheetFooterProps> = ({
     { id: 'income', label: 'Income' },
     { id: 'expenses', label: 'Expenses' },
     { id: 'monthly_budget', label: 'Monthly Budget' },
+    { id: 'debt_payoff', label: 'Debt Payoff' },
     { id: 'annual_summary', label: 'Annual Summary' },
     { id: 'settings', label: 'Settings' },
     { id: 'tech_specs', label: 'Tech Specs' },
