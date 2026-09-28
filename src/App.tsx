@@ -15,7 +15,6 @@ import {
   WorksheetTab,
 } from './types/budget';
 import {
-  ANNUAL_MONTHS_DATA,
   INITIAL_EXPENSE_CATEGORIES,
   INITIAL_EXPENSE_TRANSACTIONS,
   INITIAL_INCOME_CATEGORIES,
@@ -28,7 +27,7 @@ import {
   PAYMENT_METHODS,
 } from './data/initialData';
 import { formatCurrency } from './utils/formatters';
-import { sumIncomeTransactions, sumExpenseTransactions } from './utils/formulas';
+import { sumIncomeTransactions, sumExpenseTransactions, buildAnnualSummary } from './utils/formulas';
 import {
   STORAGE_KEYS,
   loadFromStorage,
@@ -99,10 +98,8 @@ export default function App() {
     loadFromStorage<Record<string, number>>(STORAGE_KEYS.PLANNED_EXPENSES, INITIAL_PLANNED_EXPENSES)
   );
 
-  // Annual 12-month summary data (persistent)
-  const [annualData, setAnnualData] = useState<MonthSummary[]>(() =>
-    loadFromStorage<MonthSummary[]>(STORAGE_KEYS.ANNUAL_DATA, ANNUAL_MONTHS_DATA)
-  );
+  // Annual summary is derived from the transaction ledgers so it always reflects current data.
+  const annualData = buildAnnualSummary(incomeTransactions, expenseTransactions, settings.year);
 
   // Savings Goals & Targets tracking (persistent)
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() =>
@@ -160,10 +157,6 @@ export default function App() {
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.PLANNED_EXPENSES, plannedExpenses);
   }, [plannedExpenses]);
-
-  useEffect(() => {
-    saveToStorage(STORAGE_KEYS.ANNUAL_DATA, annualData);
-  }, [annualData]);
 
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.SAVINGS_GOALS, savingsGoals);
@@ -299,7 +292,6 @@ export default function App() {
       setExpenseTransactions(INITIAL_EXPENSE_TRANSACTIONS);
       setPlannedIncome(INITIAL_PLANNED_INCOME);
       setPlannedExpenses(INITIAL_PLANNED_EXPENSES);
-      setAnnualData(ANNUAL_MONTHS_DATA);
       setSavingsGoals(INITIAL_SAVINGS_GOALS);
       setRecurringTransactions(INITIAL_RECURRING_TRANSACTIONS);
       clearBudgetStorage();
