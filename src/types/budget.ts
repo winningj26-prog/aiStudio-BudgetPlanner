@@ -19,6 +19,8 @@ export interface IncomeTransaction {
   category: string;
   description: string;
   amount: number;
+  recurringId?: string;
+  isRecurring?: boolean;
 }
 
 export interface ExpenseTransaction {
@@ -28,6 +30,34 @@ export interface ExpenseTransaction {
   description: string;
   paymentMethod: string;
   amount: number;
+  recurringId?: string;
+  isRecurring?: boolean;
+}
+
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  categoryId?: string;
+  categoryName?: string;
+  targetAmount: number;
+  currentAmount: number;
+  targetDate?: string;
+  monthlyContribution?: number;
+  color?: string;
+  notes?: string;
+}
+
+export interface RecurringTransaction {
+  id: string;
+  type: 'income' | 'expense';
+  description: string;
+  amount: number;
+  category: string;
+  paymentMethod?: string;
+  dayOfMonth: number; // 1 - 31
+  frequency: 'monthly' | 'bi-weekly' | 'weekly' | 'yearly';
+  isActive: boolean;
+  notes?: string;
 }
 
 export type BudgetStatus = 'On Track' | 'Near Limit' | 'Over Budget';

@@ -3,6 +3,8 @@ import {
   ExpenseTransaction,
   IncomeTransaction,
   MonthSummary,
+  RecurringTransaction,
+  SavingsGoal,
   SettingsState,
 } from '../types/budget';
 
@@ -223,3 +225,124 @@ export const ANNUAL_MONTHS_DATA: MonthSummary[] = [
   { month: 'Nov', fullName: 'November', income: 5400, expenses: 2800, savings: 2600, savingsRate: 48.1 },
   { month: 'Dec', fullName: 'December', income: 5800, expenses: 2950, savings: 2850, savingsRate: 49.1 },
 ];
+
+export const INITIAL_SAVINGS_GOALS: SavingsGoal[] = [
+  {
+    id: 'goal_1',
+    name: 'Emergency Reserve (6 Months)',
+    categoryName: 'Savings',
+    targetAmount: 10000,
+    currentAmount: 6400,
+    targetDate: '2026-12-31',
+    monthlyContribution: 500,
+    color: '#059669', // Emerald
+    notes: 'Liquid emergency fund in high-yield account.',
+  },
+  {
+    id: 'goal_2',
+    name: 'Vacation & Travel Fund',
+    categoryName: 'Entertainment',
+    targetAmount: 3000,
+    currentAmount: 1850,
+    targetDate: '2026-08-15',
+    monthlyContribution: 250,
+    color: '#0284c7', // Sky Blue
+    notes: 'Summer European trip flights and hotels.',
+  },
+  {
+    id: 'goal_3',
+    name: 'Retirement & Index Funds',
+    categoryName: 'Investment Income',
+    targetAmount: 15000,
+    currentAmount: 10200,
+    targetDate: '2026-12-31',
+    monthlyContribution: 600,
+    color: '#8b5cf6', // Violet
+    notes: 'Tax-advantaged IRA & ETF dollar-cost averaging.',
+  },
+  {
+    id: 'goal_4',
+    name: 'Home Down Payment Buffer',
+    categoryName: 'Housing',
+    targetAmount: 25000,
+    currentAmount: 14500,
+    targetDate: '2027-06-30',
+    monthlyContribution: 750,
+    color: '#d97706', // Amber
+    notes: 'Long-term home down payment savings reserve.',
+  },
+];
+
+export const INITIAL_RECURRING_TRANSACTIONS: RecurringTransaction[] = [
+  {
+    id: 'rec_inc_1',
+    type: 'income',
+    description: 'Monthly Primary Salary',
+    amount: 4000.0,
+    category: 'Salary',
+    dayOfMonth: 1,
+    frequency: 'monthly',
+    isActive: true,
+    notes: 'Direct payroll deposit on the 1st.',
+  },
+  {
+    id: 'rec_inc_2',
+    type: 'income',
+    description: 'Freelance Client Retainer',
+    amount: 500.0,
+    category: 'Side Income',
+    dayOfMonth: 5,
+    frequency: 'monthly',
+    isActive: true,
+    notes: 'Contract retainer deposited on the 5th.',
+  },
+  {
+    id: 'rec_exp_1',
+    type: 'expense',
+    description: 'Apartment Monthly Rent',
+    amount: 1200.0,
+    category: 'Housing',
+    paymentMethod: 'Bank',
+    dayOfMonth: 1,
+    frequency: 'monthly',
+    isActive: true,
+    notes: 'ACH monthly rental payment on the 1st.',
+  },
+  {
+    id: 'rec_exp_2',
+    type: 'expense',
+    description: 'High-Speed Fiber Internet',
+    amount: 80.0,
+    category: 'Utilities',
+    paymentMethod: 'Credit Card',
+    dayOfMonth: 5,
+    frequency: 'monthly',
+    isActive: true,
+    notes: 'Monthly autopay on the 5th.',
+  },
+  {
+    id: 'rec_exp_3',
+    type: 'expense',
+    description: 'Streaming & Cloud Subscriptions',
+    amount: 35.0,
+    category: 'Entertainment',
+    paymentMethod: 'Credit Card',
+    dayOfMonth: 12,
+    frequency: 'monthly',
+    isActive: true,
+    notes: 'Netflix, Spotify & cloud backups.',
+  },
+  {
+    id: 'rec_exp_4',
+    type: 'expense',
+    description: 'Gym & Fitness Membership',
+    amount: 50.0,
+    category: 'Healthcare',
+    paymentMethod: 'Debit Card',
+    dayOfMonth: 15,
+    frequency: 'monthly',
+    isActive: true,
+    notes: 'Monthly athletic health club dues.',
+  },
+];
+

@@ -13,6 +13,8 @@ export const STORAGE_KEYS = {
   PLANNED_INCOME: 'pmbp_planned_income_v1',
   PLANNED_EXPENSES: 'pmbp_planned_expenses_v1',
   ANNUAL_DATA: 'pmbp_annual_data_v1',
+  SAVINGS_GOALS: 'pmbp_savings_goals_v1',
+  RECURRING_TRANSACTIONS: 'pmbp_recurring_transactions_v1',
   USER_EMAIL: 'pmbp_user_email_v1',
   IS_LOGGED_IN: 'pmbp_is_logged_in_v1',
   GOOGLE_SHEET_CONFIG: 'pmbp_google_sheet_config_v1',

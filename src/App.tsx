@@ -9,6 +9,8 @@ import {
   ExpenseTransaction,
   IncomeTransaction,
   MonthSummary,
+  RecurringTransaction,
+  SavingsGoal,
   SettingsState,
   WorksheetTab,
 } from './types/budget';
@@ -20,6 +22,8 @@ import {
   INITIAL_INCOME_TRANSACTIONS,
   INITIAL_PLANNED_EXPENSES,
   INITIAL_PLANNED_INCOME,
+  INITIAL_RECURRING_TRANSACTIONS,
+  INITIAL_SAVINGS_GOALS,
   INITIAL_SETTINGS,
   PAYMENT_METHODS,
 } from './data/initialData';
@@ -100,6 +104,16 @@ export default function App() {
     loadFromStorage<MonthSummary[]>(STORAGE_KEYS.ANNUAL_DATA, ANNUAL_MONTHS_DATA)
   );
 
+  // Savings Goals & Targets tracking (persistent)
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() =>
+    loadFromStorage<SavingsGoal[]>(STORAGE_KEYS.SAVINGS_GOALS, INITIAL_SAVINGS_GOALS)
+  );
+
+  // Recurring transactions automation rules (persistent)
+  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>(() =>
+    loadFromStorage<RecurringTransaction[]>(STORAGE_KEYS.RECURRING_TRANSACTIONS, INITIAL_RECURRING_TRANSACTIONS)
+  );
+
   // Formula Bar & Cell inspector state
   const [selectedCell, setSelectedCell] = useState<{
     reference: string;
@@ -150,6 +164,14 @@ export default function App() {
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.ANNUAL_DATA, annualData);
   }, [annualData]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.SAVINGS_GOALS, savingsGoals);
+  }, [savingsGoals]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.RECURRING_TRANSACTIONS, recurringTransactions);
+  }, [recurringTransactions]);
 
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.USER_EMAIL, userEmail);
@@ -278,6 +300,8 @@ export default function App() {
       setPlannedIncome(INITIAL_PLANNED_INCOME);
       setPlannedExpenses(INITIAL_PLANNED_EXPENSES);
       setAnnualData(ANNUAL_MONTHS_DATA);
+      setSavingsGoals(INITIAL_SAVINGS_GOALS);
+      setRecurringTransactions(INITIAL_RECURRING_TRANSACTIONS);
       clearBudgetStorage();
     }
   };
@@ -373,6 +397,8 @@ export default function App() {
             settings={settings}
             onSelectCell={setSelectedCell}
             onOpenExportModal={() => setIsExportModalOpen(true)}
+            savingsGoals={savingsGoals}
+            onUpdateSavingsGoals={setSavingsGoals}
           />
         )}
 
@@ -384,6 +410,8 @@ export default function App() {
             settings={settings}
             highlightInputs={highlightInputs}
             onSelectCell={setSelectedCell}
+            recurringTransactions={recurringTransactions}
+            onUpdateRecurringTransactions={setRecurringTransactions}
           />
         )}
 
@@ -396,6 +424,8 @@ export default function App() {
             settings={settings}
             highlightInputs={highlightInputs}
             onSelectCell={setSelectedCell}
+            recurringTransactions={recurringTransactions}
+            onUpdateRecurringTransactions={setRecurringTransactions}
           />
         )}
 

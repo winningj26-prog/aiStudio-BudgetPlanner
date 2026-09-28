@@ -4,8 +4,11 @@ import {
   ExpenseTransaction,
   IncomeTransaction,
   MonthSummary,
+  SavingsGoal,
   SettingsState,
 } from '../../types/budget';
+import { INITIAL_SAVINGS_GOALS } from '../../data/initialData';
+import { loadFromStorage, saveToStorage, STORAGE_KEYS } from '../../utils/storage';
 import { formatCurrency, formatDate, formatPercent } from '../../utils/formatters';
 import {
   sumExpenseTransactions,
@@ -17,6 +20,7 @@ import { IncomeExpensesBarChart } from '../charts/IncomeExpensesBarChart';
 import { ExpenseDonutChart } from '../charts/ExpenseDonutChart';
 import { MonthlyTrendChart } from '../charts/MonthlyTrendChart';
 import { SavingsRateLineChart } from '../charts/SavingsRateLineChart';
+import { SavingsGoalsTracker } from '../SavingsGoalsTracker';
 import { ExportWorkbookModal } from '../ExportWorkbookModal';
 import {
   AlertCircle,
@@ -50,6 +54,8 @@ interface DashboardSheetProps {
   settings: SettingsState;
   onSelectCell: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
   onOpenExportModal?: () => void;
+  savingsGoals?: SavingsGoal[];
+  onUpdateSavingsGoals?: (goals: SavingsGoal[]) => void;
 }
 
 export const DashboardSheet: React.FC<DashboardSheetProps> = ({
@@ -64,8 +70,25 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   settings,
   onSelectCell,
   onOpenExportModal,
+  savingsGoals,
+  onUpdateSavingsGoals,
 }) => {
   const [isLocalExportModalOpen, setIsLocalExportModalOpen] = useState(false);
+
+  // Local fallback if savingsGoals not passed via props
+  const [internalSavingsGoals, setInternalSavingsGoals] = useState<SavingsGoal[]>(() =>
+    loadFromStorage<SavingsGoal[]>(STORAGE_KEYS.SAVINGS_GOALS, INITIAL_SAVINGS_GOALS)
+  );
+
+  const activeSavingsGoals = savingsGoals ?? internalSavingsGoals;
+  const handleUpdateGoals = (newGoals: SavingsGoal[]) => {
+    if (onUpdateSavingsGoals) {
+      onUpdateSavingsGoals(newGoals);
+    } else {
+      setInternalSavingsGoals(newGoals);
+      saveToStorage(STORAGE_KEYS.SAVINGS_GOALS, newGoals);
+    }
+  };
 
   const handleTriggerExport = () => {
     if (onOpenExportModal) {
@@ -444,35 +467,75 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         </div>
       </div>
 
+      {/* ---------------------------------------------------- */}
+      {/* SAVINGS GOAL TRACKING MODULE (Target Amounts & Visual Progress Bars) */}
+      {/* ---------------------------------------------------- */}
+      <SavingsGoalsTracker
+        savingsGoals={activeSavingsGoals}
+        onUpdateSavingsGoals={handleUpdateGoals}
+        categories={categories}
+        incomeCategories={incomeCategories}
+        settings={settings}
+        onSelectCell={onSelectCell}
+      />
+
       {/* Bottom Row: Recent Transactions Table (Left) + Key Insights List (Right) */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
-        {/* Recent Transactions Table */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden lg:col-span-7">
-          <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 p-4">
+        {/* Recent Transactions Table with Google Spreadsheet Styling */}
+        <div className="rounded-xl border border-slate-300 bg-white shadow-xs overflow-hidden lg:col-span-7">
+          <div className="flex items-center justify-between border-b border-slate-200 bg-[#f8f9fa] p-3.5">
             <div className="flex items-center gap-2">
               <Receipt className="h-4 w-4 text-blue-600" />
-              <h3 className="text-sm font-bold text-slate-800">
+              <h3 className="text-sm font-extrabold text-slate-800">
                 Recent Transactions
               </h3>
+              <span className="rounded bg-blue-100 px-1.5 py-0.2 text-[10px] font-mono font-bold text-blue-800">
+                tbl_Activity
+              </span>
             </div>
-            <span className="text-xs font-medium text-slate-500">
-              Latest activity
+            <span className="text-xs font-semibold text-slate-500">
+              Latest {combinedRecent.length} rows
             </span>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs min-w-[500px]">
-              <thead className="border-b border-slate-200 bg-slate-100 text-slate-600 font-semibold uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-2.5 w-28">Date</th>
-                  <th className="px-3 py-2.5 w-20">Type</th>
-                  <th className="px-4 py-2.5">Description</th>
-                  <th className="px-4 py-2.5 w-32">Category</th>
-                  <th className="px-4 py-2.5 w-28 text-right">Amount</th>
+            <table className="w-full text-left text-xs min-w-[500px] border-collapse">
+              {/* Google Sheets Header: Column Letters Row */}
+              <thead>
+                <tr className="bg-[#f1f3f4] text-slate-500 font-semibold text-[10px] select-none border-b border-slate-300">
+                  <th className="w-8 px-1 py-0.5 text-center border-r border-slate-300 font-mono">
+                    #
+                  </th>
+                  <th className="w-24 px-2 py-0.5 text-center border-r border-slate-300">
+                    A
+                  </th>
+                  <th className="w-20 px-2 py-0.5 text-center border-r border-slate-300">
+                    B
+                  </th>
+                  <th className="px-2 py-0.5 text-center border-r border-slate-300">
+                    C
+                  </th>
+                  <th className="w-28 px-2 py-0.5 text-center border-r border-slate-300">
+                    D
+                  </th>
+                  <th className="w-28 px-2 py-0.5 text-center">
+                    E
+                  </th>
+                </tr>
+
+                <tr className="border-b border-slate-300 bg-[#f8f9fa] text-slate-700 font-bold uppercase tracking-wider text-[10px]">
+                  <th className="px-1 py-2 w-8 text-center border-r border-slate-300 bg-[#eef1f4]">
+                    •
+                  </th>
+                  <th className="px-3 py-2 w-24 border-r border-slate-300">Date</th>
+                  <th className="px-2 py-2 w-20 border-r border-slate-300">Type</th>
+                  <th className="px-3 py-2 border-r border-slate-300">Description</th>
+                  <th className="px-3 py-2 w-28 border-r border-slate-300">Category</th>
+                  <th className="px-3 py-2 w-28 text-right">Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {combinedRecent.map((tx) => (
+              <tbody className="divide-y divide-slate-200">
+                {combinedRecent.map((tx, idx) => (
                   <tr
                     key={tx.id}
                     onClick={() =>
@@ -482,30 +545,33 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
                         isCalculated: false,
                       })
                     }
-                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
                   >
-                    <td className="px-4 py-2.5 font-medium text-slate-600">
+                    <td className="w-8 px-1 py-2 text-center font-mono text-[10px] text-slate-400 bg-[#f8f9fa] border-r border-slate-200 select-none group-hover:bg-blue-100 group-hover:text-blue-900 font-bold transition-colors">
+                      {idx + 1}
+                    </td>
+                    <td className="px-3 py-2 font-medium text-slate-600 border-r border-slate-200/80 font-mono text-[11px]">
                       {formatDate(tx.date, settings.dateFormat)}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-2 py-2 border-r border-slate-200/80">
                       <span
-                        className={`inline-flex items-center rounded-xs px-2 py-0.5 text-[10px] font-bold ${
+                        className={`inline-flex items-center rounded-xs px-1.5 py-0.5 text-[10px] font-extrabold uppercase ${
                           tx.type === 'Income'
-                            ? 'bg-teal-100 text-teal-800'
-                            : 'bg-rose-100 text-rose-800'
+                            ? 'bg-teal-100 text-teal-800 border border-teal-200'
+                            : 'bg-rose-100 text-rose-800 border border-rose-200'
                         }`}
                       >
                         {tx.type}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 font-medium text-slate-800">
+                    <td className="px-3 py-2 font-medium text-slate-800 border-r border-slate-200/80 truncate max-w-[150px]">
                       {tx.description}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
+                    <td className="px-3 py-2 text-slate-600 border-r border-slate-200/80 truncate">
                       {tx.category}
                     </td>
                     <td
-                      className={`px-4 py-2.5 text-right font-mono font-bold ${
+                      className={`px-3 py-2 text-right font-mono font-bold tabular-nums ${
                         tx.type === 'Income' ? 'text-teal-700' : 'text-slate-900'
                       }`}
                     >

@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import {
   CategoryItem,
   ExpenseTransaction,
+  IncomeTransaction,
+  RecurringTransaction,
   SettingsState,
 } from '../../types/budget';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { sumExpenseTransactions } from '../../utils/formulas';
 import { KPICard } from '../KPICard';
+import { RecurringTransactionsModal } from '../RecurringTransactionsModal';
 import {
   ArrowDownRight,
   Calculator,
@@ -17,7 +20,10 @@ import {
   Layers,
   Plus,
   Receipt,
+  RefreshCw,
+  Repeat,
   Search,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 
@@ -29,6 +35,8 @@ interface ExpensesSheetProps {
   settings: SettingsState;
   highlightInputs: boolean;
   onSelectCell: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
+  recurringTransactions?: RecurringTransaction[];
+  onUpdateRecurringTransactions?: (rules: RecurringTransaction[]) => void;
 }
 
 export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
@@ -39,6 +47,8 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
   settings,
   highlightInputs,
   onSelectCell,
+  recurringTransactions = [],
+  onUpdateRecurringTransactions,
 }) => {
   const [newDate, setNewDate] = useState('2026-01-28');
   const [newCategory, setNewCategory] = useState(categories[0]?.name || 'Housing');
@@ -48,6 +58,7 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
+  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
 
   const totalExpenses = sumExpenseTransactions(transactions);
   const txCount = transactions.length;
@@ -58,6 +69,10 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
     category: 'None',
     description: 'None',
   } as ExpenseTransaction);
+
+  // Recurring statistics
+  const activeExpenseRules = recurringTransactions.filter((r) => r.type === 'expense' && r.isActive);
+  const monthlyRecurringExpense = activeExpenseRules.reduce((sum, r) => sum + r.amount, 0);
 
   const handleAddTransaction = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,43 +108,66 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
     return matchesCat && matchesPayment && matchesSearch;
   });
 
+  const filteredTotal = filteredTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
+
   const inputCellClass = highlightInputs
     ? 'bg-amber-50/70 border-amber-300 ring-1 ring-amber-300/40'
     : 'bg-white border-slate-300';
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+      {/* ---------------------------------------------------- */}
       {/* Header Banner */}
+      {/* ---------------------------------------------------- */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
               4. Expense Transactions
             </h2>
-            <span className="rounded-md bg-rose-100 px-2 py-0.5 font-mono text-xs font-semibold text-rose-800">
+            <span className="rounded-md bg-rose-100 px-2.5 py-0.5 font-mono text-xs font-bold text-rose-800 border border-rose-200">
               tbl_Expenses
             </span>
           </div>
           <p className="text-xs text-slate-500 sm:text-sm">
-            Record, categorize, and audit day-to-day outlays for {settings.month} {settings.year}.
+            Record all outbound expenditures and payments for {settings.month} {settings.year}.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <Calendar className="h-4 w-4 text-slate-400" />
-          <span>Active Period: <strong>{settings.month} {settings.year}</strong></span>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-600 shadow-2xs">
+            <Calendar className="h-3.5 w-3.5 text-slate-400" />
+            <span>Active Period: <strong>{settings.month} {settings.year}</strong></span>
+          </div>
+
+          {/* Quick Recurring Manager Trigger */}
+          {onUpdateRecurringTransactions && (
+            <button
+              type="button"
+              onClick={() => setIsRecurringModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100/80 px-2.5 py-1 font-bold text-rose-800 shadow-2xs transition-all cursor-pointer"
+            >
+              <Repeat className="h-3.5 w-3.5 text-rose-600" />
+              <span>Recurring Rules</span>
+              <span className="rounded-full bg-rose-200/80 px-1.5 py-0.2 text-[10px] font-black text-rose-900">
+                {activeExpenseRules.length}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* KPI Cards: Total Expenses, Number of Transactions, Average Expense, Largest Expense */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      {/* ---------------------------------------------------- */}
+      {/* KPI Cards: Total Expenses, Transaction Count, Largest Expense */}
+      {/* ---------------------------------------------------- */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
         <KPICard
           title="Total Expenses"
           value={formatCurrency(totalExpenses, settings.currency)}
-          subtitle="Total spend for active month"
+          subtitle="Sum of recorded spending"
           icon={<Receipt className="h-5 w-5" />}
           theme="red"
-          trend={{ text: '↓ -18.5% vs. last month', isPositive: true }}
+          trend={{ text: '↓ 4.2% vs. last month', isPositive: true }}
           onClick={() =>
             onSelectCell({
               reference: 'tbl_Expenses[[#Totals],[Amount]]',
@@ -141,43 +179,27 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
         />
 
         <KPICard
-          title="Number of Transactions"
+          title="Transaction Count"
           value={String(txCount)}
-          subtitle="Expense receipts logged"
+          subtitle="Total receipts logged"
           icon={<Hash className="h-5 w-5" />}
           theme="blue"
           onClick={() =>
             onSelectCell({
               reference: 'Expenses!Summary_Count',
               value: String(txCount),
-              formula: '=COUNTA(tbl_Expenses[Category])',
+              formula: '=COUNTA(tbl_Expenses[Description])',
               isCalculated: true,
             })
           }
         />
 
         <KPICard
-          title="Average Expense"
-          value={formatCurrency(avgExpense, settings.currency)}
-          subtitle="Mean cost per transaction"
-          icon={<Calculator className="h-5 w-5" />}
-          theme="orange"
-          onClick={() =>
-            onSelectCell({
-              reference: 'Expenses!Summary_Average',
-              value: formatCurrency(avgExpense, settings.currency),
-              formula: '=AVERAGE(tbl_Expenses[Amount])',
-              isCalculated: true,
-            })
-          }
-        />
-
-        <KPICard
-          title="Largest Expense"
+          title="Largest Single Expense"
           value={formatCurrency(largestTx.amount, settings.currency)}
-          subtitle={`${largestTx.category} (${largestTx.description})`}
+          subtitle={`${largestTx.category}: ${largestTx.description}`}
           icon={<Flame className="h-5 w-5" />}
-          theme="purple"
+          theme="orange"
           onClick={() =>
             onSelectCell({
               reference: 'Expenses!Summary_Max',
@@ -189,19 +211,67 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
         />
       </div>
 
-      {/* Add New Expense Form */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-        <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-2">
-          <h3 className="text-sm font-bold text-slate-800">
-            Record New Expense Transaction
+      {/* ---------------------------------------------------- */}
+      {/* Recurring Expense Automation Capsule Banner */}
+      {/* ---------------------------------------------------- */}
+      {onUpdateRecurringTransactions && (
+        <div className="rounded-xl border border-rose-200/80 bg-gradient-to-r from-rose-50/80 via-white to-amber-50/50 p-3 sm:p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-600 text-white shadow-2xs shrink-0">
+              <Repeat className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-slate-900">
+                  Recurring Expense Schedules
+                </span>
+                <span className="rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5">
+                  {formatCurrency(monthlyRecurringExpense, settings.currency)}/mo scheduled
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                {activeExpenseRules.length} repeating bills (rent, utilities, subscriptions) can be auto-posted into your ledger.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsRecurringModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 px-3 py-1.5 text-xs font-bold text-white shadow-2xs cursor-pointer"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span>Post to {settings.month}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsRecurringModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs cursor-pointer"
+            >
+              <span>Manage Schedules</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* Add New Expense Form Card */}
+      {/* ---------------------------------------------------- */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Log New Expense Transaction
           </h3>
-          <span className="text-xs text-slate-400">User input entry</span>
+          <span className="text-xs text-slate-400">
+            Auto-formatted to currency standard
+          </span>
         </div>
 
-        <form onSubmit={handleAddTransaction} className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-12 items-end">
-          {/* 1. Transaction Date */}
+        <form onSubmit={handleAddTransaction} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12 items-end">
+          {/* 1. Date */}
           <div className="space-y-1 sm:col-span-1 lg:col-span-2">
-            <label className="text-xs font-semibold text-slate-600">1. Transaction Date</label>
+            <label className="text-xs font-semibold text-slate-600">1. Date</label>
             <input
               type="date"
               value={newDate}
@@ -230,11 +300,11 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
           </div>
 
           {/* 3. Description */}
-          <div className="space-y-1 sm:col-span-2 md:col-span-1 lg:col-span-3">
+          <div className="space-y-1 sm:col-span-2 lg:col-span-3">
             <label className="text-xs font-semibold text-slate-600">3. Description</label>
             <input
               type="text"
-              placeholder="e.g. Rent, Weekly Grocery, Coffee..."
+              placeholder="e.g. Grocery trip, Monthly rent..."
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
               required
@@ -244,34 +314,36 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
 
           {/* 4. Payment Method */}
           <div className="space-y-1 sm:col-span-1 lg:col-span-2">
-            <label className="text-xs font-semibold text-slate-600">4. Payment Method</label>
+            <label className="text-xs font-semibold text-slate-600">4. Payment</label>
             <select
               value={newPaymentMethod}
               onChange={(e) => setNewPaymentMethod(e.target.value)}
               className={`w-full rounded-lg border px-3 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-rose-500 focus:outline-hidden ${inputCellClass}`}
             >
-              {paymentMethods.map((method) => (
-                <option key={method} value={method}>
-                  {method}
+              {paymentMethods.map((m) => (
+                <option key={m} value={m}>
+                  {m}
                 </option>
               ))}
             </select>
           </div>
 
           {/* 5. Amount */}
-          <div className="flex gap-2 sm:col-span-1 md:col-span-2 lg:col-span-3">
+          <div className="flex gap-2 sm:col-span-1 lg:col-span-3">
             <div className="flex-1 space-y-1">
               <label className="text-xs font-semibold text-slate-600">5. Amount</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                placeholder="0.00"
-                value={newAmount}
-                onChange={(e) => setNewAmount(e.target.value)}
-                required
-                className={`w-full rounded-lg border px-3 py-2 text-xs font-bold text-slate-800 shadow-2xs focus:border-rose-500 focus:outline-hidden ${inputCellClass}`}
-              />
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
+                  value={newAmount}
+                  onChange={(e) => setNewAmount(e.target.value)}
+                  required
+                  className={`w-full rounded-lg border px-3 py-2 text-xs font-bold text-slate-800 shadow-2xs focus:border-rose-500 focus:outline-hidden ${inputCellClass}`}
+                />
+              </div>
             </div>
 
             <button
@@ -285,17 +357,27 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
         </form>
       </div>
 
-      {/* Primary Table: tbl_Expenses */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden">
+      {/* ---------------------------------------------------- */}
+      {/* Enhanced Google Spreadsheet Table: tbl_Expenses */}
+      {/* ---------------------------------------------------- */}
+      <div className="rounded-xl border border-slate-300 bg-white shadow-xs overflow-hidden">
         {/* Table Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/70 p-3 sm:p-4">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-sm text-slate-800">
-              Expense Transactions Ledger
-            </span>
-            <span className="text-xs text-slate-500">
-              ({filteredTransactions.length} of {transactions.length} rows)
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-[#f8f9fa] p-3 sm:p-4">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-sm text-slate-900">
+                Expense Transactions Ledger
+              </span>
+              <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-mono font-bold text-rose-900 border border-rose-200">
+                tbl_Expenses
+              </span>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-300 text-xs text-slate-500">
+              <span>Count: <strong className="text-slate-800">{filteredTransactions.length}</strong></span>
+              <span>•</span>
+              <span>Total: <strong className="text-rose-700">{formatCurrency(filteredTotal, settings.currency)}</strong></span>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -304,7 +386,7 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search expenses..."
+                placeholder="Search rows..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full sm:w-auto rounded-lg border border-slate-300 bg-white py-1.5 pl-8 pr-3 text-xs text-slate-800 shadow-2xs focus:border-rose-500 focus:outline-hidden"
@@ -325,7 +407,7 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
               ))}
             </select>
 
-            {/* Payment Method Filter */}
+            {/* Payment Filter */}
             <select
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value)}
@@ -341,29 +423,66 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
           </div>
         </div>
 
-        {/* The Exact Table with Required Columns:
-            1. Transaction Date
-            2. Category
-            3. Description
-            4. Payment Method
-            5. Amount
-        */}
+        {/* The Exact Google Spreadsheet Table with Column Letters Header & Row Numbers Gutter */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[650px]">
-            <thead className="border-b border-slate-200 bg-slate-100 text-slate-700 font-semibold uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-3 w-32">1. Transaction Date</th>
-                <th className="px-4 py-3 w-40">2. Category</th>
-                <th className="px-4 py-3">3. Description</th>
-                <th className="px-4 py-3 w-36">4. Payment Method</th>
-                <th className="px-4 py-3 w-36 text-right">5. Amount</th>
-                <th className="px-3 py-3 w-16 text-center">Action</th>
+          <table className="w-full text-left text-xs min-w-[650px] border-collapse">
+            {/* Google Sheets Header: Column Letters Row (A, B, C, D, E, F) */}
+            <thead>
+              <tr className="bg-[#f1f3f4] text-slate-500 font-semibold text-[11px] select-none border-b border-slate-300">
+                <th className="w-10 px-1 py-1 text-center border-r border-slate-300 font-mono text-[10px]">
+                  #
+                </th>
+                <th className="w-32 px-3 py-1 text-center border-r border-slate-300 tracking-wider">
+                  A
+                </th>
+                <th className="w-40 px-3 py-1 text-center border-r border-slate-300 tracking-wider">
+                  B
+                </th>
+                <th className="px-3 py-1 text-center border-r border-slate-300 tracking-wider">
+                  C
+                </th>
+                <th className="w-36 px-3 py-1 text-center border-r border-slate-300 tracking-wider">
+                  D
+                </th>
+                <th className="w-36 px-3 py-1 text-center border-r border-slate-300 tracking-wider">
+                  E
+                </th>
+                <th className="w-16 px-2 py-1 text-center tracking-wider">
+                  F
+                </th>
+              </tr>
+
+              {/* Data Column Names Header */}
+              <tr className="border-b border-slate-300 bg-[#f8f9fa] text-slate-700 font-bold uppercase tracking-wider text-[11px]">
+                <th className="px-2 py-2.5 w-10 text-center border-r border-slate-300 bg-[#eef1f4]">
+                  •
+                </th>
+                <th className="px-3 py-2.5 w-32 border-r border-slate-300">
+                  1. Date
+                </th>
+                <th className="px-3 py-2.5 w-40 border-r border-slate-300">
+                  2. Category
+                </th>
+                <th className="px-3 py-2.5 border-r border-slate-300">
+                  3. Description
+                </th>
+                <th className="px-3 py-2.5 w-36 border-r border-slate-300">
+                  4. Payment
+                </th>
+                <th className="px-3 py-2.5 w-36 text-right border-r border-slate-300">
+                  5. Amount
+                </th>
+                <th className="px-2 py-2.5 w-16 text-center">
+                  Action
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+
+            {/* Google Sheets Data Rows with Row Number Gutter */}
+            <tbody className="divide-y divide-slate-200">
               {filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                  <td colSpan={7} className="py-10 text-center text-slate-400 bg-white">
                     No expense transactions found matching your filter criteria.
                   </td>
                 </tr>
@@ -375,38 +494,66 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
                       onSelectCell({
                         reference: `tbl_Expenses[Amount][${idx + 1}]`,
                         value: formatCurrency(tx.amount, settings.currency),
+                        formula: `=tbl_Expenses[@Amount]`,
                         isCalculated: false,
                       })
                     }
-                    className="hover:bg-rose-50/40 transition-colors cursor-pointer"
+                    className="hover:bg-rose-50/50 transition-colors cursor-pointer group"
                   >
-                    <td className="px-4 py-3 font-medium text-slate-600">
+                    {/* Google Sheets Row Number Gutter */}
+                    <td className="w-10 px-1 py-2.5 text-center font-mono text-[11px] text-slate-400 bg-[#f8f9fa] border-r border-slate-200 select-none group-hover:bg-rose-100/70 group-hover:text-rose-900 group-hover:font-bold transition-colors">
+                      {idx + 1}
+                    </td>
+
+                    {/* Column A: Date */}
+                    <td className="px-3 py-2.5 font-medium text-slate-600 border-r border-slate-200/80 font-mono text-[11px]">
                       {formatDate(tx.date, settings.dateFormat)}
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-800 border border-slate-200">
+
+                    {/* Column B: Category */}
+                    <td className="px-3 py-2.5 border-r border-slate-200/80">
+                      <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-800 border border-slate-200">
                         {tx.category}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-medium text-slate-800">
-                      {tx.description}
+
+                    {/* Column C: Description with Recurring badge if applicable */}
+                    <td className="px-3 py-2.5 font-medium text-slate-800 border-r border-slate-200/80">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{tx.description}</span>
+                        {(tx.isRecurring || tx.recurringId) && (
+                          <span
+                            className="inline-flex items-center gap-0.5 rounded bg-blue-50 border border-blue-200 px-1.5 py-0.2 text-[10px] font-bold text-blue-700"
+                            title="Auto-generated from Recurring Expense schedule"
+                          >
+                            <Repeat className="h-3 w-3" />
+                            <span>Auto</span>
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-4 py-3">
+
+                    {/* Column D: Payment Method */}
+                    <td className="px-3 py-2.5 border-r border-slate-200/80">
                       <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-700 font-medium border border-blue-100">
                         <CreditCard className="h-3 w-3" />
-                        {tx.paymentMethod}
+                        <span>{tx.paymentMethod}</span>
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
+
+                    {/* Column E: Amount */}
+                    <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900 border-r border-slate-200/80 tabular-nums">
                       {formatCurrency(tx.amount, settings.currency)}
                     </td>
-                    <td className="px-3 py-3 text-center">
+
+                    {/* Column F: Action */}
+                    <td className="px-2 py-2.5 text-center">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteTransaction(tx.id);
                         }}
-                        className="text-slate-400 hover:text-rose-600 cursor-pointer"
+                        className="text-slate-400 hover:text-rose-600 cursor-pointer p-1 rounded hover:bg-rose-50"
                         title="Delete transaction"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -417,8 +564,8 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
               )}
             </tbody>
 
-            {/* Total Row */}
-            <tfoot className="border-t-2 border-slate-300 bg-slate-50 font-bold">
+            {/* Google Sheets Totals Row */}
+            <tfoot className="border-t-2 border-slate-300 bg-[#f8f9fa] font-bold">
               <tr
                 onClick={() =>
                   onSelectCell({
@@ -428,17 +575,20 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
                     isCalculated: true,
                   })
                 }
-                className="cursor-pointer hover:bg-slate-100/80"
+                className="cursor-pointer hover:bg-slate-100/90 transition-colors"
               >
-                <td colSpan={4} className="px-4 py-3 text-right text-xs uppercase tracking-wider text-slate-700">
-                  Total Expenses:
+                <td className="w-10 px-1 py-3 text-center font-mono text-[11px] text-rose-800 bg-[#eef1f4] border-r border-slate-300 font-extrabold">
+                  ∑
                 </td>
-                <td className="px-4 py-3 text-right font-mono text-sm font-extrabold text-rose-700">
-                  {formatCurrency(totalExpenses, settings.currency)}
+                <td colSpan={4} className="px-3 py-3 text-right text-xs uppercase tracking-wider text-slate-700 border-r border-slate-300">
+                  Total Expenses ({filteredTransactions.length} items):
                 </td>
-                <td className="px-3 py-3 text-center">
-                  <span className="font-mono text-[10px] text-slate-400" title="SUM formula">
-                    ∑
+                <td className="px-3 py-3 text-right font-mono text-sm font-black text-rose-700 border-r border-slate-300 tabular-nums">
+                  {formatCurrency(filteredTotal, settings.currency)}
+                </td>
+                <td className="px-2 py-3 text-center">
+                  <span className="font-mono text-[10px] text-slate-400" title="SUM Formula">
+                    fx
                   </span>
                 </td>
               </tr>
@@ -446,6 +596,27 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
           </table>
         </div>
       </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* Recurring Transactions Modal */}
+      {/* ---------------------------------------------------- */}
+      {onUpdateRecurringTransactions && (
+        <RecurringTransactionsModal
+          isOpen={isRecurringModalOpen}
+          onClose={() => setIsRecurringModalOpen(false)}
+          recurringTransactions={recurringTransactions}
+          onUpdateRecurringTransactions={onUpdateRecurringTransactions}
+          incomeCategories={[]}
+          expenseCategories={categories}
+          paymentMethods={paymentMethods}
+          settings={settings}
+          incomeTransactions={[]}
+          expenseTransactions={transactions}
+          onAddIncomeTransactions={() => {}}
+          onAddExpenseTransactions={onUpdateTransactions}
+          initialTypeFilter="expense"
+        />
+      )}
     </div>
   );
 };
