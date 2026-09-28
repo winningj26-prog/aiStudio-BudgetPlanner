@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - v1-functional-completion
+      - v1.1-deployment-readiness
   pull_request:
     branches:
       - main
@@ -25,3 +26,16 @@ jobs:
         run: npm run lint
       - name: Production build
         run: npm run build
+      - name: Production smoke test
+        run: |
+          NODE_ENV=production PORT=4173 GEMINI_API_KEY=MY_GEMINI_API_KEY npm start > /tmp/budget-planner-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for i in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:4173/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/budget-planner-server.log
+          exit 1
