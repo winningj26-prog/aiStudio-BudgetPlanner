@@ -29,6 +29,58 @@ export interface SyncPayload {
   plannedExpenses: Record<string, number>;
 }
 
+function parseSheetAmount(value: unknown, context: string): number {
+  const raw = String(value ?? '').trim();
+  if (!raw) throw new Error(`Invalid amount in ${context}: value is empty`);
+  const normalized = raw.replace(/[^0-9.-]/g, '');
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) throw new Error(`Invalid amount in ${context}: "${raw}"`);
+  return amount;
+}
+
+function parseSheetDate(value: unknown, context: string): string {
+  const raw = String(value ?? '').trim();
+  let year: number;
+  let month: number;
+  let day: number;
+
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const slash = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+
+  if (iso) {
+    year = Number(iso[1]);
+    month = Number(iso[2]);
+    day = Number(iso[3]);
+  } else if (slash) {
+    const first = Number(slash[1]);
+    const second = Number(slash[2]);
+    year = Number(slash[3]);
+    // Prefer the app's default MM/DD interpretation when both are <= 12;
+    // otherwise the unambiguous component is treated as the day.
+    if (first > 12 && second <= 12) {
+      day = first;
+      month = second;
+    } else {
+      month = first;
+      day = second;
+    }
+  } else {
+    throw new Error(`Invalid date in ${context}: "${raw}". Expected YYYY-MM-DD or a standard slash date.`);
+  }
+
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    !Number.isFinite(candidate.getTime()) ||
+    candidate.getUTCFullYear() !== year ||
+    candidate.getUTCMonth() !== month - 1 ||
+    candidate.getUTCDate() !== day
+  ) {
+    throw new Error(`Invalid date in ${context}: "${raw}".`);
+  }
+
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 export interface PulledData {
   settings?: Partial<SettingsState>;
   incomeCategories?: CategoryItem[];
@@ -341,12 +393,12 @@ export async function pullAllDataFromGoogleSheet(
       const row = incomeRange.values[i];
       if (!row || row.length < 5) continue;
       const [id, date, category, description, amountStr] = row;
-      const amount = parseFloat(String(amountStr).replace(/[^0-9.-]/g, '')) || 0;
+      const amount = parseSheetAmount(amountStr, `tbl_Income row ${i + 1}`);
       transactions.push({
         id: id || `inc_tx_${Date.now()}_${i}`,
-        date: date || new Date().toISOString().split('T')[0],
-        category: category || 'Salary',
-        description: description || '',
+        date: parseSheetDate(date, `tbl_Income row ${i + 1}`),
+        category: String(category || '').trim(),
+        description: String(description || '').trim(),
         amount,
       });
     }
@@ -361,14 +413,14 @@ export async function pullAllDataFromGoogleSheet(
       const row = expenseRange.values[i];
       if (!row || row.length < 5) continue;
       const [id, date, category, description, amountStr, paymentMethod] = row;
-      const amount = parseFloat(String(amountStr).replace(/[^0-9.-]/g, '')) || 0;
+      const amount = parseSheetAmount(amountStr, `tbl_Expenses row ${i + 1}`);
       transactions.push({
         id: id || `exp_tx_${Date.now()}_${i}`,
-        date: date || new Date().toISOString().split('T')[0],
-        category: category || 'General',
-        description: description || '',
+        date: parseSheetDate(date, `tbl_Expenses row ${i + 1}`),
+        category: String(category || '').trim(),
+        description: String(description || '').trim(),
         amount,
-        paymentMethod: paymentMethod || 'Bank',
+        paymentMethod: String(paymentMethod || '').trim(),
       });
     }
     result.expenseTransactions = transactions;
@@ -383,7 +435,7 @@ export async function pullAllDataFromGoogleSheet(
       const row = budgetRange.values[i];
       if (!row || row.length < 3) continue;
       const [type, category, amountStr] = row;
-      const amount = parseFloat(String(amountStr).replace(/[^0-9.-]/g, '')) || 0;
+      const amount = parseSheetAmount(amountStr, `tbl_MonthlyBudget row ${i + 1}`);
       if (type === 'Income') {
         plannedInc[category] = amount;
       } else if (type === 'Expense') {
