@@ -23,6 +23,11 @@ const ai = new GoogleGenAI({
   },
 });
 
+// Lightweight production health check for load balancers and deployment smoke tests
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // AI Spending Insights Endpoint
 app.post('/api/insights', async (req, res) => {
   try {
