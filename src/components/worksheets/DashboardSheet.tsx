@@ -953,6 +953,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
       debts={debts}
       settings={settings}
       currentMonthlySavings={savings}
+      currentMonthlyExpenses={totalExpenses}
       onSelectCell={onSelectCell}
     />
   )}

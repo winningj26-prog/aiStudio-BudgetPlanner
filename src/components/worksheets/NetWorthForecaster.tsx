@@ -14,7 +14,8 @@ import {
   Calculator,
   ArrowRightLeft,
   ChevronRight,
-  TrendingDown
+  TrendingDown,
+  Info
 } from 'lucide-react';
 
 interface AssetVal {
@@ -28,6 +29,7 @@ interface NetWorthForecasterProps {
   debts: Debt[];
   settings: SettingsState;
   currentMonthlySavings: number; // calculated as Income - Expenses
+  currentMonthlyExpenses: number;
   onSelectCell?: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
 }
 
@@ -35,6 +37,7 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
   debts,
   settings,
   currentMonthlySavings,
+  currentMonthlyExpenses,
   onSelectCell,
 }) => {
   // 1. Custom Asset Ledger State
@@ -55,6 +58,9 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
   const [simulationType, setSimulationType] = useState<'linear' | 'monte_carlo'>('monte_carlo');
   const [expectedReturn, setExpectedReturn] = useState<number>(7); // 7% average market return
   const [volatility, setVolatility] = useState<number>(12); // 12% standard deviation
+
+  // Inflation configurations
+  const [inflationRate, setInflationRate] = useState<number>(3.5);
 
   // 2. Net Worth Calculation
   const totalAssets = useMemo(() => {
@@ -777,6 +783,122 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
               </div>
             </>
           )}
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* 5. Financial Inflation Planner Utility */}
+      {/* ---------------------------------------------------- */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 gap-3">
+          <div className="space-y-0.5">
+            <h3 className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+              <Calculator className="h-4.5 w-4.5 text-purple-600" />
+              <span>Inflation Drag & Long-Term Purchasing Power Planner</span>
+            </h3>
+            <p className="text-[10px] text-slate-400">
+              Analyze how custom inflation rates escalate annual expenditures and impact future cumulative compound savings.
+            </p>
+          </div>
+          <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded border border-purple-100 uppercase tracking-wider font-mono">
+            Purchasing Power Tracker
+          </span>
+        </div>
+
+        {/* Dynamic Sliders Row */}
+        <div className="grid gap-4 sm:grid-cols-2 bg-slate-50/50 p-4 border border-slate-100 rounded-xl text-xs text-slate-600">
+          {/* Custom Inflation Rate */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span>Estimated Annual Inflation Rate</span>
+              <span className="text-purple-700 font-black">{inflationRate.toFixed(1)}% / yr</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="15"
+              step="0.5"
+              value={inflationRate}
+              onChange={(e) => setInflationRate(Number(e.target.value))}
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-purple-600"
+            />
+            <div className="flex justify-between text-[8px] text-slate-400 font-bold uppercase tracking-wider">
+              <span>0% Flat</span>
+              <span>3.5% Avg</span>
+              <span>15% Hyper</span>
+            </div>
+          </div>
+
+          {/* Current Base Expenses display */}
+          <div className="border-l border-slate-200 pl-4 flex flex-col justify-center space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block leading-none">Starting Annual Expense Base</span>
+            <span className="text-base font-black text-slate-800 font-mono">
+              {formatCurrency(currentMonthlyExpenses * 12, settings.currency)}
+            </span>
+            <span className="text-[10px] text-slate-400 font-semibold block">Based on monthly expenses of {formatCurrency(currentMonthlyExpenses, settings.currency)}</span>
+          </div>
+        </div>
+
+        {/* Comparison Projections Grid & Table */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 rounded-lg border border-purple-50 bg-purple-50/30 p-3">
+            <Info className="h-4 w-4 text-purple-600 shrink-0" />
+            <p className="text-[11px] text-purple-900 leading-normal font-medium">
+              Assuming a baseline <strong>2% annual wage adjustment</strong>, this calculator analyzes the compounding delta between standard cost growth and your specified inflation rate over 20 years.
+            </p>
+          </div>
+
+          {/* Forecast Data Table (Fully Responsive) */}
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full min-w-[500px] text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200 select-none">
+                  <th className="px-3.5 py-2.5">Timeline</th>
+                  <th className="px-3.5 py-2.5 text-right">Projected Annual Expense</th>
+                  <th className="px-3.5 py-2.5 text-right text-purple-700">Inflation Added Drag</th>
+                  <th className="px-3.5 py-2.5 text-right">Remaining Savings capacity</th>
+                  <th className="px-3.5 py-2.5 text-right text-rose-600">Savings Power Loss</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs">
+                {useMemo(() => {
+                  const startAnnualExpenses = currentMonthlyExpenses * 12;
+                  const startAnnualIncome = (currentMonthlySavings + currentMonthlyExpenses) * 12;
+                  
+                  return [1, 3, 5, 10, 15, 20].map((y) => {
+                    const escalatedExpenses = startAnnualExpenses * Math.pow(1 + inflationRate / 100, y);
+                    const flatExpenses = startAnnualExpenses;
+                    const extraCost = escalatedExpenses - flatExpenses;
+                    
+                    const projectedIncome = startAnnualIncome * Math.pow(1.02, y);
+                    const savingsWithInflation = Math.max(0, projectedIncome - escalatedExpenses);
+                    const savingsBaseline = Math.max(0, projectedIncome - flatExpenses);
+                    const savingsLoss = Math.max(0, savingsBaseline - savingsWithInflation);
+
+                    return (
+                      <tr key={y} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-3.5 py-2.5 font-bold text-slate-800">
+                          Year {y} {y === 1 ? 'Outlook' : 'projection'}
+                        </td>
+                        <td className="px-3.5 py-2.5 text-right font-mono font-semibold text-slate-700">
+                          {formatCurrency(escalatedExpenses, settings.currency, 0)}
+                        </td>
+                        <td className="px-3.5 py-2.5 text-right font-mono font-black text-purple-700">
+                          +{formatCurrency(extraCost, settings.currency, 0)}
+                        </td>
+                        <td className="px-3.5 py-2.5 text-right font-mono font-semibold text-slate-700">
+                          {formatCurrency(savingsWithInflation, settings.currency, 0)}/yr
+                        </td>
+                        <td className="px-3.5 py-2.5 text-right font-mono font-bold text-rose-600">
+                          -{formatCurrency(savingsLoss, settings.currency, 0)}
+                        </td>
+                      </tr>
+                    );
+                  });
+                }, [currentMonthlyExpenses, currentMonthlySavings, inflationRate])}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

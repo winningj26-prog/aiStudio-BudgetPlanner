@@ -76,6 +76,7 @@ export const Header: React.FC<HeaderProps> = ({
   // Primary workbook navigation items: Dashboard first, Settings last.
   const navItems: { id: WorksheetTab; label: string; icon: React.ReactNode }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <PieChart className="h-4 w-4 sm:h-5 sm:w-5" /> },
+    { id: 'calendar_view', label: 'Calendar View', icon: <Calendar className="h-4 w-4 sm:h-5 sm:w-5" /> },
     { id: 'income', label: 'Income', icon: <Coins className="h-4 w-4 sm:h-5 sm:w-5" /> },
     { id: 'expenses', label: 'Expenses', icon: <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" /> },
     { id: 'monthly_budget', label: 'Monthly Budget', icon: <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" /> },

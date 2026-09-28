@@ -55,6 +55,7 @@ import { MonthlyBudgetSheet } from './components/worksheets/MonthlyBudgetSheet';
 import { DashboardSheet } from './components/worksheets/DashboardSheet';
 import { DebtPayoffSheet } from './components/worksheets/DebtPayoffSheet';
 import { AnnualSummarySheet } from './components/worksheets/AnnualSummarySheet';
+import { CalendarViewSheet } from './components/worksheets/CalendarViewSheet';
 import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
 
 export default function App() {
@@ -405,6 +406,16 @@ export default function App() {
             savingsGoals={savingsGoals}
             onUpdateSavingsGoals={setSavingsGoals}
             debts={debts}
+          />
+        )}
+
+        {activeTab === 'calendar_view' && (
+          <CalendarViewSheet
+            incomeTransactions={incomeTransactions}
+            expenseTransactions={expenseTransactions}
+            settings={settings}
+            recurringTransactions={recurringTransactions}
+            onSelectCell={setSelectedCell}
           />
         )}
 

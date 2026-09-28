@@ -105,6 +105,7 @@ export type WorksheetTab =
   | 'expenses'
   | 'monthly_budget'
   | 'dashboard'
+  | 'calendar_view'
   | 'debt_payoff'
   | 'annual_summary'
   | 'tech_specs';

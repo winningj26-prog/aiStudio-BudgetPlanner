@@ -76,6 +76,7 @@ export const SpreadsheetFooter: React.FC<SpreadsheetFooterProps> = ({
 
   const tabs: { id: WorksheetTab; label: string }[] = [
     { id: 'dashboard', label: 'Dashboard' },
+    { id: 'calendar_view', label: 'Calendar View' },
     { id: 'income', label: 'Income' },
     { id: 'expenses', label: 'Expenses' },
     { id: 'monthly_budget', label: 'Monthly Budget' },
