@@ -128,17 +128,19 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
           </span>
         );
       case 'Near Limit':
+      case 'Near Target':
         return (
           <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
             <AlertTriangle className="h-3 w-3 text-amber-600" />
-            Near Limit
+            {status === 'Near Target' ? 'Near Target' : 'Near Limit'}
           </span>
         );
       case 'Over Budget':
+      case 'Below Target':
         return (
           <span className="inline-flex items-center gap-1 rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800 border border-rose-200">
             <XCircle className="h-3 w-3 text-rose-600" />
-            Over Budget
+            {status === 'Below Target' ? 'Below Target' : 'Over Budget'}
           </span>
         );
     }
@@ -201,7 +203,7 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
           subtitle={incomeDiff >= 0 ? `+${formatCurrency(incomeDiff, settings.currency)} over target` : `${formatCurrency(incomeDiff, settings.currency)} under target`}
           icon={<DollarSign className="h-5 w-5" />}
           theme="green"
-          trend={{ text: '112% achieved', isPositive: true }}
+          trend={{ text: `${totalPlannedIncome > 0 ? ((totalActualIncome / totalPlannedIncome) * 100).toFixed(1) : '0.0'}% achieved`, isPositive: incomeDiff >= 0 }}
           onClick={() =>
             onSelectCell({
               reference: 'tbl_Budget[Actual_Income_Total]',
@@ -234,7 +236,7 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
           subtitle={`${((totalActualExpenses / (totalPlannedExpenses || 1)) * 100).toFixed(1)}% of planned used`}
           icon={<ArrowDownRight className="h-5 w-5" />}
           theme={totalActualExpenses <= totalPlannedExpenses ? 'green' : 'red'}
-          trend={{ text: '55% of budget used', isPositive: true }}
+          trend={{ text: `${totalPlannedExpenses > 0 ? ((totalActualExpenses / totalPlannedExpenses) * 100).toFixed(1) : '0.0'}% of budget used`, isPositive: totalActualExpenses <= totalPlannedExpenses }}
           onClick={() =>
             onSelectCell({
               reference: 'tbl_Budget[Actual_Expense_Total]',
@@ -267,7 +269,7 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
           subtitle={`Surplus: +${formatCurrency(savingsDiff, settings.currency)}`}
           icon={<TrendingUp className="h-5 w-5" />}
           theme="green"
-          trend={{ text: '+$2,590 vs plan', isPositive: true }}
+          trend={{ text: `${savingsDiff >= 0 ? '+' : ''}${formatCurrency(savingsDiff, settings.currency)} vs plan`, isPositive: savingsDiff >= 0 }}
           onClick={() =>
             onSelectCell({
               reference: 'tbl_Budget[Actual_Savings]',
@@ -284,7 +286,7 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
           subtitle="Remaining unspent budget allowance"
           icon={<CheckCircle2 className="h-5 w-5" />}
           theme="green"
-          trend={{ text: 'Favorable variance', isPositive: true }}
+          trend={{ text: remainingBudget >= 0 ? 'Within planned limit' : 'Over planned limit', isPositive: remainingBudget >= 0 }}
           onClick={() =>
             onSelectCell({
               reference: 'tbl_Budget[Remaining_Budget]',
@@ -301,7 +303,7 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
           subtitle="Savings / Total Income"
           icon={<BarChart3 className="h-5 w-5" />}
           theme="purple"
-          trend={{ text: 'Top quartile', isPositive: true }}
+          trend={{ text: `${savingsRate.toFixed(1)}% current rate`, isPositive: savingsRate >= 0 }}
           onClick={() =>
             onSelectCell({
               reference: 'tbl_Budget[Savings_Rate]',
@@ -367,66 +369,22 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[700px] border-collapse">
-            {/* Google Sheets Header: Column Letters Row (A to F) */}
-            <thead>
-              <tr className="bg-[#f1f3f4] text-slate-500 font-semibold text-[11px] select-none border-b border-slate-300">
-                <th className="w-10 px-1 py-1 text-center border-r border-slate-300 font-mono text-[10px]">
-                  #
-                </th>
-                <th className="w-48 px-3 py-1 text-center border-r border-slate-300 tracking-wider">
-                  A
-                </th>
-                <th className="w-36 px-3 py-1 text-center border-r border-slate-300 tracking-wider">
-                  B
-                </th>
-                <th className="w-36 px-3 py-1 text-center border-r border-slate-300 tracking-wider">
-                  C
-                </th>
-                <th className="w-36 px-3 py-1 text-center border-r border-slate-300 tracking-wider">
-                  D
-                </th>
-                <th className="w-28 px-3 py-1 text-center border-r border-slate-300 tracking-wider">
-                  E
-                </th>
-                <th className="w-32 px-3 py-1 text-center tracking-wider">
-                  F
-                </th>
-              </tr>
-
-              {/* Data Column Names Header */}
-              <tr className="border-b border-slate-300 bg-[#f8f9fa] text-slate-700 font-bold uppercase tracking-wider text-[11px]">
-                <th className="px-2 py-2.5 w-10 text-center border-r border-slate-300 bg-[#eef1f4]">
-                  •
-                </th>
-                <th className="px-3 py-2.5 w-48 border-r border-slate-300">
-                  1. Category
-                </th>
-                <th className="px-3 py-2.5 w-36 text-right border-r border-slate-300">
-                  2. Planned Amount
-                </th>
-                <th className="px-3 py-2.5 w-36 text-right border-r border-slate-300">
-                  3. Actual Amount
-                </th>
-                <th className="px-3 py-2.5 w-36 text-right border-r border-slate-300">
-                  4. Difference
-                </th>
-                <th className="px-3 py-2.5 w-28 text-right border-r border-slate-300">
-                  5. % Used
-                </th>
-                <th className="px-3 py-2.5 w-32 text-center">
-                  6. Status
-                </th>
+          <table className="w-full text-left text-xs min-w-[650px]">
+            <thead className="border-b border-slate-200 bg-slate-100 text-slate-700 font-semibold uppercase tracking-wider">
+              <tr>
+                <th className="px-4 py-3 w-48">1. Category</th>
+                <th className="px-4 py-3 w-36 text-right">2. Planned Amount</th>
+                <th className="px-4 py-3 w-36 text-right">3. Actual Amount</th>
+                <th className="px-4 py-3 w-36 text-right">4. Difference</th>
+                <th className="px-4 py-3 w-28 text-right">5. % Used</th>
+                <th className="px-4 py-3 w-32 text-center">6. Status</th>
               </tr>
             </thead>
 
             {/* SECTION 1: INCOME BUDGET */}
-            <tbody className="divide-y divide-slate-200">
-              <tr className="bg-teal-50 text-teal-900 font-bold border-b border-teal-200">
-                <td className="w-10 px-1 py-2 text-center font-mono text-[10px] text-teal-800 bg-teal-100/60 border-r border-teal-200">
-                  §
-                </td>
-                <td colSpan={6} className="px-3 py-2 text-xs uppercase tracking-wider font-extrabold text-teal-950">
+            <tbody className="divide-y divide-slate-100">
+              <tr className="bg-teal-50/70 text-teal-900 font-bold">
+                <td colSpan={6} className="px-4 py-2 text-xs uppercase tracking-wider">
                   Income Sources (Revenue Targets)
                 </td>
               </tr>
@@ -442,21 +400,15 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
                       isCalculated: true,
                     })
                   }
-                  className="hover:bg-teal-50/40 transition-colors cursor-pointer group"
+                  className="hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  {/* Row Number */}
-                  <td className="w-10 px-1 py-2.5 text-center font-mono text-[11px] text-slate-400 bg-[#f8f9fa] border-r border-slate-200 select-none group-hover:bg-teal-100/70 group-hover:text-teal-900 group-hover:font-bold transition-colors">
-                    {idx + 1}
-                  </td>
-
-                  {/* Category Name */}
-                  <td className="px-3 py-2.5 font-medium text-slate-800 border-r border-slate-200/80">
+                  <td className="px-4 py-2.5 font-medium text-slate-800">
                     {item.category}
                   </td>
 
                   {/* Planned (Editable input) */}
                   <td
-                    className={`px-3 py-2.5 text-right font-mono text-slate-700 border-r border-slate-200/80 ${inputCellClass}`}
+                    className={`px-4 py-2.5 text-right font-mono text-slate-700 ${inputCellClass}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       startEditing(item.category, item.planned);
@@ -485,15 +437,15 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
                   </td>
 
                   {/* Actual Amount (Calculated) */}
-                  <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900 border-r border-slate-200/80 tabular-nums">
+                  <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
                     {formatCurrency(item.actual, settings.currency)}
                   </td>
 
                   {/* Difference */}
-                  <td className="px-3 py-2.5 text-right font-mono font-semibold border-r border-slate-200/80 tabular-nums">
+                  <td className="px-4 py-2.5 text-right font-mono font-semibold">
                     <span
                       className={
-                        item.difference >= 0 ? 'text-emerald-700 font-bold' : 'text-rose-600 font-bold'
+                        item.difference >= 0 ? 'text-emerald-700' : 'text-rose-600'
                       }
                     >
                       {item.difference >= 0 ? '+' : ''}
@@ -502,38 +454,35 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
                   </td>
 
                   {/* % Used */}
-                  <td className="px-3 py-2.5 text-right font-mono font-semibold text-slate-700 border-r border-slate-200/80 tabular-nums">
+                  <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-700">
                     {formatPercent(item.percentUsed, 0)}
                   </td>
 
                   {/* Status */}
-                  <td className="px-3 py-2.5 text-center">
+                  <td className="px-4 py-2.5 text-center">
                     {renderStatusBadge(item.status)}
                   </td>
                 </tr>
               ))}
 
               {/* Subtotal Income */}
-              <tr className="bg-teal-100/60 font-bold text-slate-900 border-t-2 border-teal-300">
-                <td className="w-10 px-1 py-2.5 text-center font-mono text-[11px] text-teal-900 bg-teal-200/50 border-r border-teal-300">
-                  ∑
-                </td>
-                <td className="px-3 py-2.5 uppercase text-[11px] tracking-wider text-teal-950 border-r border-teal-200">
+              <tr className="bg-teal-100/50 font-bold text-slate-900 border-t border-teal-200">
+                <td className="px-4 py-2.5 uppercase text-[11px] tracking-wider text-teal-900">
                   Total Income
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono border-r border-teal-200 tabular-nums">
+                <td className="px-4 py-2.5 text-right font-mono">
                   {formatCurrency(totalPlannedIncome, settings.currency)}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono text-emerald-900 font-extrabold border-r border-teal-200 tabular-nums">
+                <td className="px-4 py-2.5 text-right font-mono text-emerald-800">
                   {formatCurrency(totalActualIncome, settings.currency)}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono text-emerald-800 font-extrabold border-r border-teal-200 tabular-nums">
+                <td className="px-4 py-2.5 text-right font-mono text-emerald-700">
                   +{formatCurrency(incomeDiff, settings.currency)}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono border-r border-teal-200 tabular-nums">
+                <td className="px-4 py-2.5 text-right font-mono">
                   {formatPercent((totalActualIncome / (totalPlannedIncome || 1)) * 100, 0)}
                 </td>
-                <td className="px-3 py-2.5 text-center">
+                <td className="px-4 py-2.5 text-center">
                   <span className="inline-flex items-center rounded-md bg-emerald-200/80 px-2 py-0.5 text-[11px] font-bold text-emerald-900">
                     On Track
                   </span>
@@ -542,12 +491,9 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
             </tbody>
 
             {/* SECTION 2: EXPENSE BUDGET */}
-            <tbody className="divide-y divide-slate-200">
-              <tr className="bg-rose-50 text-rose-900 font-bold border-t-2 border-b border-rose-200">
-                <td className="w-10 px-1 py-2 text-center font-mono text-[10px] text-rose-800 bg-rose-100/60 border-r border-rose-200">
-                  §
-                </td>
-                <td colSpan={6} className="px-3 py-2 text-xs uppercase tracking-wider font-extrabold text-rose-950">
+            <tbody className="divide-y divide-slate-100">
+              <tr className="bg-rose-50/70 text-rose-900 font-bold border-t-2 border-slate-200">
+                <td colSpan={6} className="px-4 py-2 text-xs uppercase tracking-wider">
                   Expense Budgets (Spending Ceilings)
                 </td>
               </tr>
@@ -563,21 +509,15 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
                       isCalculated: true,
                     })
                   }
-                  className="hover:bg-rose-50/40 transition-colors cursor-pointer group"
+                  className="hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  {/* Row Number */}
-                  <td className="w-10 px-1 py-2.5 text-center font-mono text-[11px] text-slate-400 bg-[#f8f9fa] border-r border-slate-200 select-none group-hover:bg-rose-100/70 group-hover:text-rose-900 group-hover:font-bold transition-colors">
-                    {incomeItems.length + idx + 1}
-                  </td>
-
-                  {/* Category Name */}
-                  <td className="px-3 py-2.5 font-medium text-slate-800 border-r border-slate-200/80">
+                  <td className="px-4 py-2.5 font-medium text-slate-800">
                     {item.category}
                   </td>
 
                   {/* Planned (Editable input) */}
                   <td
-                    className={`px-3 py-2.5 text-right font-mono text-slate-700 border-r border-slate-200/80 ${inputCellClass}`}
+                    className={`px-4 py-2.5 text-right font-mono text-slate-700 ${inputCellClass}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       startEditing(item.category, item.planned);
@@ -606,15 +546,15 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
                   </td>
 
                   {/* Actual Amount (Calculated) */}
-                  <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900 border-r border-slate-200/80 tabular-nums">
+                  <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
                     {formatCurrency(item.actual, settings.currency)}
                   </td>
 
                   {/* Difference (Planned - Actual) */}
-                  <td className="px-3 py-2.5 text-right font-mono font-semibold border-r border-slate-200/80 tabular-nums">
+                  <td className="px-4 py-2.5 text-right font-mono font-semibold">
                     <span
                       className={
-                        item.difference >= 0 ? 'text-emerald-700 font-bold' : 'text-rose-600 font-bold'
+                        item.difference >= 0 ? 'text-emerald-700' : 'text-rose-600'
                       }
                     >
                       {item.difference >= 0 ? '+' : ''}
@@ -623,7 +563,7 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
                   </td>
 
                   {/* % Used */}
-                  <td className="px-3 py-2.5 text-right font-mono font-semibold border-r border-slate-200/80 tabular-nums">
+                  <td className="px-4 py-2.5 text-right font-mono font-semibold">
                     <span
                       className={
                         item.percentUsed > 100
@@ -638,33 +578,30 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
                   </td>
 
                   {/* Status */}
-                  <td className="px-3 py-2.5 text-center">
+                  <td className="px-4 py-2.5 text-center">
                     {renderStatusBadge(item.status)}
                   </td>
                 </tr>
               ))}
 
               {/* Subtotal Expenses */}
-              <tr className="bg-rose-100/60 font-bold text-slate-900 border-t-2 border-rose-300">
-                <td className="w-10 px-1 py-2.5 text-center font-mono text-[11px] text-rose-900 bg-rose-200/50 border-r border-rose-300">
-                  ∑
-                </td>
-                <td className="px-3 py-2.5 uppercase text-[11px] tracking-wider text-rose-950 border-r border-rose-200">
+              <tr className="bg-rose-100/50 font-bold text-slate-900 border-t border-rose-200">
+                <td className="px-4 py-2.5 uppercase text-[11px] tracking-wider text-rose-900">
                   Total Expenses
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono border-r border-rose-200 tabular-nums">
+                <td className="px-4 py-2.5 text-right font-mono">
                   {formatCurrency(totalPlannedExpenses, settings.currency)}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono text-rose-900 font-extrabold border-r border-rose-200 tabular-nums">
+                <td className="px-4 py-2.5 text-right font-mono text-rose-800">
                   {formatCurrency(totalActualExpenses, settings.currency)}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono text-emerald-800 font-extrabold border-r border-rose-200 tabular-nums">
+                <td className="px-4 py-2.5 text-right font-mono text-emerald-700">
                   +{formatCurrency(expenseDiff, settings.currency)}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono border-r border-rose-200 tabular-nums">
+                <td className="px-4 py-2.5 text-right font-mono">
                   {formatPercent((totalActualExpenses / (totalPlannedExpenses || 1)) * 100, 0)}
                 </td>
-                <td className="px-3 py-2.5 text-center">
+                <td className="px-4 py-2.5 text-center">
                   <span className="inline-flex items-center rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
                     On Track
                   </span>
@@ -683,27 +620,24 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
                     isCalculated: true,
                   })
                 }
-                className="cursor-pointer hover:bg-slate-800 transition-colors"
+                className="cursor-pointer hover:bg-slate-800"
               >
-                <td className="w-10 px-1 py-3 text-center font-mono text-[11px] text-emerald-400 bg-slate-950 border-r border-slate-700">
-                  =
-                </td>
-                <td className="px-3 py-3 uppercase tracking-wider text-xs text-emerald-400 border-r border-slate-800">
+                <td className="px-4 py-3 uppercase tracking-wider text-xs text-emerald-400">
                   Net Income (Income - Expenses)
                 </td>
-                <td className="px-3 py-3 text-right font-mono text-slate-300 border-r border-slate-800 tabular-nums">
+                <td className="px-4 py-3 text-right font-mono text-slate-300">
                   {formatCurrency(plannedSavings, settings.currency)}
                 </td>
-                <td className="px-3 py-3 text-right font-mono text-sm font-black text-emerald-400 border-r border-slate-800 tabular-nums">
+                <td className="px-4 py-3 text-right font-mono text-sm font-extrabold text-emerald-400">
                   {formatCurrency(actualSavings, settings.currency)}
                 </td>
-                <td className="px-3 py-3 text-right font-mono text-emerald-300 font-extrabold border-r border-slate-800 tabular-nums">
+                <td className="px-4 py-3 text-right font-mono text-emerald-300 font-extrabold">
                   +{formatCurrency(savingsDiff, settings.currency)}
                 </td>
-                <td className="px-3 py-3 text-right font-mono text-emerald-300 border-r border-slate-800 tabular-nums">
+                <td className="px-4 py-3 text-right font-mono text-emerald-300">
                   {formatPercent((actualSavings / (plannedSavings || 1)) * 100, 0)}
                 </td>
-                <td className="px-3 py-3 text-center">
+                <td className="px-4 py-3 text-center">
                   <span className="inline-flex items-center rounded-full bg-emerald-500/20 border border-emerald-400/40 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
                     Goal Surpassed
                   </span>
