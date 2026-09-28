@@ -43,9 +43,8 @@ import {
   PulledData,
 } from './services/googleSheetsService';
 import { LoginView } from './components/LoginView';
-import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
 import { FormulaBar } from './components/FormulaBar';
-import { SpreadsheetFooter } from './components/SpreadsheetFooter';
 import { ExportWorkbookModal } from './components/ExportWorkbookModal';
 import { StartHereSheet } from './components/worksheets/StartHereSheet';
 import { SettingsSheet } from './components/worksheets/SettingsSheet';
@@ -363,11 +362,11 @@ export default function App() {
   }
 
   // 3. Otherwise, the user is inside the Dashboard / Workbook worksheets
-  // (Renders the Excel-style Dashboard Header, Formula Bar, Active Worksheet, and Sheet Tabs Footer)
+  // (Renders the Sidebar Menu, Formula Bar, and Active Worksheet Viewport)
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100 font-sans text-slate-900 antialiased selection:bg-blue-200">
-      {/* Dashboard Header: Navigation Menu strictly has Dashboard first and Settings last (No Home in the menu) */}
-      <Header
+    <div className="flex min-h-screen flex-col lg:flex-row bg-slate-100 font-sans text-slate-900 antialiased selection:bg-blue-200">
+      {/* Sidebar Navigation */}
+      <Sidebar
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
         settings={settings}
@@ -377,19 +376,21 @@ export default function App() {
         onOpenExportModal={() => setIsExportModalOpen(true)}
       />
 
-      {/* Excel Formula Bar with fx, cell reference, highlighter, and Return Home shortcut */}
-      <FormulaBar
-        selectedCell={selectedCell}
-        highlightInputs={highlightInputs}
-        onToggleHighlight={() => setHighlightInputs(!highlightInputs)}
-        onResetSampleData={handleResetSampleData}
-        onExportData={handleExportData}
-        activeTab={activeTab}
-        onGoHome={() => handleSelectTab('start_here')}
-      />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Excel Formula Bar with fx, cell reference, highlighter, and Return Home shortcut */}
+        <FormulaBar
+          selectedCell={selectedCell}
+          highlightInputs={highlightInputs}
+          onToggleHighlight={() => setHighlightInputs(!highlightInputs)}
+          onResetSampleData={handleResetSampleData}
+          onExportData={handleExportData}
+          activeTab={activeTab}
+          onGoHome={() => handleSelectTab('start_here')}
+        />
 
-      {/* Main Worksheet Viewport */}
-      <main className="flex-1 overflow-y-auto pb-12">
+        {/* Main Worksheet Viewport */}
+        <main className="flex-1 overflow-y-auto p-1.5 sm:p-3">
         {activeTab === 'dashboard' && (
           <DashboardSheet
             incomeTransactions={incomeTransactions}
@@ -529,19 +530,8 @@ export default function App() {
             settings={settings}
           />
         )}
-      </main>
-
-      {/* Spreadsheet Sheet Tabs Footer with User Pic, Online Indicator, and Popup Menu */}
-      <SpreadsheetFooter
-        activeTab={activeTab}
-        onSelectTab={handleSelectTab}
-        statusMessage="Ready • Calculations Verified"
-        totalStats={statusStats}
-        userEmail={userEmail}
-        onLogout={handleLogout}
-        settings={settings}
-        sheetConfig={sheetConfig}
-      />
+        </main>
+      </div>
 
       {/* Global Offline Backup Export Modal */}
       <ExportWorkbookModal
