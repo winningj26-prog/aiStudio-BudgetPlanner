@@ -1,0 +1,6 @@
+{
+  "name": "Personal Monthly Budget Planner",
+  "description": "Professional, full-featured Personal Monthly Budget Planner application modeled on Excel and Google Sheets with 7 interactive worksheets, live calculations, KPI cards, and charts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

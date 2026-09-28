@@ -1,0 +1,506 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect } from 'react';
+import {
+  CategoryItem,
+  ExpenseTransaction,
+  IncomeTransaction,
+  MonthSummary,
+  SettingsState,
+  WorksheetTab,
+} from './types/budget';
+import {
+  ANNUAL_MONTHS_DATA,
+  INITIAL_EXPENSE_CATEGORIES,
+  INITIAL_EXPENSE_TRANSACTIONS,
+  INITIAL_INCOME_CATEGORIES,
+  INITIAL_INCOME_TRANSACTIONS,
+  INITIAL_PLANNED_EXPENSES,
+  INITIAL_PLANNED_INCOME,
+  INITIAL_SETTINGS,
+  PAYMENT_METHODS,
+} from './data/initialData';
+import { formatCurrency } from './utils/formatters';
+import { sumIncomeTransactions, sumExpenseTransactions } from './utils/formulas';
+import {
+  STORAGE_KEYS,
+  loadFromStorage,
+  saveToStorage,
+  clearBudgetStorage,
+} from './utils/storage';
+import { User } from 'firebase/auth';
+import { initAuth } from './services/googleAuth';
+import {
+  GoogleSheetConfig,
+  PulledData,
+} from './services/googleSheetsService';
+import { LoginView } from './components/LoginView';
+import { Header } from './components/Header';
+import { FormulaBar } from './components/FormulaBar';
+import { SpreadsheetFooter } from './components/SpreadsheetFooter';
+import { ExportWorkbookModal } from './components/ExportWorkbookModal';
+import { StartHereSheet } from './components/worksheets/StartHereSheet';
+import { SettingsSheet } from './components/worksheets/SettingsSheet';
+import { IncomeSheet } from './components/worksheets/IncomeSheet';
+import { ExpensesSheet } from './components/worksheets/ExpensesSheet';
+import { MonthlyBudgetSheet } from './components/worksheets/MonthlyBudgetSheet';
+import { DashboardSheet } from './components/worksheets/DashboardSheet';
+import { AnnualSummarySheet } from './components/worksheets/AnnualSummarySheet';
+import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
+
+export default function App() {
+  // Authentication state: starts logged in with demo user, can log out/in
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() =>
+    loadFromStorage<boolean>(STORAGE_KEYS.IS_LOGGED_IN, true)
+  );
+  const [userEmail, setUserEmail] = useState<string>(() =>
+    loadFromStorage<string>(STORAGE_KEYS.USER_EMAIL, 'winningj26@gmail.com')
+  );
+
+  // Navigation state (initial route after login is 'start_here', the home landing page)
+  const [activeTab, setActiveTab] = useState<WorksheetTab>('start_here');
+
+  // Global persistent settings (Currency, Month, Year, Date Format)
+  const [settings, setSettings] = useState<SettingsState>(() =>
+    loadFromStorage<SettingsState>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS)
+  );
+
+  // Category configurations (persistent)
+  const [incomeCategories, setIncomeCategories] = useState<CategoryItem[]>(() =>
+    loadFromStorage<CategoryItem[]>(STORAGE_KEYS.INCOME_CATEGORIES, INITIAL_INCOME_CATEGORIES)
+  );
+  const [expenseCategories, setExpenseCategories] = useState<CategoryItem[]>(() =>
+    loadFromStorage<CategoryItem[]>(STORAGE_KEYS.EXPENSE_CATEGORIES, INITIAL_EXPENSE_CATEGORIES)
+  );
+  const [paymentMethods, setPaymentMethods] = useState<string[]>(() =>
+    loadFromStorage<string[]>(STORAGE_KEYS.PAYMENT_METHODS, PAYMENT_METHODS)
+  );
+
+  // Double-entry transaction ledgers (persistent)
+  const [incomeTransactions, setIncomeTransactions] = useState<IncomeTransaction[]>(() =>
+    loadFromStorage<IncomeTransaction[]>(STORAGE_KEYS.INCOME_TRANSACTIONS, INITIAL_INCOME_TRANSACTIONS)
+  );
+  const [expenseTransactions, setExpenseTransactions] = useState<ExpenseTransaction[]>(() =>
+    loadFromStorage<ExpenseTransaction[]>(STORAGE_KEYS.EXPENSE_TRANSACTIONS, INITIAL_EXPENSE_TRANSACTIONS)
+  );
+
+  // Monthly Planned Budgets (persistent)
+  const [plannedIncome, setPlannedIncome] = useState<Record<string, number>>(() =>
+    loadFromStorage<Record<string, number>>(STORAGE_KEYS.PLANNED_INCOME, INITIAL_PLANNED_INCOME)
+  );
+  const [plannedExpenses, setPlannedExpenses] = useState<Record<string, number>>(() =>
+    loadFromStorage<Record<string, number>>(STORAGE_KEYS.PLANNED_EXPENSES, INITIAL_PLANNED_EXPENSES)
+  );
+
+  // Annual 12-month summary data (persistent)
+  const [annualData, setAnnualData] = useState<MonthSummary[]>(() =>
+    loadFromStorage<MonthSummary[]>(STORAGE_KEYS.ANNUAL_DATA, ANNUAL_MONTHS_DATA)
+  );
+
+  // Formula Bar & Cell inspector state
+  const [selectedCell, setSelectedCell] = useState<{
+    reference: string;
+    value: string;
+    formula?: string;
+    isCalculated: boolean;
+  }>({
+    reference: 'StartHere!A1',
+    value: 'Personal Monthly Budget Planner',
+    isCalculated: false,
+  });
+
+  const [highlightInputs, setHighlightInputs] = useState<boolean>(false);
+
+  // Automatically save settings and categories to localStorage on changes
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.SETTINGS, settings);
+  }, [settings]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.INCOME_CATEGORIES, incomeCategories);
+  }, [incomeCategories]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.EXPENSE_CATEGORIES, expenseCategories);
+  }, [expenseCategories]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.PAYMENT_METHODS, paymentMethods);
+  }, [paymentMethods]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.INCOME_TRANSACTIONS, incomeTransactions);
+  }, [incomeTransactions]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.EXPENSE_TRANSACTIONS, expenseTransactions);
+  }, [expenseTransactions]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.PLANNED_INCOME, plannedIncome);
+  }, [plannedIncome]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.PLANNED_EXPENSES, plannedExpenses);
+  }, [plannedExpenses]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.ANNUAL_DATA, annualData);
+  }, [annualData]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.USER_EMAIL, userEmail);
+  }, [userEmail]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.IS_LOGGED_IN, isLoggedIn);
+  }, [isLoggedIn]);
+
+  // Google OAuth and Google Sheets state (token held in-memory only per security guidelines)
+  const [googleUser, setGoogleUser] = useState<User | null>(null);
+  const [googleToken, setGoogleToken] = useState<string | null>(null);
+
+  const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(() =>
+    loadFromStorage<GoogleSheetConfig | null>(STORAGE_KEYS.GOOGLE_SHEET_CONFIG, null)
+  );
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.GOOGLE_SHEET_CONFIG, sheetConfig);
+  }, [sheetConfig]);
+
+  // Listen to Firebase/Google Auth state changes
+  useEffect(() => {
+    const unsubscribe = initAuth(
+      (user, token) => {
+        setGoogleUser(user);
+        setGoogleToken(token);
+        if (user.email) {
+          setUserEmail(user.email);
+        }
+      },
+      () => {
+        setGoogleUser(null);
+        setGoogleToken(null);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  // Handle data pulled from Google Sheet
+  const handleDataPulled = (data: PulledData) => {
+    if (data.settings) {
+      setSettings((prev) => ({ ...prev, ...data.settings }));
+    }
+    if (data.incomeCategories && data.incomeCategories.length > 0) {
+      setIncomeCategories(data.incomeCategories);
+    }
+    if (data.expenseCategories && data.expenseCategories.length > 0) {
+      setExpenseCategories(data.expenseCategories);
+    }
+    if (data.paymentMethods && data.paymentMethods.length > 0) {
+      setPaymentMethods(data.paymentMethods);
+    }
+    if (data.incomeTransactions) {
+      setIncomeTransactions(data.incomeTransactions);
+    }
+    if (data.expenseTransactions) {
+      setExpenseTransactions(data.expenseTransactions);
+    }
+    if (data.plannedIncome) {
+      setPlannedIncome(data.plannedIncome);
+    }
+    if (data.plannedExpenses) {
+      setPlannedExpenses(data.plannedExpenses);
+    }
+  };
+
+  // Google Sign-In handler
+  const handleGoogleLogin = (user: User, token: string) => {
+    setGoogleUser(user);
+    setGoogleToken(token);
+    if (user.email) {
+      setUserEmail(user.email);
+    }
+    setIsLoggedIn(true);
+    setActiveTab('start_here');
+  };
+
+  // Update settings handler
+  const handleUpdateSettings = (newSettings: Partial<SettingsState>) => {
+    setSettings((prev) => {
+      const updated = { ...prev, ...newSettings };
+      saveToStorage(STORAGE_KEYS.SETTINGS, updated);
+      return updated;
+    });
+  };
+
+  // Reset settings only to template defaults
+  const handleResetSettings = () => {
+    setSettings(INITIAL_SETTINGS);
+    setIncomeCategories(INITIAL_INCOME_CATEGORIES);
+    setExpenseCategories(INITIAL_EXPENSE_CATEGORIES);
+    setPaymentMethods(PAYMENT_METHODS);
+    saveToStorage(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
+    saveToStorage(STORAGE_KEYS.INCOME_CATEGORIES, INITIAL_INCOME_CATEGORIES);
+    saveToStorage(STORAGE_KEYS.EXPENSE_CATEGORIES, INITIAL_EXPENSE_CATEGORIES);
+    saveToStorage(STORAGE_KEYS.PAYMENT_METHODS, PAYMENT_METHODS);
+  };
+
+  // Login handler: guarantees landing on the home page ('start_here') after login
+  const handleLogin = (email: string) => {
+    setUserEmail(email);
+    setIsLoggedIn(true);
+    setActiveTab('start_here');
+    setSelectedCell({
+      reference: 'StartHere!A1',
+      value: 'Welcome to Your Personal Monthly Budget Planner',
+      isCalculated: false,
+    });
+  };
+
+  // Logout handler
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+  };
+
+  // Reset to default sample data
+  const handleResetSampleData = () => {
+    if (window.confirm('Reset all transactions and budget figures to the default sample dataset ($5,600 income / $2,460 expenses)?')) {
+      setSettings(INITIAL_SETTINGS);
+      setIncomeCategories(INITIAL_INCOME_CATEGORIES);
+      setExpenseCategories(INITIAL_EXPENSE_CATEGORIES);
+      setPaymentMethods(PAYMENT_METHODS);
+      setIncomeTransactions(INITIAL_INCOME_TRANSACTIONS);
+      setExpenseTransactions(INITIAL_EXPENSE_TRANSACTIONS);
+      setPlannedIncome(INITIAL_PLANNED_INCOME);
+      setPlannedExpenses(INITIAL_PLANNED_EXPENSES);
+      setAnnualData(ANNUAL_MONTHS_DATA);
+      clearBudgetStorage();
+    }
+  };
+
+  // Export workbook modal state
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
+  // Export workbook data trigger (opens modal with Excel, CSV, JSON choices)
+  const handleExportData = () => {
+    setIsExportModalOpen(true);
+  };
+
+  // Summary stats for bottom spreadsheet status bar
+  const currentTotalIncome = sumIncomeTransactions(incomeTransactions);
+  const currentTotalExpenses = sumExpenseTransactions(expenseTransactions);
+  const statusStats = {
+    count: incomeTransactions.length + expenseTransactions.length,
+    sum: formatCurrency(currentTotalIncome - currentTotalExpenses, settings.currency),
+  };
+
+  // Helper to change worksheet
+  const handleSelectTab = (tab: WorksheetTab) => {
+    setActiveTab(tab);
+    setSelectedCell({
+      reference: `${tab.toUpperCase()}!A1`,
+      value: `Active Worksheet: ${tab}`,
+      isCalculated: false,
+    });
+  };
+
+  // 1. If not logged in, render the Login Screen
+  if (!isLoggedIn) {
+    return (
+      <LoginView
+        initialEmail={userEmail}
+        onLogin={handleLogin}
+        onGoogleLogin={handleGoogleLogin}
+      />
+    );
+  }
+
+  // 2. If activeTab is 'start_here', render the dedicated Home Landing Page
+  // (Completely outside the Excel dashboard shell and dashboard header)
+  if (activeTab === 'start_here') {
+    return (
+      <StartHereSheet
+        onNavigate={handleSelectTab}
+        onSelectCell={setSelectedCell}
+        userEmail={userEmail}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  // 3. Otherwise, the user is inside the Dashboard / Workbook worksheets
+  // (Renders the Excel-style Dashboard Header, Formula Bar, Active Worksheet, and Sheet Tabs Footer)
+  return (
+    <div className="flex min-h-screen flex-col bg-slate-100 font-sans text-slate-900 antialiased selection:bg-blue-200">
+      {/* Dashboard Header: Navigation Menu strictly has Dashboard first and Settings last (No Home in the menu) */}
+      <Header
+        activeTab={activeTab}
+        onSelectTab={handleSelectTab}
+        settings={settings}
+        onUpdateSettings={handleUpdateSettings}
+        userEmail={userEmail}
+        onLogout={handleLogout}
+        onOpenExportModal={() => setIsExportModalOpen(true)}
+      />
+
+      {/* Excel Formula Bar with fx, cell reference, highlighter, and Return Home shortcut */}
+      <FormulaBar
+        selectedCell={selectedCell}
+        highlightInputs={highlightInputs}
+        onToggleHighlight={() => setHighlightInputs(!highlightInputs)}
+        onResetSampleData={handleResetSampleData}
+        onExportData={handleExportData}
+        activeTab={activeTab}
+        onGoHome={() => handleSelectTab('start_here')}
+      />
+
+      {/* Main Worksheet Viewport */}
+      <main className="flex-1 overflow-y-auto pb-12">
+        {activeTab === 'dashboard' && (
+          <DashboardSheet
+            incomeTransactions={incomeTransactions}
+            expenseTransactions={expenseTransactions}
+            categories={expenseCategories}
+            incomeCategories={incomeCategories}
+            paymentMethods={paymentMethods}
+            plannedExpenses={plannedExpenses}
+            plannedIncome={plannedIncome}
+            annualData={annualData}
+            settings={settings}
+            onSelectCell={setSelectedCell}
+            onOpenExportModal={() => setIsExportModalOpen(true)}
+          />
+        )}
+
+        {activeTab === 'income' && (
+          <IncomeSheet
+            transactions={incomeTransactions}
+            onUpdateTransactions={setIncomeTransactions}
+            categories={incomeCategories}
+            settings={settings}
+            highlightInputs={highlightInputs}
+            onSelectCell={setSelectedCell}
+          />
+        )}
+
+        {activeTab === 'expenses' && (
+          <ExpensesSheet
+            transactions={expenseTransactions}
+            onUpdateTransactions={setExpenseTransactions}
+            categories={expenseCategories}
+            paymentMethods={paymentMethods}
+            settings={settings}
+            highlightInputs={highlightInputs}
+            onSelectCell={setSelectedCell}
+          />
+        )}
+
+        {activeTab === 'monthly_budget' && (
+          <MonthlyBudgetSheet
+            incomeCategories={incomeCategories}
+            expenseCategories={expenseCategories}
+            incomeTransactions={incomeTransactions}
+            expenseTransactions={expenseTransactions}
+            plannedIncome={plannedIncome}
+            onUpdatePlannedIncome={setPlannedIncome}
+            plannedExpenses={plannedExpenses}
+            onUpdatePlannedExpenses={setPlannedExpenses}
+            settings={settings}
+            highlightInputs={highlightInputs}
+            onSelectCell={setSelectedCell}
+          />
+        )}
+
+        {activeTab === 'annual_summary' && (
+          <AnnualSummarySheet
+            data={annualData}
+            settings={settings}
+            onSelectCell={setSelectedCell}
+          />
+        )}
+
+        {activeTab === 'settings' && (
+          <SettingsSheet
+            settings={settings}
+            onUpdateSettings={handleUpdateSettings}
+            incomeCategories={incomeCategories}
+            onUpdateIncomeCategories={setIncomeCategories}
+            expenseCategories={expenseCategories}
+            onUpdateExpenseCategories={setExpenseCategories}
+            paymentMethods={paymentMethods}
+            onUpdatePaymentMethods={setPaymentMethods}
+            highlightInputs={highlightInputs}
+            onSelectCell={setSelectedCell}
+            onResetSettingsToDefaults={handleResetSettings}
+            googleUser={googleUser}
+            googleToken={googleToken}
+            onGoogleAuthSuccess={(user, token) => {
+              setGoogleUser(user);
+              setGoogleToken(token);
+              if (user.email) setUserEmail(user.email);
+            }}
+            onGoogleSignOut={() => {
+              setGoogleUser(null);
+              setGoogleToken(null);
+            }}
+            sheetConfig={sheetConfig}
+            onUpdateSheetConfig={setSheetConfig}
+            workbookData={{
+              settings,
+              incomeCategories,
+              expenseCategories,
+              paymentMethods,
+              incomeTransactions,
+              expenseTransactions,
+              plannedIncome,
+              plannedExpenses,
+            }}
+            onDataPulled={handleDataPulled}
+          />
+        )}
+
+        {activeTab === 'tech_specs' && (
+          <TechSpecsSheet
+            incomeTransactions={incomeTransactions}
+            expenseTransactions={expenseTransactions}
+            annualData={annualData}
+            settings={settings}
+          />
+        )}
+      </main>
+
+      {/* Spreadsheet Sheet Tabs Footer with User Pic, Online Indicator, and Popup Menu */}
+      <SpreadsheetFooter
+        activeTab={activeTab}
+        onSelectTab={handleSelectTab}
+        statusMessage="Ready • Calculations Verified"
+        totalStats={statusStats}
+        userEmail={userEmail}
+        onLogout={handleLogout}
+        settings={settings}
+        sheetConfig={sheetConfig}
+      />
+
+      {/* Global Offline Backup Export Modal */}
+      <ExportWorkbookModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        workbookData={{
+          settings,
+          incomeCategories,
+          expenseCategories,
+          paymentMethods,
+          incomeTransactions,
+          expenseTransactions,
+          plannedIncome,
+          plannedExpenses,
+          annualData,
+        }}
+      />
+    </div>
+  );
+}
