@@ -23,7 +23,6 @@ const provider = new GoogleAuthProvider();
 provider.addScope('https://www.googleapis.com/auth/spreadsheets');
 provider.addScope('https://www.googleapis.com/auth/drive.file');
 
-let isSigningIn = false;
 let cachedAccessToken: string | null = null;
 
 /**
@@ -54,7 +53,6 @@ export const initAuth = (
  */
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
-    isSigningIn = true;
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
@@ -67,7 +65,6 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     console.error('Google Sign-in error:', error);
     throw error;
   } finally {
-    isSigningIn = false;
   }
 };
 
@@ -84,6 +81,5 @@ export const googleSignOut = async (): Promise<void> => {
     console.warn('Error during sign out:', err);
   } finally {
     cachedAccessToken = null;
-    isSigningIn = false;
-  }
+      }
 };
