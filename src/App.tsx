@@ -38,6 +38,8 @@ import {
 } from './utils/storage';
 import { User } from 'firebase/auth';
 import { initAuth, googleSignOut } from './services/googleAuth';
+import { loadToolkitAccountSession } from './services/toolkitAccount';
+import type { ToolkitEntitlementResponse } from './types/toolkit';
 import {
   GoogleSheetConfig,
   PulledData,
@@ -191,6 +193,7 @@ export default function App() {
   // Google OAuth and Google Sheets state (token held in-memory only per security guidelines)
   const [googleUser, setGoogleUser] = useState<User | null>(null);
   const [googleToken, setGoogleToken] = useState<string | null>(null);
+  const [toolkitSession, setToolkitSession] = useState<ToolkitEntitlementResponse | null>(null);
 
   const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(() =>
     loadFromStorage<GoogleSheetConfig | null>(STORAGE_KEYS.GOOGLE_SHEET_CONFIG, null)
@@ -219,12 +222,31 @@ export default function App() {
       () => {
         setGoogleUser(null);
         setGoogleToken(null);
+        setToolkitSession(null);
         setIsLoggedIn(false);
         setAuthReady(true);
       }
     );
     return () => unsubscribe();
   }, []);
+
+  // Load the central toolkit account after Firebase restores authentication.
+  // If Supabase is unavailable, the budgeting app remains usable locally.
+  useEffect(() => {
+    if (!googleUser) {
+      setToolkitSession(null);
+      return;
+    }
+
+    let cancelled = false;
+    void loadToolkitAccountSession(googleUser).then((session) => {
+      if (!cancelled) setToolkitSession(session);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleUser]);
 
   // Handle data pulled from Google Sheet
   const handleDataPulled = (data: PulledData) => {
@@ -291,6 +313,7 @@ export default function App() {
     await googleSignOut();
     setGoogleUser(null);
     setGoogleToken(null);
+    setToolkitSession(null);
     setIsLoggedIn(false);
   };
 
