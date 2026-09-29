@@ -16,7 +16,6 @@ export const STORAGE_KEYS = {
   DEBTS: 'pmbp_debts_v2',
   RECURRING_TRANSACTIONS: 'pmbp_recurring_transactions_v2',
   USER_EMAIL: 'pmbp_user_email_v2',
-  IS_LOGGED_IN: 'pmbp_is_logged_in_v2',
   GOOGLE_SHEET_CONFIG: 'pmbp_google_sheet_config_v2',
   ACTIVE_TAB: 'pmbp_active_tab_v2',
 } as const;
