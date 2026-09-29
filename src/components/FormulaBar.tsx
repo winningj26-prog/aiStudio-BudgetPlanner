@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, RotateCcw, Download, Home } from 'lucide-react';
+import { Eye, Download, Home } from 'lucide-react';
 import { WorksheetTab } from '../types/budget';
 
 interface FormulaBarProps {
@@ -11,7 +11,6 @@ interface FormulaBarProps {
   };
   highlightInputs: boolean;
   onToggleHighlight: () => void;
-  onResetSampleData: () => void;
   onExportData: () => void;
   activeTab?: WorksheetTab;
   onGoHome?: () => void;
@@ -82,17 +81,6 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
           <span className="sm:hidden">
             {highlightInputs ? 'Inputs' : 'Highlight'}
           </span>
-        </button>
-
-        {/* Reset to Sample Data */}
-        <button
-          onClick={onResetSampleData}
-          className="flex items-center gap-1 rounded border border-slate-300 bg-white px-2 sm:px-2.5 py-1 text-slate-700 hover:bg-slate-50 font-medium transition-colors cursor-pointer"
-          title="Reset to initial $5,600 / $2,460 sample dataset"
-        >
-          <RotateCcw className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-          <span className="hidden md:inline">Reset Sample Data</span>
-          <span className="md:hidden">Reset</span>
         </button>
 
         {/* Export Data */}
