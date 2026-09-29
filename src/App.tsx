@@ -67,7 +67,9 @@ export default function App() {
   );
 
   // Navigation state (initial route after login is 'start_here', the home landing page)
-  const [activeTab, setActiveTab] = useState<WorksheetTab>('start_here');
+  const [activeTab, setActiveTab] = useState<WorksheetTab>(() =>
+    loadFromStorage<WorksheetTab>('pmbp_active_tab_v1', 'start_here')
+  );
 
   // Global persistent settings (Currency, Month, Year, Date Format)
   const [settings, setSettings] = useState<SettingsState>(() =>
@@ -185,6 +187,10 @@ export default function App() {
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.IS_LOGGED_IN, isLoggedIn);
   }, [isLoggedIn]);
+
+  useEffect(() => {
+    saveToStorage('pmbp_active_tab_v1', activeTab);
+  }, [activeTab]);
 
   // Google OAuth and Google Sheets state (token held in-memory only per security guidelines)
   const [googleUser, setGoogleUser] = useState<User | null>(null);
@@ -327,7 +333,7 @@ export default function App() {
     sum: formatCurrency(currentTotalIncome - currentTotalExpenses, settings.currency),
   };
 
-  // Helper to change worksheet
+  // Helper to change worksheet and persist the current worksheet across refreshes
   const handleSelectTab = (tab: WorksheetTab) => {
     setActiveTab(tab);
     setSelectedCell({
