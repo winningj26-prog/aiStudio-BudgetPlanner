@@ -3,8 +3,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
-import { verifyFirebaseIdToken, isFirebaseAdminConfigured } from './server/firebaseAdmin';
-import { syncToolkitAccount, isAccountServiceConfigured } from './server/toolkitAccount';
+import { verifyFirebaseIdToken, isFirebaseAdminConfigured } from './server/firebaseAdmin.ts';
+import { syncToolkitAccount, isAccountServiceConfigured } from './server/toolkitAccount.ts';
 
 dotenv.config();
 
