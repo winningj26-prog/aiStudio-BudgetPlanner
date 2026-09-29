@@ -82,3 +82,30 @@ export function clearBudgetStorage(): void {
     console.warn('[storage] Error clearing budget storage:', error);
   }
 }
+
+
+/**
+ * Remove legacy V1 browser storage so previously seeded demo data cannot reappear
+ * after the clean-data release.
+ */
+export function clearLegacyV1Storage(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  const legacyKeys = [
+    'pmbp_settings_v1',
+    'pmbp_income_categories_v1',
+    'pmbp_expense_categories_v1',
+    'pmbp_payment_methods_v1',
+    'pmbp_income_transactions_v1',
+    'pmbp_expense_transactions_v1',
+    'pmbp_planned_income_v1',
+    'pmbp_planned_expenses_v1',
+    'pmbp_savings_goals_v1',
+    'pmbp_debts_v1',
+    'pmbp_recurring_transactions_v1',
+    'pmbp_user_email_v1',
+    'pmbp_is_logged_in_v1',
+    'pmbp_google_sheet_config_v1',
+    'pmbp_active_tab_v1',
+  ];
+  legacyKeys.forEach((key) => window.localStorage.removeItem(key));
+}
