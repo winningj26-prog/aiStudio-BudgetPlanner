@@ -18,30 +18,30 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 const provider = new GoogleAuthProvider();
-// Workspace scopes requested for user spreadsheets & drive files
+// The same interactive Google sign-in requests the API permissions needed by
+// Google Sheets and Drive. The access token remains in memory only.
 provider.addScope('https://www.googleapis.com/auth/spreadsheets');
 provider.addScope('https://www.googleapis.com/auth/drive.file');
-// The same Google sign-in flow requests the API permissions needed by Google Sheets.
-// Do not force account selection: returning users should stay in the existing Google session.
 
 let isSigningIn = false;
-// In-memory token storage (NEVER in localStorage/sessionStorage as mandated by Workspace Integration guidelines)
 let cachedAccessToken: string | null = null;
 
 /**
- * Initialize auth listener.
+ * Initialize the durable Google account session.
+ *
+ * Firebase restores the signed-in user across browser refreshes, but the
+ * Google API access token is intentionally short-lived and kept in memory.
+ * The app therefore treats identity and Sheets authorization as separate
+ * pieces of state: a restored user remains signed in, while Sheets can ask
+ * for a fresh OAuth grant only when its API token is unavailable.
  */
 export const initAuth = (
-  onAuthSuccess?: (user: User, token: string) => void,
+  onAuthSuccess?: (user: User, token: string | null) => void,
   onAuthFailure?: () => void
 ) => {
-  return onAuthStateChanged(auth, async (user: User | null) => {
+  return onAuthStateChanged(auth, (user: User | null) => {
     if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        if (onAuthFailure) onAuthFailure();
-      }
+      if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
     } else {
       cachedAccessToken = null;
       if (onAuthFailure) onAuthFailure();
@@ -50,7 +50,7 @@ export const initAuth = (
 };
 
 /**
- * Interactive Sign-In with Google popup.
+ * Interactive Sign-In with Google and the Sheets/Drive scopes required by the app.
  */
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
@@ -71,23 +71,12 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
   }
 };
 
-/**
- * Retrieve the current in-memory access token.
- */
-export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
-};
+export const getAccessToken = async (): Promise<string | null> => cachedAccessToken;
 
-/**
- * Set the in-memory access token.
- */
 export const setCachedAccessToken = (token: string | null) => {
   cachedAccessToken = token;
 };
 
-/**
- * Sign out of Google session and clear in-memory token.
- */
 export const googleSignOut = async (): Promise<void> => {
   try {
     await signOut(auth);
@@ -95,5 +84,6 @@ export const googleSignOut = async (): Promise<void> => {
     console.warn('Error during sign out:', err);
   } finally {
     cachedAccessToken = null;
+    isSigningIn = false;
   }
 };
