@@ -21,9 +21,8 @@ const provider = new GoogleAuthProvider();
 // Workspace scopes requested for user spreadsheets & drive files
 provider.addScope('https://www.googleapis.com/auth/spreadsheets');
 provider.addScope('https://www.googleapis.com/auth/drive.file');
-provider.setCustomParameters({
-  prompt: 'select_account',
-});
+// The same Google sign-in flow requests the API permissions needed by Google Sheets.
+// Do not force account selection: returning users should stay in the existing Google session.
 
 let isSigningIn = false;
 // In-memory token storage (NEVER in localStorage/sessionStorage as mandated by Workspace Integration guidelines)
