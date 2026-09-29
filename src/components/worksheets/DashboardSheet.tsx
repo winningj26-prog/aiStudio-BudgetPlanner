@@ -622,48 +622,66 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         />
       </div>
 
-      {/* Row of Charts: Chart 1 (Income vs Expenses) + Chart 2 (Expense Breakdown Donut) */}
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-4">
-          <IncomeExpensesBarChart
-            income={totalIncome}
-            expenses={totalExpenses}
-            currency={settings.currency}
-            plannedIncome={totalPlannedIncome}
-            plannedExpenses={totalPlannedExpenses}
-          />
-        </div>
+      {/* Section 1: Current Period Balance & Savings Rate */}
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 select-none">
+          Current Period Balance & Savings Rate
+        </h3>
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-6">
+            <IncomeExpensesBarChart
+              income={totalIncome}
+              expenses={totalExpenses}
+              currency={settings.currency}
+              plannedIncome={totalPlannedIncome}
+              plannedExpenses={totalPlannedExpenses}
+            />
+          </div>
 
-        <div className="lg:col-span-8">
-          <IncomeExpensesLineTrendChart
-            data={annualData}
-            currency={settings.currency}
-            settings={settings}
-          />
+          <div className="lg:col-span-6">
+            <SavingsRateLineChart
+              data={annualData}
+              currentRate={savingsRate}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Row of Trend Charts: Chart 3 (Monthly Trend 12 Months) + Chart 4 (Savings Rate Progression) */}
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-4">
-          <ExpenseDonutChart
-            data={expenseBreakdown}
-            currency={settings.currency}
-          />
-        </div>
+      {/* Section 2: Longitudinal Trends & Expense Allocation */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 select-none">
+          Longitudinal Trends & Expense Allocation
+        </h3>
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-8">
+            <MonthlyTrendChart
+              data={annualData}
+              currency={settings.currency}
+            />
+          </div>
 
-        <div className="lg:col-span-4">
-          <SavingsRateLineChart
-            data={annualData}
-            currentRate={savingsRate}
-          />
+          <div className="lg:col-span-4">
+            <ExpenseDonutChart
+              data={expenseBreakdown}
+              currency={settings.currency}
+            />
+          </div>
         </div>
+      </div>
 
-        <div className="lg:col-span-4">
-          <MonthlyTrendChart
-            data={annualData}
-            currency={settings.currency}
-          />
+      {/* Section 3: Annual 12-Month Trajectory Overview */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 select-none">
+          Annual Trajectory Overview
+        </h3>
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-12">
+            <IncomeExpensesLineTrendChart
+              data={annualData}
+              currency={settings.currency}
+              settings={settings}
+            />
+          </div>
         </div>
       </div>
 

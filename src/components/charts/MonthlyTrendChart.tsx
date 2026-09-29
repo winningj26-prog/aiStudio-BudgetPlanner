@@ -22,7 +22,7 @@ export const MonthlyTrendChart: React.FC<MonthlyTrendChartProps> = ({
   const colGroupWidth = (svgWidth - 60) / 12;
 
   return (
-    <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+    <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-xs h-full">
       <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-2 mb-2">
         <div>
           <h4 className="text-sm font-bold text-slate-800">

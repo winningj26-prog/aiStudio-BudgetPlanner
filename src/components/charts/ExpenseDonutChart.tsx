@@ -65,7 +65,7 @@ export const ExpenseDonutChart: React.FC<ExpenseDonutChartProps> = ({
   let cumulativePercent = 0;
 
   return (
-    <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+    <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-xs h-full">
       <div className="border-b border-slate-100 pb-2 mb-3">
         <h4 className="text-sm font-bold text-slate-800">Expense Breakdown</h4>
         <p className="text-xs text-slate-500">Distribution by category</p>

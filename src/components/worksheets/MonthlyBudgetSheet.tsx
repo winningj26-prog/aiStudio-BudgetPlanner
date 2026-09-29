@@ -62,6 +62,7 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
 }) => {
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'expenses' | 'income'>('expenses');
 
   // 1. Build Income Budget Items
   const incomeItems: BudgetItem[] = incomeCategories
@@ -368,6 +369,32 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
           </div>
         </div>
 
+        {/* Tab Controls (Zero-Pill underline discipline) */}
+        <div className="flex border-b border-slate-200 bg-slate-50/40 px-4">
+          <button
+            type="button"
+            onClick={() => setActiveTab('expenses')}
+            className={`px-4 py-3.5 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+              activeTab === 'expenses'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Expense Budgets ({expenseItems.length} Categories)
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('income')}
+            className={`px-4 py-3.5 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+              activeTab === 'income'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Income Targets ({incomeItems.length} Categories)
+          </button>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[650px]">
             <thead className="border-b border-slate-200 bg-slate-100 text-slate-700 font-semibold uppercase tracking-wider">
@@ -381,235 +408,237 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
               </tr>
             </thead>
 
-            {/* SECTION 1: INCOME BUDGET */}
-            <tbody className="divide-y divide-slate-100">
-              <tr className="bg-teal-50/70 text-teal-900 font-bold">
-                <td colSpan={6} className="px-4 py-2 text-xs uppercase tracking-wider">
-                  Income Sources (Revenue Targets)
-                </td>
-              </tr>
-
-              {incomeItems.map((item, idx) => (
-                <tr
-                  key={item.category}
-                  onClick={() =>
-                    onSelectCell({
-                      reference: `tbl_Budget[Category="${item.category}"]`,
-                      value: `Planned: ${formatCurrency(item.planned, settings.currency)}, Actual: ${formatCurrency(item.actual, settings.currency)}`,
-                      formula: `=SUMIF(tbl_Income[Category], "${item.category}", tbl_Income[Amount])`,
-                      isCalculated: true,
-                    })
-                  }
-                  className="hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  <td className="px-4 py-2.5 font-medium text-slate-800">
-                    {item.category}
-                  </td>
-
-                  {/* Planned (Editable input) */}
-                  <td
-                    className={`px-4 py-2.5 text-right font-mono text-slate-700 ${inputCellClass}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startEditing(item.category, item.planned);
-                    }}
-                  >
-                    {editingCategory === item.category ? (
-                      <div className="flex items-center justify-end gap-1">
-                        <input
-                          type="number"
-                          autoFocus
-                          value={tempValue}
-                          onChange={(e) => setTempValue(e.target.value)}
-                          onBlur={() => savePlanned(item.category, 'income')}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') savePlanned(item.category, 'income');
-                            if (e.key === 'Escape') setEditingCategory(null);
-                          }}
-                          className="w-24 rounded border border-blue-500 bg-white px-1.5 py-0.5 text-right font-mono text-xs font-bold text-slate-900 shadow-xs focus:outline-hidden"
-                        />
-                      </div>
-                    ) : (
-                      <span className="border-b border-dashed border-slate-400 hover:border-slate-700">
-                        {formatCurrency(item.planned, settings.currency)}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Actual Amount (Calculated) */}
-                  <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
-                    {formatCurrency(item.actual, settings.currency)}
-                  </td>
-
-                  {/* Difference */}
-                  <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                    <span
-                      className={
-                        item.difference >= 0 ? 'text-emerald-700' : 'text-rose-600'
-                      }
-                    >
-                      {item.difference >= 0 ? '+' : ''}
-                      {formatCurrency(item.difference, settings.currency)}
-                    </span>
-                  </td>
-
-                  {/* % Used */}
-                  <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-700">
-                    {formatPercent(item.percentUsed, 0)}
-                  </td>
-
-                  {/* Status */}
-                  <td className="px-4 py-2.5 text-center">
-                    {renderStatusBadge(item.status)}
+            {activeTab === 'income' ? (
+              /* SECTION 1: INCOME BUDGET TAB */
+              <tbody className="divide-y divide-slate-100 animate-in fade-in duration-150">
+                <tr className="bg-teal-50/70 text-teal-900 font-bold">
+                  <td colSpan={6} className="px-4 py-2 text-xs uppercase tracking-wider">
+                    Income Sources (Revenue Targets)
                   </td>
                 </tr>
-              ))}
 
-              {/* Subtotal Income */}
-              <tr className="bg-teal-100/50 font-bold text-slate-900 border-t border-teal-200">
-                <td className="px-4 py-2.5 uppercase text-[11px] tracking-wider text-teal-900">
-                  Total Income
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono">
-                  {formatCurrency(totalPlannedIncome, settings.currency)}
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono text-emerald-800">
-                  {formatCurrency(totalActualIncome, settings.currency)}
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono text-emerald-700">
-                  +{formatCurrency(incomeDiff, settings.currency)}
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono">
-                  {formatPercent((totalActualIncome / (totalPlannedIncome || 1)) * 100, 0)}
-                </td>
-                <td className="px-4 py-2.5 text-center">
-                  <span className="inline-flex items-center rounded-md bg-emerald-200/80 px-2 py-0.5 text-[11px] font-bold text-emerald-900">
-                    On Track
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-
-            {/* SECTION 2: EXPENSE BUDGET */}
-            <tbody className="divide-y divide-slate-100">
-              <tr className="bg-rose-50/70 text-rose-900 font-bold border-t-2 border-slate-200">
-                <td colSpan={6} className="px-4 py-2 text-xs uppercase tracking-wider">
-                  Expense Budgets (Spending Ceilings)
-                </td>
-              </tr>
-
-              {expenseItems.map((item, idx) => (
-                <tr
-                  key={item.category}
-                  onClick={() =>
-                    onSelectCell({
-                      reference: `tbl_Budget[Expense="${item.category}"]`,
-                      value: `Planned: ${formatCurrency(item.planned, settings.currency)}, Actual: ${formatCurrency(item.actual, settings.currency)}`,
-                      formula: `=SUMIF(tbl_Expenses[Category], "${item.category}", tbl_Expenses[Amount])`,
-                      isCalculated: true,
-                    })
-                  }
-                  className="hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  <td className="px-4 py-2.5 font-medium text-slate-800">
-                    {item.category}
-                  </td>
-
-                  {/* Planned (Editable input) */}
-                  <td
-                    className={`px-4 py-2.5 text-right font-mono text-slate-700 ${inputCellClass}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startEditing(item.category, item.planned);
-                    }}
+                {incomeItems.map((item) => (
+                  <tr
+                    key={item.category}
+                    onClick={() =>
+                      onSelectCell({
+                        reference: `tbl_Budget[Category="${item.category}"]`,
+                        value: `Planned: ${formatCurrency(item.planned, settings.currency)}, Actual: ${formatCurrency(item.actual, settings.currency)}`,
+                        formula: `=SUMIF(tbl_Income[Category], "${item.category}", tbl_Income[Amount])`,
+                        isCalculated: true,
+                      })
+                    }
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
                   >
-                    {editingCategory === item.category ? (
-                      <div className="flex items-center justify-end gap-1">
-                        <input
-                          type="number"
-                          autoFocus
-                          value={tempValue}
-                          onChange={(e) => setTempValue(e.target.value)}
-                          onBlur={() => savePlanned(item.category, 'expense')}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') savePlanned(item.category, 'expense');
-                            if (e.key === 'Escape') setEditingCategory(null);
-                          }}
-                          className="w-24 rounded border border-blue-500 bg-white px-1.5 py-0.5 text-right font-mono text-xs font-bold text-slate-900 shadow-xs focus:outline-hidden"
-                        />
-                      </div>
-                    ) : (
-                      <span className="border-b border-dashed border-slate-400 hover:border-slate-700">
-                        {formatCurrency(item.planned, settings.currency)}
+                    <td className="px-4 py-2.5 font-medium text-slate-800">
+                      {item.category}
+                    </td>
+
+                    {/* Planned (Editable input) */}
+                    <td
+                      className={`px-4 py-2.5 text-right font-mono text-slate-700 ${inputCellClass}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditing(item.category, item.planned);
+                      }}
+                    >
+                      {editingCategory === item.category ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <input
+                            type="number"
+                            autoFocus
+                            value={tempValue}
+                            onChange={(e) => setTempValue(e.target.value)}
+                            onBlur={() => savePlanned(item.category, 'income')}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') savePlanned(item.category, 'income');
+                              if (e.key === 'Escape') setEditingCategory(null);
+                            }}
+                            className="w-24 rounded border border-blue-500 bg-white px-1.5 py-0.5 text-right font-mono text-xs font-bold text-slate-900 shadow-xs focus:outline-hidden"
+                          />
+                        </div>
+                      ) : (
+                        <span className="border-b border-dashed border-slate-400 hover:border-slate-700">
+                          {formatCurrency(item.planned, settings.currency)}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Actual Amount (Calculated) */}
+                    <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
+                      {formatCurrency(item.actual, settings.currency)}
+                    </td>
+
+                    {/* Difference */}
+                    <td className="px-4 py-2.5 text-right font-mono font-semibold">
+                      <span
+                        className={
+                          item.difference >= 0 ? 'text-emerald-700' : 'text-rose-600'
+                        }
+                      >
+                        {item.difference >= 0 ? '+' : ''}
+                        {formatCurrency(item.difference, settings.currency)}
                       </span>
-                    )}
-                  </td>
+                    </td>
 
-                  {/* Actual Amount (Calculated) */}
-                  <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
-                    {formatCurrency(item.actual, settings.currency)}
-                  </td>
-
-                  {/* Difference (Planned - Actual) */}
-                  <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                    <span
-                      className={
-                        item.difference >= 0 ? 'text-emerald-700' : 'text-rose-600'
-                      }
-                    >
-                      {item.difference >= 0 ? '+' : ''}
-                      {formatCurrency(item.difference, settings.currency)}
-                    </span>
-                  </td>
-
-                  {/* % Used */}
-                  <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                    <span
-                      className={
-                        item.percentUsed > 100
-                          ? 'text-rose-700 font-bold'
-                          : item.percentUsed > 80
-                          ? 'text-amber-700 font-bold'
-                          : 'text-slate-700'
-                      }
-                    >
+                    {/* % Used */}
+                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-700">
                       {formatPercent(item.percentUsed, 0)}
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-4 py-2.5 text-center">
+                      {renderStatusBadge(item.status)}
+                    </td>
+                  </tr>
+                ))}
+
+                {/* Subtotal Income */}
+                <tr className="bg-teal-100/50 font-bold text-slate-900 border-t border-teal-200">
+                  <td className="px-4 py-2.5 uppercase text-[11px] tracking-wider text-teal-900">
+                    Total Income
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono">
+                    {formatCurrency(totalPlannedIncome, settings.currency)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono text-emerald-800">
+                    {formatCurrency(totalActualIncome, settings.currency)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono text-emerald-700">
+                    +{formatCurrency(incomeDiff, settings.currency)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono">
+                    {formatPercent((totalActualIncome / (totalPlannedIncome || 1)) * 100, 0)}
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className="inline-flex items-center rounded-md bg-emerald-200/80 px-2 py-0.5 text-[11px] font-bold text-emerald-900">
+                      On Track
                     </span>
                   </td>
-
-                  {/* Status */}
-                  <td className="px-4 py-2.5 text-center">
-                    {renderStatusBadge(item.status)}
+                </tr>
+              </tbody>
+            ) : (
+              /* SECTION 2: EXPENSE BUDGET TAB */
+              <tbody className="divide-y divide-slate-100 animate-in fade-in duration-150">
+                <tr className="bg-rose-50/70 text-rose-900 font-bold">
+                  <td colSpan={6} className="px-4 py-2 text-xs uppercase tracking-wider">
+                    Expense Budgets (Spending Ceilings)
                   </td>
                 </tr>
-              ))}
 
-              {/* Subtotal Expenses */}
-              <tr className="bg-rose-100/50 font-bold text-slate-900 border-t border-rose-200">
-                <td className="px-4 py-2.5 uppercase text-[11px] tracking-wider text-rose-900">
-                  Total Expenses
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono">
-                  {formatCurrency(totalPlannedExpenses, settings.currency)}
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono text-rose-800">
-                  {formatCurrency(totalActualExpenses, settings.currency)}
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono text-emerald-700">
-                  +{formatCurrency(expenseDiff, settings.currency)}
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono">
-                  {formatPercent((totalActualExpenses / (totalPlannedExpenses || 1)) * 100, 0)}
-                </td>
-                <td className="px-4 py-2.5 text-center">
-                  <span className="inline-flex items-center rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
-                    On Track
-                  </span>
-                </td>
-              </tr>
-            </tbody>
+                {expenseItems.map((item) => (
+                  <tr
+                    key={item.category}
+                    onClick={() =>
+                      onSelectCell({
+                        reference: `tbl_Budget[Expense="${item.category}"]`,
+                        value: `Planned: ${formatCurrency(item.planned, settings.currency)}, Actual: ${formatCurrency(item.actual, settings.currency)}`,
+                        formula: `=SUMIF(tbl_Expenses[Category], "${item.category}", tbl_Expenses[Amount])`,
+                        isCalculated: true,
+                      })
+                    }
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    <td className="px-4 py-2.5 font-medium text-slate-800">
+                      {item.category}
+                    </td>
 
-            {/* SECTION 3: NET INCOME / SAVINGS ROW */}
+                    {/* Planned (Editable input) */}
+                    <td
+                      className={`px-4 py-2.5 text-right font-mono text-slate-700 ${inputCellClass}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditing(item.category, item.planned);
+                      }}
+                    >
+                      {editingCategory === item.category ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <input
+                            type="number"
+                            autoFocus
+                            value={tempValue}
+                            onChange={(e) => setTempValue(e.target.value)}
+                            onBlur={() => savePlanned(item.category, 'expense')}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') savePlanned(item.category, 'expense');
+                              if (e.key === 'Escape') setEditingCategory(null);
+                            }}
+                            className="w-24 rounded border border-blue-500 bg-white px-1.5 py-0.5 text-right font-mono text-xs font-bold text-slate-900 shadow-xs focus:outline-hidden"
+                          />
+                        </div>
+                      ) : (
+                        <span className="border-b border-dashed border-slate-400 hover:border-slate-700">
+                          {formatCurrency(item.planned, settings.currency)}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Actual Amount (Calculated) */}
+                    <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
+                      {formatCurrency(item.actual, settings.currency)}
+                    </td>
+
+                    {/* Difference (Planned - Actual) */}
+                    <td className="px-4 py-2.5 text-right font-mono font-semibold">
+                      <span
+                        className={
+                          item.difference >= 0 ? 'text-emerald-700' : 'text-rose-600'
+                        }
+                      >
+                        {item.difference >= 0 ? '+' : ''}
+                        {formatCurrency(item.difference, settings.currency)}
+                      </span>
+                    </td>
+
+                    {/* % Used */}
+                    <td className="px-4 py-2.5 text-right font-mono font-semibold">
+                      <span
+                        className={
+                          item.percentUsed > 100
+                            ? 'text-rose-700 font-bold'
+                            : item.percentUsed > 80
+                            ? 'text-amber-700 font-bold'
+                            : 'text-slate-700'
+                        }
+                      >
+                        {formatPercent(item.percentUsed, 0)}
+                      </span>
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-4 py-2.5 text-center">
+                      {renderStatusBadge(item.status)}
+                    </td>
+                  </tr>
+                ))}
+
+                {/* Subtotal Expenses */}
+                <tr className="bg-rose-100/50 font-bold text-slate-900 border-t border-rose-200">
+                  <td className="px-4 py-2.5 uppercase text-[11px] tracking-wider text-rose-900">
+                    Total Expenses
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono">
+                    {formatCurrency(totalPlannedExpenses, settings.currency)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono text-rose-800">
+                    {formatCurrency(totalActualExpenses, settings.currency)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono text-emerald-700">
+                    +{formatCurrency(expenseDiff, settings.currency)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono">
+                    {formatPercent((totalActualExpenses / (totalPlannedExpenses || 1)) * 100, 0)}
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className="inline-flex items-center rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+                      On Track
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            )}
+
+            {/* SECTION 3: NET INCOME / SAVINGS FOOTER ROW (ALWAYS RENDERED) */}
             <tfoot className="border-t-2 border-slate-400 bg-slate-900 text-white font-bold">
               <tr
                 onClick={() =>

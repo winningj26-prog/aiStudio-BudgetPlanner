@@ -27,7 +27,7 @@ export const IncomeExpensesBarChart: React.FC<IncomeExpensesBarChartProps> = ({
   const expenseHeight = (expenses / maxValue) * (chartHeight - 40);
 
   return (
-    <div className="flex flex-col items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+    <div className="flex flex-col items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-xs h-full">
       <div className="w-full flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
         <h4 className="text-sm font-bold text-slate-800">Income vs. Expenses</h4>
         <div className="flex items-center gap-3 text-xs">
