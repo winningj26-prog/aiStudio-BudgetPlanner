@@ -39,6 +39,7 @@ import {
 import { User } from 'firebase/auth';
 import { initAuth, googleSignOut } from './services/googleAuth';
 import { loadToolkitAccountSession } from './services/toolkitAccount';
+import { hasToolkitFeature } from './types/toolkit';
 import type { ToolkitEntitlementResponse } from './types/toolkit';
 import {
   GoogleSheetConfig,
@@ -535,6 +536,10 @@ export default function App() {
             highlightInputs={highlightInputs}
             onSelectCell={setSelectedCell}
             onResetSettingsToDefaults={handleResetSettings}
+            googleSheetsEnabled={
+              toolkitSession === null ||
+              hasToolkitFeature(toolkitSession.session.entitlements, 'budget.googleSheets')
+            }
             googleUser={googleUser}
             googleToken={googleToken}
             onGoogleAuthSuccess={(user, token) => {
