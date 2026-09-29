@@ -326,7 +326,7 @@ export const GoogleSheetsSettingsCard: React.FC<GoogleSheetsSettingsCardProps> =
           </p>
           <button
             type="button"
-            onClick={handleConnectGoogle}
+            onClick={handleReconnectGoogle}
             disabled={isLoading}
             className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
           >
