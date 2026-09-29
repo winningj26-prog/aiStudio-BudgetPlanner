@@ -59,7 +59,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onGoogleLogin }) => {
           <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-4">
             <div>
               <h2 className="text-lg font-bold text-white">Sign In</h2>
-              <p className="text-xs text-slate-300">Use your Google account to access your personal workbook.</p>
+              <p className="text-xs text-slate-300">Use your Google account to sign in and authorize Google Sheets access once.</p>
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 border border-emerald-400/30">
               <ShieldCheck className="h-3.5 w-3.5" />
@@ -79,7 +79,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onGoogleLogin }) => {
               <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.13z" />
               <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.27 2.57 1.25 6.58l4.03 3.13c.95-2.83 3.6-4.96 6.72-4.96z" />
             </svg>
-            <span>{isGoogleLoading ? 'Connecting Google Account...' : 'Continue with Google'}</span>
+            <span>{isGoogleLoading ? 'Authorizing Google access...' : 'Continue with Google'}</span>
             {!isGoogleLoading && <ArrowRight className="h-4 w-4" />}
           </button>
 
