@@ -58,11 +58,10 @@ import { CalendarViewSheet } from './components/worksheets/CalendarViewSheet';
 import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
 
 export default function App() {
-  clearLegacyV1Storage();
-  // Authentication state: users start signed out and authenticate with Google
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() =>
-    loadFromStorage<boolean>(STORAGE_KEYS.IS_LOGGED_IN, false)
-  );
+  // Authentication is owned by Firebase. Local storage is only used for workbook
+  // preferences/data and must never be treated as proof of identity.
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [userEmail, setUserEmail] = useState<string>(() =>
     loadFromStorage<string>(STORAGE_KEYS.USER_EMAIL, '')
   );
@@ -186,10 +185,6 @@ export default function App() {
   }, [userEmail]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.IS_LOGGED_IN, isLoggedIn);
-  }, [isLoggedIn]);
-
-  useEffect(() => {
     saveToStorage(STORAGE_KEYS.ACTIVE_TAB, activeTab);
   }, [activeTab]);
 
@@ -207,10 +202,16 @@ export default function App() {
 
   // Listen to Firebase/Google Auth state changes
   useEffect(() => {
+    clearLegacyV1Storage();
+  }, []);
+
+  useEffect(() => {
     const unsubscribe = initAuth(
       (user, token) => {
         setGoogleUser(user);
         setGoogleToken(token);
+        setIsLoggedIn(true);
+        setAuthReady(true);
         if (user.email) {
           setUserEmail(user.email);
         }
@@ -218,6 +219,8 @@ export default function App() {
       () => {
         setGoogleUser(null);
         setGoogleToken(null);
+        setIsLoggedIn(false);
+        setAuthReady(true);
       }
     );
     return () => unsubscribe();
@@ -317,14 +320,28 @@ export default function App() {
     });
   };
 
-  // 1. If not logged in, render the Login Screen
+  // 1. Wait for Firebase to restore/check the durable Google session before
+  // rendering either the login screen or the workbook.
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
+        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
+          <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+          <p className="text-sm font-semibold text-slate-800">Restoring your workspace…</p>
+          <p className="mt-1 text-xs text-slate-500">Checking your Google account session.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. If not logged in, render the Login Screen
   if (!isLoggedIn) {
     return (
       <LoginView onGoogleLogin={handleGoogleLogin} />
     );
   }
 
-  // 2. If activeTab is 'start_here', render the dedicated Home Landing Page
+  // 3. If activeTab is 'start_here', render the dedicated Home Landing Page
   // (Completely outside the Excel dashboard shell and dashboard header)
   if (activeTab === 'start_here') {
     return (
@@ -337,7 +354,7 @@ export default function App() {
     );
   }
 
-  // 3. Otherwise, the user is inside the Dashboard / Workbook worksheets
+  // 4. Otherwise, the user is inside the Dashboard / Workbook worksheets
   // (Renders the Sidebar Menu, Formula Bar, and Active Worksheet Viewport)
   return (
     <div className="flex min-h-screen flex-col lg:flex-row bg-slate-100 font-sans text-slate-900 antialiased selection:bg-blue-200">
