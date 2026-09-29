@@ -34,6 +34,7 @@ import {
   STORAGE_KEYS,
   loadFromStorage,
   saveToStorage,
+  clearLegacyV1Storage,
 } from './utils/storage';
 import { User } from 'firebase/auth';
 import { initAuth } from './services/googleAuth';
@@ -57,6 +58,7 @@ import { CalendarViewSheet } from './components/worksheets/CalendarViewSheet';
 import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
 
 export default function App() {
+  clearLegacyV1Storage();
   // Authentication state: users start signed out and authenticate with Google
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() =>
     loadFromStorage<boolean>(STORAGE_KEYS.IS_LOGGED_IN, false)
