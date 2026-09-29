@@ -562,6 +562,55 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
               </p>
             </div>
 
+            {/* Secondary Currency (KPI Cards Converted Display) */}
+            <div className="space-y-1.5 p-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/50 sm:col-span-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="settings-enable-secondary"
+                  checked={settings.enableSecondaryCurrency || false}
+                  onChange={(e) =>
+                    handleUpdateSettingField(
+                      { enableSecondaryCurrency: e.target.checked },
+                      `Secondary currency conversion (${e.target.checked ? 'Enabled' : 'Disabled'})`
+                    )
+                  }
+                  className="h-4 w-4 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <label htmlFor="settings-enable-secondary" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                  Display converted secondary currency in Dashboard KPI cards
+                </label>
+              </div>
+
+              {settings.enableSecondaryCurrency && (
+                <div className="mt-2.5 space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <label htmlFor="settings-secondary-currency" className="text-xs font-semibold text-slate-600 block">
+                    Select Secondary Currency
+                  </label>
+                  <select
+                    id="settings-secondary-currency"
+                    value={settings.secondaryCurrency || 'EUR'}
+                    onChange={(e) =>
+                      handleUpdateSettingField(
+                        { secondaryCurrency: e.target.value as CurrencyCode },
+                        `Secondary Currency (${e.target.value})`
+                      )
+                    }
+                    className={`w-full sm:w-64 rounded-lg border px-3 py-2 text-xs font-semibold text-slate-800 shadow-2xs focus:border-blue-500 focus:outline-hidden ${inputCellClass}`}
+                  >
+                    {Object.entries(CURRENCIES).map(([code, item]) => (
+                      <option key={code} value={code}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400">
+                    When active, your KPI cards on the dashboard will displayconverted values in this secondary currency right below the main totals.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Date Format */}
             <div
               onClick={() =>

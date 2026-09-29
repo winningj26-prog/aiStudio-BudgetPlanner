@@ -39,6 +39,14 @@ export function formatPercent(value: number, decimals: number = 1): string {
   return `${value.toFixed(decimals)}%`;
 }
 
+export function convertCurrency(amount: number, from: CurrencyCode, to: CurrencyCode): number {
+  if (from === to) return amount;
+  const fromRate = CURRENCIES[from]?.rate || 1;
+  const toRate = CURRENCIES[to]?.rate || 1;
+  const usdAmount = amount / fromRate;
+  return usdAmount * toRate;
+}
+
 export function formatDate(dateStr: string, format: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD' = 'MM/DD/YYYY'): string {
   if (!dateStr) return '';
   const parts = dateStr.split('-');

@@ -13,6 +13,8 @@ export const INITIAL_SETTINGS: SettingsState = {
   month: 'January',
   year: 2026,
   dateFormat: 'MM/DD/YYYY',
+  secondaryCurrency: 'EUR',
+  enableSecondaryCurrency: false,
 };
 
 export const INITIAL_INCOME_CATEGORIES: CategoryItem[] = [

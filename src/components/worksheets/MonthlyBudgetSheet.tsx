@@ -31,6 +31,7 @@ import {
   TrendingUp,
   Wallet,
   XCircle,
+  Plus,
 } from 'lucide-react';
 
 interface MonthlyBudgetSheetProps {
@@ -45,6 +46,8 @@ interface MonthlyBudgetSheetProps {
   settings: SettingsState;
   highlightInputs: boolean;
   onSelectCell: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
+  onUpdateIncomeCategories?: (categories: CategoryItem[]) => void;
+  onUpdateExpenseCategories?: (categories: CategoryItem[]) => void;
 }
 
 export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
@@ -59,17 +62,160 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
   settings,
   highlightInputs,
   onSelectCell,
+  onUpdateIncomeCategories,
+  onUpdateExpenseCategories,
 }) => {
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'expenses' | 'income'>('expenses');
+  const [budgetFrequency, setBudgetFrequency] = useState<'yearly' | 'quarterly' | 'monthly' | 'weekly' | 'daily'>('monthly');
+
+  // New Category Budget Creation State
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createCatName, setCreateCatName] = useState('');
+  const [createCatPlanned, setCreateCatPlanned] = useState('');
+
+  const handleCreateCategoryBudget = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = createCatName.trim();
+    if (!name) return;
+    const plannedVal = parseFloat(createCatPlanned) || 0;
+
+    const newCategory: CategoryItem = {
+      id: `${activeTab === 'income' ? 'inc' : 'exp'}_${Date.now()}`,
+      name,
+      isActive: true,
+    };
+
+    if (activeTab === 'income') {
+      if (onUpdateIncomeCategories) {
+        if (incomeCategories.some(c => c.name.toLowerCase().trim() === name.toLowerCase().trim())) {
+          alert('A category with this name already exists.');
+          return;
+        }
+        onUpdateIncomeCategories([...incomeCategories, newCategory]);
+      }
+      const baseMonthlyVal = plannedVal / scaleFactor;
+      onUpdatePlannedIncome({ ...plannedIncome, [name]: baseMonthlyVal });
+    } else {
+      if (onUpdateExpenseCategories) {
+        if (expenseCategories.some(c => c.name.toLowerCase().trim() === name.toLowerCase().trim())) {
+          alert('A category with this name already exists.');
+          return;
+        }
+        onUpdateExpenseCategories([...expenseCategories, newCategory]);
+      }
+      const baseMonthlyVal = plannedVal / scaleFactor;
+      onUpdatePlannedExpenses({ ...plannedExpenses, [name]: baseMonthlyVal });
+    }
+
+    setCreateCatName('');
+    setCreateCatPlanned('');
+    setShowCreateForm(false);
+  };
+
+  // Date and Scaling calculations based on selected budget frequency
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const monthIndex = monthNames.indexOf(settings.month);
+  
+  // Base date is the 15th of the active month to avoid timezone edge cases
+  const baseDate = new Date(settings.year, monthIndex, 15);
+
+  let startDate: Date;
+  let endDate: Date;
+  let scaleFactor = 1;
+  let periodLabel = '';
+
+  if (budgetFrequency === 'yearly') {
+    startDate = new Date(settings.year, 0, 1);
+    endDate = new Date(settings.year, 11, 31, 23, 59, 59);
+    scaleFactor = 12;
+    periodLabel = `Year ${settings.year}`;
+  } else if (budgetFrequency === 'quarterly') {
+    const quarter = Math.floor(monthIndex / 3) + 1; // 1, 2, 3, 4
+    const qStartMonth = (quarter - 1) * 3;
+    const qEndMonth = quarter * 3 - 1;
+    startDate = new Date(settings.year, qStartMonth, 1);
+    endDate = new Date(settings.year, qEndMonth + 1, 0, 23, 59, 59); // last day of quarter
+    scaleFactor = 3;
+    periodLabel = `Q${quarter} ${settings.year}`;
+  } else if (budgetFrequency === 'weekly') {
+    const dayOfWeek = baseDate.getDay();
+    const distanceToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    startDate = new Date(baseDate);
+    startDate.setDate(baseDate.getDate() + distanceToMonday);
+    startDate.setHours(0, 0, 0, 0);
+
+    endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    endDate.setHours(23, 59, 59, 999);
+    scaleFactor = 7 / 30.4375;
+    
+    const formatLabelDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    periodLabel = `Week of ${formatLabelDate(startDate)} - ${formatLabelDate(endDate)}`;
+  } else if (budgetFrequency === 'daily') {
+    const today = new Date();
+    if (today.getFullYear() === settings.year && today.getMonth() === monthIndex) {
+      startDate = new Date(today);
+    } else {
+      startDate = new Date(settings.year, monthIndex, 1);
+    }
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(startDate);
+    endDate.setHours(23, 59, 59, 999);
+    scaleFactor = 1 / 30.4375;
+    periodLabel = startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  } else {
+    // monthly (default)
+    startDate = new Date(settings.year, monthIndex, 1);
+    endDate = new Date(settings.year, monthIndex + 1, 0, 23, 59, 59);
+    scaleFactor = 1;
+    periodLabel = `${settings.month} ${settings.year}`;
+  }
+
+  const formatISO = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const startDateStr = formatISO(startDate);
+  const endDateStr = formatISO(endDate);
+
+  const sumIncomeInPeriod = (category: string) => {
+    return incomeTransactions
+      .filter((tx) => {
+        return (
+          tx.category.toLowerCase().trim() === category.toLowerCase().trim() &&
+          tx.date >= startDateStr &&
+          tx.date <= endDateStr
+        );
+      })
+      .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+  };
+
+  const sumExpensesInPeriod = (category: string) => {
+    return expenseTransactions
+      .filter((tx) => {
+        return (
+          tx.category.toLowerCase().trim() === category.toLowerCase().trim() &&
+          tx.date >= startDateStr &&
+          tx.date <= endDateStr
+        );
+      })
+      .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+  };
 
   // 1. Build Income Budget Items
   const incomeItems: BudgetItem[] = incomeCategories
     .filter((c) => c.isActive)
     .map((cat) => {
-      const planned = plannedIncome[cat.name] || 0;
-      const actual = sumIncomeByCategory(incomeTransactions, cat.name);
+      const planned = (plannedIncome[cat.name] || 0) * scaleFactor;
+      const actual = sumIncomeInPeriod(cat.name);
       return calculateBudgetItem(cat.name, 'income', planned, actual);
     });
 
@@ -77,18 +223,18 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
   const expenseItems: BudgetItem[] = expenseCategories
     .filter((c) => c.isActive)
     .map((cat) => {
-      const planned = plannedExpenses[cat.name] || 0;
-      const actual = sumExpensesByCategory(expenseTransactions, cat.name);
+      const planned = (plannedExpenses[cat.name] || 0) * scaleFactor;
+      const actual = sumExpensesInPeriod(cat.name);
       return calculateBudgetItem(cat.name, 'expense', planned, actual);
     });
 
-  // Overall Totals
-  const totalPlannedIncome = Object.values(plannedIncome).reduce((a, b) => a + b, 0);
-  const totalActualIncome = sumIncomeTransactions(incomeTransactions);
+  // Overall Totals derived from calculated frequency budget items
+  const totalPlannedIncome = incomeItems.reduce((sum, item) => sum + item.planned, 0);
+  const totalActualIncome = incomeItems.reduce((sum, item) => sum + item.actual, 0);
   const incomeDiff = totalActualIncome - totalPlannedIncome;
 
-  const totalPlannedExpenses = Object.values(plannedExpenses).reduce((a, b) => a + b, 0);
-  const totalActualExpenses = sumExpenseTransactions(expenseTransactions);
+  const totalPlannedExpenses = expenseItems.reduce((sum, item) => sum + item.planned, 0);
+  const totalActualExpenses = expenseItems.reduce((sum, item) => sum + item.actual, 0);
   const expenseDiff = totalPlannedExpenses - totalActualExpenses; // positive is under-budget
 
   const plannedSavings = totalPlannedIncome - totalPlannedExpenses;
@@ -104,12 +250,13 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
   };
 
   const savePlanned = (category: string, type: 'income' | 'expense') => {
-    const val = parseFloat(tempValue);
-    if (!isNaN(val) && val >= 0) {
+    const enteredVal = parseFloat(tempValue);
+    if (!isNaN(enteredVal) && enteredVal >= 0) {
+      const baseMonthlyVal = enteredVal / scaleFactor;
       if (type === 'income') {
-        onUpdatePlannedIncome({ ...plannedIncome, [category]: val });
+        onUpdatePlannedIncome({ ...plannedIncome, [category]: baseMonthlyVal });
       } else {
-        onUpdatePlannedExpenses({ ...plannedExpenses, [category]: val });
+        onUpdatePlannedExpenses({ ...plannedExpenses, [category]: baseMonthlyVal });
       }
     }
     setEditingCategory(null);
@@ -154,20 +301,41 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-              5. Monthly Budget Overview (Plan vs. Actual)
+              5. Budget Overview (Plan vs. Actual)
             </h2>
             <span className="rounded-md bg-blue-100 px-2 py-0.5 font-mono text-xs font-semibold text-blue-800">
               tbl_Budget
             </span>
           </div>
-          <p className="text-xs text-slate-500 sm:text-sm">
-            Compare planned allocations against actual revenue and expenditures for {settings.month} {settings.year}.
+          <p className="text-xs text-slate-500 sm:text-sm mt-1">
+            Compare planned limits against actual cashflow and deposits for your selected period frequency.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <Calendar className="h-4 w-4 text-slate-400" />
-          <span>Active Month: <strong>{settings.month} {settings.year}</strong></span>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          {/* Active Period Range display */}
+          <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg shadow-3xs">
+            <Calendar className="h-4 w-4 text-slate-400 shrink-0" />
+            <span>Scope: <strong className="text-slate-800">{periodLabel}</strong></span>
+          </div>
+
+          {/* Frequency Switcher Segmented Control */}
+          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-3xs text-xs">
+            {(['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as const).map((freq) => (
+              <button
+                key={freq}
+                type="button"
+                onClick={() => setBudgetFrequency(freq)}
+                className={`px-2.5 py-1 font-bold rounded-md capitalize transition-all cursor-pointer whitespace-nowrap ${
+                  budgetFrequency === freq
+                    ? 'bg-white text-blue-600 shadow-3xs font-black'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {freq}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -370,30 +538,89 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
         </div>
 
         {/* Tab Controls (Zero-Pill underline discipline) */}
-        <div className="flex border-b border-slate-200 bg-slate-50/40 px-4">
+        <div className="flex flex-wrap items-center justify-between border-b border-slate-200 bg-slate-50/40 px-4 gap-2">
+          <div className="flex">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('expenses');
+                setShowCreateForm(false);
+              }}
+              className={`px-4 py-3.5 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                activeTab === 'expenses'
+                  ? 'border-blue-600 text-blue-600 font-extrabold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Expense Budgets ({expenseItems.length} Categories)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('income');
+                setShowCreateForm(false);
+              }}
+              className={`px-4 py-3.5 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                activeTab === 'income'
+                  ? 'border-blue-600 text-blue-600 font-extrabold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Income Targets ({incomeItems.length} Categories)
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={() => setActiveTab('expenses')}
-            className={`px-4 py-3.5 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
-              activeTab === 'expenses'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 text-xs font-bold transition-all shadow-3xs cursor-pointer my-1.5 animate-pulse"
           >
-            Expense Budgets ({expenseItems.length} Categories)
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('income')}
-            className={`px-4 py-3.5 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
-              activeTab === 'income'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Income Targets ({incomeItems.length} Categories)
+            <Plus className="h-3.5 w-3.5" />
+            <span>{showCreateForm ? 'Cancel Creation' : `Create ${activeTab === 'income' ? 'Income' : 'Expense'} Budget`}</span>
           </button>
         </div>
+
+        {/* Expandable creation form */}
+        {showCreateForm && (
+          <form onSubmit={handleCreateCategoryBudget} className="flex flex-wrap items-end gap-3 p-4 bg-blue-50/30 border-b border-slate-200 animate-in slide-in-from-top-1 duration-150">
+            <div className="flex-1 min-w-[180px] space-y-1">
+              <label htmlFor="create-cat-name" className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                Category Name
+              </label>
+              <input
+                id="create-cat-name"
+                type="text"
+                required
+                placeholder={activeTab === 'income' ? "e.g. Consulting, Dividends..." : "e.g. Subscriptions, Pet Care..."}
+                value={createCatName}
+                onChange={(e) => setCreateCatName(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div className="w-40 space-y-1">
+              <label htmlFor="create-cat-planned" className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                Planned Amount ({settings.currency})
+              </label>
+              <input
+                id="create-cat-planned"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={createCatPlanned}
+                onChange={(e) => setCreateCatPlanned(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:outline-hidden text-right"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-2xs hover:shadow-xs cursor-pointer h-[34px]"
+            >
+              Add Budget Category
+            </button>
+          </form>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[650px]">

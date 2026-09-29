@@ -12,6 +12,7 @@ export interface KPITrend {
 interface KPICardProps {
   title: string;
   value: string;
+  secondaryValue?: string;
   subtitle?: string;
   icon: React.ReactNode;
   theme?: 'green' | 'red' | 'blue' | 'purple' | 'orange' | 'neutral';
@@ -23,6 +24,7 @@ interface KPICardProps {
 export const KPICard: React.FC<KPICardProps> = ({
   title,
   value,
+  secondaryValue,
   subtitle,
   icon,
   theme = 'blue',
@@ -109,8 +111,15 @@ export const KPICard: React.FC<KPICardProps> = ({
 
       <div className="mt-2.5">
         <div className="flex flex-wrap items-baseline justify-between gap-1.5">
-          <div className={`text-xl sm:text-2xl font-bold tracking-tight ${style.valueColor}`}>
-            {value}
+          <div>
+            <div className={`text-xl sm:text-2xl font-bold tracking-tight ${style.valueColor}`}>
+              {value}
+            </div>
+            {secondaryValue && (
+              <div className="text-[11px] font-bold text-slate-400 font-mono tracking-tight mt-0.5" title="Converted secondary currency value">
+                ≈ {secondaryValue}
+              </div>
+            )}
           </div>
 
           {trend && (

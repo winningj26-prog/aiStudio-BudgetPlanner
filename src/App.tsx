@@ -402,6 +402,8 @@ export default function App() {
             onUpdateSavingsGoals={setSavingsGoals}
             debts={debts}
             recurringTransactions={recurringTransactions}
+            onUpdateIncomeTransactions={setIncomeTransactions}
+            onUpdateExpenseTransactions={setExpenseTransactions}
           />
         )}
 
@@ -455,6 +457,8 @@ export default function App() {
             settings={settings}
             highlightInputs={highlightInputs}
             onSelectCell={setSelectedCell}
+            onUpdateIncomeCategories={setIncomeCategories}
+            onUpdateExpenseCategories={setExpenseCategories}
           />
         )}
 

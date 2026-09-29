@@ -30,7 +30,7 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   onUpdateSettings,
 }) => {
   return (
-    <div className="flex flex-wrap items-center justify-between border-b border-slate-200 bg-slate-100/90 px-3 sm:px-4 py-1.5 text-xs text-slate-700 gap-2">
+    <header className="flex flex-wrap items-center justify-between border-b border-slate-200 bg-slate-100/90 px-3 sm:px-4 py-1.5 text-xs text-slate-700 gap-2">
       {/* Formula Bar Left: Cell Name Box + fx + Formula */}
       <div className="flex flex-1 min-w-0 items-center gap-2 py-0.5">
         {/* Cell Reference Box */}
@@ -138,6 +138,6 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
           <span>Export</span>
         </button>
       </div>
-    </div>
+    </header>
   );
 };

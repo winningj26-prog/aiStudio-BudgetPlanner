@@ -11,7 +11,7 @@ import {
 } from '../../types/budget';
 import { SavingsGoalsTracker } from '../SavingsGoalsTracker';
 import { NetWorthForecaster } from './NetWorthForecaster';
-import { formatCurrency, formatDate, formatPercent } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatPercent, convertCurrency } from '../../utils/formatters';
 import {
   sumExpenseTransactions,
   sumExpensesByCategory,
@@ -48,6 +48,7 @@ import {
   Wallet,
   Bell,
   BellRing,
+  Plus,
 } from 'lucide-react';
 
 interface DashboardSheetProps {
@@ -66,6 +67,8 @@ interface DashboardSheetProps {
   onUpdateSavingsGoals: (goals: SavingsGoal[]) => void;
   debts: Debt[];
   recurringTransactions?: RecurringTransaction[];
+  onUpdateIncomeTransactions?: (transactions: IncomeTransaction[]) => void;
+  onUpdateExpenseTransactions?: (transactions: ExpenseTransaction[]) => void;
 }
 
 export const DashboardSheet: React.FC<DashboardSheetProps> = ({
@@ -84,6 +87,8 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   onUpdateSavingsGoals,
   debts,
   recurringTransactions = [],
+  onUpdateIncomeTransactions,
+  onUpdateExpenseTransactions,
 }) => {
   const [isLocalExportModalOpen, setIsLocalExportModalOpen] = useState(false);
 
@@ -92,6 +97,74 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
 
   // Notification center dismissed list
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
+
+  // Quick Add State variables
+  const getTodayFormatted = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [quickAddType, setQuickAddType] = useState<'income' | 'expense'>('expense');
+  const [quickAddDate, setQuickAddDate] = useState(getTodayFormatted());
+  const [quickAddCategory, setQuickAddCategory] = useState('');
+  const [quickAddDescription, setQuickAddDescription] = useState('');
+  const [quickAddAmount, setQuickAddAmount] = useState('');
+  const [quickAddPaymentMethod, setQuickAddPaymentMethod] = useState(paymentMethods[0] || 'Cash');
+
+  useEffect(() => {
+    if (quickAddType === 'income') {
+      setQuickAddCategory(incomeCategories[0]?.name || '');
+    } else {
+      setQuickAddCategory(categories[0]?.name || '');
+    }
+  }, [quickAddType, categories, incomeCategories, isQuickAddOpen]);
+
+  const handleQuickAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountVal = parseFloat(quickAddAmount);
+    if (isNaN(amountVal) || amountVal <= 0) {
+      alert('Please enter a valid positive amount.');
+      return;
+    }
+    if (!quickAddCategory) {
+      alert('Please select a category.');
+      return;
+    }
+
+    if (quickAddType === 'income') {
+      const newTx: IncomeTransaction = {
+        id: `inc_qa_${Date.now()}`,
+        date: quickAddDate,
+        category: quickAddCategory,
+        description: quickAddDescription.trim() || `${quickAddCategory} Transaction`,
+        amount: amountVal,
+      };
+      if (onUpdateIncomeTransactions) {
+        onUpdateIncomeTransactions([...incomeTransactions, newTx]);
+      }
+    } else {
+      const newTx: ExpenseTransaction = {
+        id: `exp_qa_${Date.now()}`,
+        date: quickAddDate,
+        category: quickAddCategory,
+        description: quickAddDescription.trim() || `${quickAddCategory} Transaction`,
+        amount: amountVal,
+        paymentMethod: quickAddPaymentMethod,
+      };
+      if (onUpdateExpenseTransactions) {
+        onUpdateExpenseTransactions([...expenseTransactions, newTx]);
+      }
+    }
+
+    // Reset fields and close modal
+    setQuickAddDescription('');
+    setQuickAddAmount('');
+    setIsQuickAddOpen(false);
+  };
 
   // In-app Notifications logic
   const notifications = useMemo(() => {
@@ -282,6 +355,13 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   const prevRemainingBudget = totalPlannedExpenses - prevMonthSummary.expenses;
   const remainingBudgetDiff = remainingBudget - prevRemainingBudget;
   const isBudgetImproved = remainingBudgetDiff >= 0;
+
+  // Secondary currency helper for KPI cards
+  const getSecondaryValue = (amount: number): string | undefined => {
+    if (!settings.enableSecondaryCurrency || !settings.secondaryCurrency) return undefined;
+    const converted = convertCurrency(amount, settings.currency, settings.secondaryCurrency);
+    return formatCurrency(converted, settings.secondaryCurrency);
+  };
 
   // Expense breakdown data for donut chart
   const expenseBreakdown = categories
@@ -509,6 +589,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         <KPICard
           title="Total Income"
           value={formatCurrency(totalIncome, settings.currency)}
+          secondaryValue={getSecondaryValue(totalIncome)}
           subtitle={`vs. ${prevMonthSummary.month} (${formatCurrency(prevMonthSummary.income, settings.currency)})`}
           icon={<Wallet className="h-5 w-5" />}
           theme="green"
@@ -532,6 +613,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         <KPICard
           title="Total Expenses"
           value={formatCurrency(totalExpenses, settings.currency)}
+          secondaryValue={getSecondaryValue(totalExpenses)}
           subtitle={`vs. ${prevMonthSummary.month} (${formatCurrency(prevMonthSummary.expenses, settings.currency)})`}
           icon={<Receipt className="h-5 w-5" />}
           theme="red"
@@ -555,6 +637,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         <KPICard
           title="Savings"
           value={formatCurrency(savings, settings.currency)}
+          secondaryValue={getSecondaryValue(savings)}
           subtitle={`vs. ${prevMonthSummary.month} (${formatCurrency(prevMonthSummary.savings, settings.currency)})`}
           icon={<PiggyBank className="h-5 w-5" />}
           theme="blue"
@@ -601,6 +684,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         <KPICard
           title="Remaining Budget"
           value={formatCurrency(remainingBudget, settings.currency)}
+          secondaryValue={getSecondaryValue(remainingBudget)}
           subtitle={remainingBudget >= 0 ? 'Under planned limit' : 'Over planned limit'}
           icon={<CheckCircle2 className="h-5 w-5" />}
           theme={remainingBudget >= 0 ? 'green' : 'red'}
@@ -1082,6 +1166,186 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
       currentMonthlyExpenses={totalExpenses}
       onSelectCell={onSelectCell}
     />
+  )}
+
+  {/* Floating Action Button (FAB) for Quick Add */}
+  <div className="fixed bottom-6 right-6 z-40">
+    <button
+      type="button"
+      onClick={() => setIsQuickAddOpen(true)}
+      className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 cursor-pointer group"
+      title="Quick Add Transaction"
+    >
+      <Plus className="h-6 w-6 transition-transform group-hover:rotate-90 duration-200" />
+    </button>
+  </div>
+
+  {/* Quick Add Modal */}
+  {isQuickAddOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs transition-opacity duration-200"
+        onClick={() => setIsQuickAddOpen(false)}
+      />
+
+      {/* Modal Card */}
+      <div className="relative flex flex-col w-full max-w-md bg-white rounded-2xl shadow-2xl p-5 border border-slate-200 z-50 animate-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <h3 className="text-sm sm:text-base font-extrabold text-slate-800 uppercase tracking-wide">
+            Quick Add Transaction
+          </h3>
+          <button
+            type="button"
+            onClick={() => setIsQuickAddOpen(false)}
+            className="text-slate-400 hover:text-slate-600 font-bold p-1 hover:bg-slate-100 rounded-lg text-sm"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleQuickAddSubmit} className="space-y-4">
+          {/* Type Switcher (Clean button segments) */}
+          <div>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1.5">
+              Transaction Type
+            </span>
+            <div className="flex bg-slate-100 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setQuickAddType('expense')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${
+                  quickAddType === 'expense'
+                    ? 'bg-white text-rose-600 shadow-3xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Expense
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickAddType('income')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${
+                  quickAddType === 'income'
+                    ? 'bg-white text-emerald-600 shadow-3xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Income
+              </button>
+            </div>
+          </div>
+
+          {/* Amount & Date Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label htmlFor="qa-amount" className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Amount ({settings.currency})
+              </label>
+              <input
+                id="qa-amount"
+                type="number"
+                step="0.01"
+                required
+                placeholder="0.00"
+                value={quickAddAmount}
+                onChange={(e) => setQuickAddAmount(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="qa-date" className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Date
+              </label>
+              <input
+                id="qa-date"
+                type="date"
+                required
+                value={quickAddDate}
+                onChange={(e) => setQuickAddDate(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:outline-hidden"
+              />
+            </div>
+          </div>
+
+          {/* Category & Payment Method Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label htmlFor="qa-category" className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Category
+              </label>
+              <select
+                id="qa-category"
+                required
+                value={quickAddCategory}
+                onChange={(e) => setQuickAddCategory(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:outline-hidden cursor-pointer"
+              >
+                {quickAddType === 'income'
+                  ? incomeCategories.filter(c => c.isActive).map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))
+                  : categories.filter(c => c.isActive).map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))
+                }
+              </select>
+            </div>
+
+            {quickAddType === 'expense' && (
+              <div className="space-y-1">
+                <label htmlFor="qa-payment" className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                  Payment Method
+                </label>
+                <select
+                  id="qa-payment"
+                  value={quickAddPaymentMethod}
+                  onChange={(e) => setQuickAddPaymentMethod(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:outline-hidden cursor-pointer"
+                >
+                  {paymentMethods.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1">
+            <label htmlFor="qa-description" className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+              Description
+            </label>
+            <input
+              id="qa-description"
+              type="text"
+              placeholder="e.g. Weekly grocery stock, salary bonus..."
+              value={quickAddDescription}
+              onChange={(e) => setQuickAddDescription(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:outline-hidden"
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2.5 pt-2">
+            <button
+              type="button"
+              onClick={() => setIsQuickAddOpen(false)}
+              className="flex-1 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-2xs hover:shadow-sm cursor-pointer"
+            >
+              Add Transaction
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   )}
 
   {/* Offline Backup Export Modal */}

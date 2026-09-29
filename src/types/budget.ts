@@ -96,6 +96,8 @@ export interface SettingsState {
   month: string;
   year: number;
   dateFormat: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
+  secondaryCurrency?: CurrencyCode;
+  enableSecondaryCurrency?: boolean;
 }
 
 export type WorksheetTab =
