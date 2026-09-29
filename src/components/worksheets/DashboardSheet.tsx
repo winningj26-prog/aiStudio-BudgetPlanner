@@ -397,10 +397,10 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Key Metric Indicators and Offline Backup Action */}
+          {/* Right Column: Key Metric Indicators */}
           <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch sm:items-center lg:items-end xl:items-center gap-2.5 shrink-0 pt-2 lg:pt-0 border-t border-slate-200/60 lg:border-t-0">
-            {/* Quick Metrics Capsule on Tablet/Desktop */}
-            <div className="hidden md:flex items-center gap-3 rounded-xl border border-slate-200 bg-white/95 px-3.5 py-2 shadow-2xs text-xs">
+            {/* Quick Metrics Capsule */}
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white/95 px-3.5 py-2 shadow-2xs text-xs">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Cashflow</span>
                 <span className={`font-black text-sm ${savings >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
@@ -415,20 +415,6 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
                 </span>
               </div>
             </div>
-
-            {/* Offline Backup Download Button */}
-            <button
-              type="button"
-              onClick={handleTriggerExport}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 px-4 py-2.5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-sm hover:shadow-md transition-all cursor-pointer group"
-              title="Download entire workbook as an Excel (.xlsx) or Structured CSV (.csv) file"
-            >
-              <HardDriveDownload className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
-              <span>Download Backup</span>
-              <span className="rounded-md bg-blue-500/80 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-blue-50">
-                XLSX / CSV
-              </span>
-            </button>
           </div>
         </div>
       </div>

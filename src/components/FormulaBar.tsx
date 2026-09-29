@@ -1,6 +1,7 @@
 import React from 'react';
-import { Eye, Download, Home } from 'lucide-react';
-import { WorksheetTab } from '../types/budget';
+import { Eye, Download, Home, CalendarDays } from 'lucide-react';
+import { WorksheetTab, SettingsState, CurrencyCode } from '../types/budget';
+import { CURRENCIES, MONTHS } from '../utils/formatters';
 
 interface FormulaBarProps {
   selectedCell: {
@@ -14,6 +15,8 @@ interface FormulaBarProps {
   onExportData: () => void;
   activeTab?: WorksheetTab;
   onGoHome?: () => void;
+  settings: SettingsState;
+  onUpdateSettings: (newSettings: Partial<SettingsState>) => void;
 }
 
 export const FormulaBar: React.FC<FormulaBarProps> = ({
@@ -23,6 +26,8 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   onExportData,
   activeTab,
   onGoHome,
+  settings,
+  onUpdateSettings,
 }) => {
   return (
     <div className="flex flex-wrap items-center justify-between border-b border-slate-200 bg-slate-100/90 px-3 sm:px-4 py-1.5 text-xs text-slate-700 gap-2">
@@ -51,14 +56,55 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
 
         {/* Cell nature badge */}
         <span
-          className={`hidden md:inline-flex shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold ${
-            selectedCell.isCalculated
-              ? 'bg-blue-100 text-blue-800 border border-blue-200'
-              : 'bg-amber-100 text-amber-800 border border-amber-200'
-          }`}
+          className="hidden xl:inline-flex shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold bg-blue-100 text-blue-800 border border-blue-200"
         >
           {selectedCell.isCalculated ? 'Formula Cell' : 'Input Cell'}
         </span>
+      </div>
+
+      {/* Global Active Period Setup (Moved from Sidebar for cleaner workspace) */}
+      <div className="hidden md:flex items-center gap-2 lg:gap-3 px-3 py-1 bg-white/70 rounded-md border border-slate-200 shadow-3xs">
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Month</span>
+          <select
+            value={settings.month}
+            onChange={(e) => onUpdateSettings({ month: e.target.value })}
+            className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs font-bold text-slate-800 focus:border-blue-500 focus:outline-hidden cursor-pointer"
+          >
+            {MONTHS.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="h-4 w-px bg-slate-300" />
+
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Year</span>
+          <input
+            type="number"
+            value={settings.year}
+            onChange={(e) => onUpdateSettings({ year: Number(e.target.value) })}
+            className="w-16 rounded border border-slate-300 bg-white px-1 py-0.5 text-xs font-bold text-slate-800 focus:border-blue-500 focus:outline-hidden text-center cursor-pointer"
+          />
+        </div>
+
+        <div className="h-4 w-px bg-slate-300" />
+
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Currency</span>
+          <select
+            value={settings.currency}
+            onChange={(e) => onUpdateSettings({ currency: e.target.value as CurrencyCode })}
+            className="rounded border border-slate-300 bg-white px-1 py-0.5 text-xs font-bold text-slate-800 focus:border-blue-500 focus:outline-hidden cursor-pointer"
+          >
+            {Object.entries(CURRENCIES).map(([code, item]) => (
+              <option key={code} value={code}>
+                {item.symbol} ({code})
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Formula Bar Right: Cell Highlighting toggle & Workbook actions */}

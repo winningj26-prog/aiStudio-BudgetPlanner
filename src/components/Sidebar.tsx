@@ -9,18 +9,14 @@ import {
   CalendarDays,
   Settings as SettingsIcon,
   FileCode2,
-  HardDriveDownload,
   Menu,
   X,
   LogOut,
   User,
-  Check,
-  ChevronDown,
-  DollarSign,
-  Briefcase
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
-import { CurrencyCode, SettingsState, WorksheetTab } from '../types/budget';
-import { CURRENCIES, MONTHS } from '../utils/formatters';
+import { SettingsState, WorksheetTab } from '../types/budget';
 
 interface SidebarProps {
   activeTab: WorksheetTab;
@@ -36,12 +32,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
   settings,
-  onUpdateSettings,
   userEmail = '',
   onLogout,
-  onOpenExportModal,
 }) => {
   const [isOpenMobile, setIsOpenMobile] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems: { id: WorksheetTab; label: string; icon: React.ReactNode }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <PieChart className="h-4.5 w-4.5" /> },
@@ -60,199 +55,163 @@ export const Sidebar: React.FC<SidebarProps> = ({
     ? userEmail.split('@')[0].replace(/[._]/g, ' ')
     : userEmail;
   const capitalizedName = displayName
-    .split(' ')
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(' ');
+    ? displayName
+        .split(' ')
+        .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+        .join(' ')
+    : 'User';
 
   const handleNavClick = (id: WorksheetTab) => {
     onSelectTab(id);
     setIsOpenMobile(false);
   };
 
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-[#0c1f38] text-[#d1e2f3]">
-      {/* 1. Header App Branding Branding */}
-      <div className="p-5 border-b border-[#182f4d] flex items-center gap-3">
-        {/* logo */}
-        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center">
-          <svg
-            viewBox="0 0 56 48"
-            className="h-8 w-8 drop-shadow-xs animate-pulse"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <circle cx="28" cy="11" r="5" fill="#10b981" />
-            <path
-              d="M17 19C17 11.268 23.268 5 31 5C38.732 5 45 11.268 45 19"
-              stroke="#10b981"
-              strokeWidth="4"
-              strokeLinecap="round"
-            />
-            <rect
-              x="4"
-              y="14"
-              width="48"
-              height="32"
-              rx="9"
-              fill="#08182b"
-            />
-            <circle cx="44" cy="30" r="3" fill="#ffffff" />
-            <circle cx="44" cy="30" r="1.5" fill="#08182b" />
-          </svg>
-        </div>
-        <div>
-          <h1 className="text-xs sm:text-sm font-black tracking-tight text-white leading-tight uppercase font-sans">
-            Finance Manager
-          </h1>
-          <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest font-mono">
-            V2.5 Spreadsheet
-          </span>
-        </div>
-      </div>
+  const SidebarContent = ({ isDesktop = false }: { isDesktop?: boolean }) => {
+    const collapsed = isDesktop && isCollapsed;
 
-      {/* 2. Primary Navigation Links */}
-      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1.5 scrollbar-thin">
-        <span className="text-[9px] font-black text-[#5a7da0] px-3 uppercase tracking-wider block mb-2 select-none">
-          Worksheet Ledger
-        </span>
-        {navItems.map((item) => {
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => handleNavClick(item.id)}
-              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-xs font-black'
-                  : 'text-[#d1e2f3] hover:bg-[#152e4d]/80 hover:text-white'
-              }`}
-            >
-              <div className={isActive ? 'text-white' : 'text-[#7da9d6]'}>
-                {item.icon}
+    return (
+      <div className="flex flex-col h-full bg-[#0c1f38] text-[#d1e2f3] select-none">
+        {/* 1. Header App Branding & Collapse Toggle */}
+        <div className={`p-4 border-b border-[#182f4d] flex items-center ${collapsed ? 'justify-center' : 'justify-between'} gap-2`}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* Logo */}
+            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+              <svg
+                viewBox="0 0 56 48"
+                className="h-7 w-7 drop-shadow-xs"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle cx="28" cy="11" r="5" fill="#10b981" />
+                <path
+                  d="M17 19C17 11.268 23.268 5 31 5C38.732 5 45 11.268 45 19"
+                  stroke="#10b981"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                />
+                <rect x="4" y="14" width="48" height="32" rx="9" fill="#08182b" />
+                <circle cx="44" cy="30" r="3" fill="#ffffff" />
+                <circle cx="44" cy="30" r="1.5" fill="#08182b" />
+              </svg>
+            </div>
+
+            {!collapsed && (
+              <div className="min-w-0">
+                <h1 className="text-xs font-black tracking-tight text-white leading-tight uppercase font-sans">
+                  Finance Manager
+                </h1>
+                <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest font-mono block leading-none mt-0.5">
+                  Workbook V2.5
+                </span>
               </div>
-              <span className="truncate">{item.label}</span>
-            </button>
-          );
-        })}
-
-        {/* Home option */}
-        <button
-          onClick={() => handleNavClick('start_here')}
-          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-[#b5cbdf] hover:bg-[#152e4d]/60 hover:text-white transition-all cursor-pointer mt-4"
-        >
-          <span className="text-[#a0bacf]">🏠</span>
-          <span>Return Home</span>
-        </button>
-      </div>
-
-      {/* 3. Global Spreadsheet Controls (Currency, Month, Year) */}
-      <div className="p-4 border-t border-[#182f4d] bg-[#09172b]/50 space-y-3.5">
-        <span className="text-[9px] font-black text-[#5a7da0] uppercase tracking-wider block select-none leading-none">
-          Active Period Setup
-        </span>
-
-        {/* Currency Select */}
-        <div className="space-y-1">
-          <label htmlFor="currency-select" className="text-[10px] font-extrabold text-[#7da9d6] block uppercase tracking-wide">
-            Currency
-          </label>
-          <select
-            id="currency-select"
-            value={settings.currency}
-            onChange={(e) =>
-              onUpdateSettings({ currency: e.target.value as CurrencyCode })
-            }
-            className="w-full rounded border border-[#213f63] bg-[#0c1f38] px-2 py-1.5 text-xs font-bold text-white shadow-3xs focus:border-blue-500 focus:outline-hidden cursor-pointer"
-          >
-            {Object.entries(CURRENCIES).map(([code, item]) => (
-              <option key={code} value={code}>
-                {item.symbol} - {item.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Month Select */}
-        <div className="space-y-1">
-          <label htmlFor="month-select" className="text-[10px] font-extrabold text-[#7da9d6] block uppercase tracking-wide">
-            Spreadsheet Month
-          </label>
-          <select
-            id="month-select"
-            value={settings.month}
-            onChange={(e) => onUpdateSettings({ month: e.target.value })}
-            className="w-full rounded border border-[#213f63] bg-[#0c1f38] px-2 py-1.5 text-xs font-bold text-white shadow-3xs focus:border-blue-500 focus:outline-hidden cursor-pointer"
-          >
-            {MONTHS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Year Select */}
-        <div className="space-y-1">
-          <label htmlFor="year-select" className="text-[10px] font-extrabold text-[#7da9d6] block uppercase tracking-wide">
-            Calendar Year
-          </label>
-          <input
-            id="year-select"
-            type="number"
-            value={settings.year}
-            onChange={(e) => onUpdateSettings({ year: Number(e.target.value) })}
-            className="w-full rounded border border-[#213f63] bg-[#0c1f38] px-2 py-1.5 text-xs font-bold text-white shadow-3xs focus:border-blue-500 focus:outline-hidden cursor-pointer"
-          />
-        </div>
-
-        {/* Backup export button */}
-        {onOpenExportModal && (
-          <button
-            type="button"
-            onClick={onOpenExportModal}
-            className="w-full inline-flex h-9 items-center justify-center gap-2 rounded bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-xs font-black text-white shadow-xs transition-all cursor-pointer group"
-          >
-            <HardDriveDownload className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" />
-            <span>Download Backup</span>
-          </button>
-        )}
-      </div>
-
-      {/* 4. Bottom User profile card */}
-      <div className="p-4 border-t border-[#182f4d] bg-[#07172b]">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0 flex items-center gap-2.5">
-            <div className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-lg bg-[#152e4d] text-emerald-400 shadow-3xs">
-              <User className="h-4.5 w-4.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-xs font-black text-white block truncate leading-tight">
-                {capitalizedName}
-              </span>
-              <span className="text-[9px] font-bold text-slate-400 block truncate">
-                {userEmail}
-              </span>
-            </div>
+            )}
           </div>
-          {onLogout && (
+
+          {isDesktop && (
             <button
-              onClick={onLogout}
-              className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition-colors cursor-pointer"
-              title="Logout session"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="p-1 rounded bg-[#152e4d] hover:bg-[#1c3a5e] text-[#d1e2f3] hover:text-white transition-all cursor-pointer"
+              title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
             >
-              <LogOut className="h-4 w-4" />
+              {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
             </button>
           )}
         </div>
+
+        {/* 2. Primary Navigation Links */}
+        <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1 scrollbar-none">
+          {!collapsed && (
+            <span className="text-[9px] font-black text-[#5a7da0] px-3 uppercase tracking-wider block mb-2 select-none">
+              Worksheet Ledger
+            </span>
+          )}
+
+          <div className="space-y-1">
+            {navItems.map((item) => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  title={collapsed ? item.label : undefined}
+                  className={`w-full flex items-center rounded-lg transition-all cursor-pointer ${
+                    collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2 text-xs font-bold'
+                  } ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-xs font-black'
+                      : 'text-[#d1e2f3] hover:bg-[#152e4d]/80 hover:text-white'
+                  }`}
+                >
+                  <div className={isActive ? 'text-white' : 'text-[#7da9d6] shrink-0'}>
+                    {item.icon}
+                  </div>
+                  {!collapsed && <span className="truncate">{item.label}</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Home Option */}
+          <button
+            onClick={() => handleNavClick('start_here')}
+            title={collapsed ? 'Return Home' : undefined}
+            className={`w-full flex items-center rounded-lg text-[#b5cbdf] hover:bg-[#152e4d]/60 hover:text-white transition-all cursor-pointer mt-4 ${
+              collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2 text-xs font-bold'
+            }`}
+          >
+            <span className="text-[#a0bacf] shrink-0 text-sm">🏠</span>
+            {!collapsed && <span>Return Home</span>}
+          </button>
+        </div>
+
+        {/* 3. Bottom User Profile Card */}
+        <div className="p-3 border-t border-[#182f4d] bg-[#07172b]">
+          <div className={`flex ${collapsed ? 'flex-col items-center gap-3' : 'items-center justify-between gap-2'}`}>
+            <div className="min-w-0 flex items-center gap-2">
+              <div
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#152e4d] text-emerald-400 shadow-3xs"
+                title={collapsed ? capitalizedName : undefined}
+              >
+                <User className="h-4.5 w-4.5" />
+              </div>
+              {!collapsed && (
+                <div className="min-w-0">
+                  <span className="text-xs font-black text-white block truncate leading-tight">
+                    {capitalizedName}
+                  </span>
+                  <span className="text-[9px] font-bold text-slate-400 block truncate">
+                    {userEmail}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className={`p-1.5 rounded-lg text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition-colors cursor-pointer ${
+                  collapsed ? 'mt-1' : ''
+                }`}
+                title="Logout session"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <>
-      {/* Desktop Persistent Sidebar */}
-      <aside className="hidden lg:flex flex-col shrink-0 w-64 bg-[#0c1f38] h-screen sticky top-0 border-r border-[#152e4d] shadow-md z-40">
-        <SidebarContent />
+      {/* Desktop Persistent Sidebar (Width adapts dynamically based on collapse state) */}
+      <aside
+        className={`hidden lg:flex flex-col shrink-0 h-screen sticky top-0 border-r border-[#152e4d] shadow-md z-40 transition-all duration-300 ${
+          isCollapsed ? 'w-18' : 'w-64'
+        }`}
+      >
+        <SidebarContent isDesktop={true} />
       </aside>
 
       {/* Mobile Sticky top navigation bar */}
@@ -261,7 +220,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={() => setIsOpenMobile(true)}
-            className="p-1 rounded bg-[#152e4d] hover:bg-[#1c3a5e] text-slate-200 transition-colors cursor-pointer"
+            className="p-1.5 rounded bg-[#152e4d] hover:bg-[#1c3a5e] text-slate-200 transition-colors cursor-pointer"
             title="Open Menu"
           >
             <Menu className="h-5 w-5" />
@@ -285,7 +244,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => setIsOpenMobile(false)}
           />
 
-          {/* Drawer content */}
+          {/* Drawer content (always fully expanded for mobile) */}
           <div className="relative flex flex-col w-64 max-w-xs h-full bg-[#0c1f38] shadow-2xl animate-in slide-in-from-left duration-200 z-50">
             {/* Close button inside drawer */}
             <div className="absolute right-3 top-3 z-50">
@@ -299,7 +258,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <SidebarContent />
+              <SidebarContent isDesktop={false} />
             </div>
           </div>
         </div>

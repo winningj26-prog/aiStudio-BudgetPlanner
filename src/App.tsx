@@ -362,6 +362,8 @@ export default function App() {
           onExportData={handleExportData}
           activeTab={activeTab}
           onGoHome={() => handleSelectTab('start_here')}
+          settings={settings}
+          onUpdateSettings={handleUpdateSettings}
         />
 
         {/* Main Worksheet Viewport */}
