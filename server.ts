@@ -123,7 +123,7 @@ If no category fits well, return the first item in the list: "${categories[0]?.n
 
 // Configure Vite integration
 const isProd = process.env.NODE_ENV === 'production';
-const port = process.env.PORT || 3000;
+const port = Number(process.env.PORT) || 3000;
 
 if (!isProd) {
   // Use Vite middlewares in dev mode
@@ -157,6 +157,6 @@ if (!isProd) {
   });
 }
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`Server running at http://localhost:${port}`);
 });
