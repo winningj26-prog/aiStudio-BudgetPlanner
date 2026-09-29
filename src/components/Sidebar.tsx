@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   settings,
   onUpdateSettings,
-  userEmail = 'winningj26@gmail.com',
+  userEmail = '',
   onLogout,
   onOpenExportModal,
 }) => {
