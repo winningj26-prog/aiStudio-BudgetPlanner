@@ -45,6 +45,7 @@ interface SettingsSheetProps {
   onSelectCell: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
   onResetSettingsToDefaults?: () => void;
   // Google Sheets DB integration props
+  googleSheetsEnabled?: boolean;
   googleUser?: User | null;
   googleToken?: string | null;
   onGoogleAuthSuccess?: (user: User, token: string) => void;
@@ -67,6 +68,7 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
   highlightInputs,
   onSelectCell,
   onResetSettingsToDefaults,
+  googleSheetsEnabled = true,
   googleUser = null,
   googleToken = null,
   onGoogleAuthSuccess = () => {},
@@ -477,7 +479,7 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
       </div>
 
       {/* Google Sheets & Google Drive Live Database Setup */}
-      {workbookData && (
+      {workbookData && googleSheetsEnabled && (
         <GoogleSheetsSettingsCard
           googleUser={googleUser}
           googleToken={googleToken}
@@ -488,6 +490,12 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
           workbookData={workbookData}
           onDataPulled={onDataPulled}
         />
+      )}
+      {workbookData && !googleSheetsEnabled && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <p className="text-sm font-semibold text-slate-900">Google Sheets sync is not enabled for this account.</p>
+          <p className="mt-1 text-xs text-slate-500">Your local workbook remains available. Upgrade your toolkit plan to enable Google Sheets integration.</p>
+        </div>
       )}
 
       {/* Grid: General Settings (Left) + Payment Methods (Right) */}
