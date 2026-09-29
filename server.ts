@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { verifyFirebaseIdToken, isFirebaseAdminConfigured } from './server/firebaseAdmin';
-import { syncToolkitAccount, isAccountServiceConfigured } from './src/services/toolkitAccount';
+import { syncToolkitAccount, isAccountServiceConfigured } from './server/toolkitAccount';
 
 dotenv.config();
 
