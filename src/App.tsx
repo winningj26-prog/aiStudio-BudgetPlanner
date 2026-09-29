@@ -37,7 +37,7 @@ import {
   clearLegacyV1Storage,
 } from './utils/storage';
 import { User } from 'firebase/auth';
-import { initAuth } from './services/googleAuth';
+import { initAuth, googleSignOut } from './services/googleAuth';
 import {
   GoogleSheetConfig,
   PulledData,
@@ -284,7 +284,10 @@ export default function App() {
   };
 
   // Logout handler
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await googleSignOut();
+    setGoogleUser(null);
+    setGoogleToken(null);
     setIsLoggedIn(false);
   };
 
