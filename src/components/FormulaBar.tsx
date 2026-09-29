@@ -20,7 +20,6 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
   selectedCell,
   highlightInputs,
   onToggleHighlight,
-  onResetSampleData,
   onExportData,
   activeTab,
   onGoHome,
