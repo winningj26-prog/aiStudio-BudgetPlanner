@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 
 dotenv.config();
 
@@ -11,6 +13,150 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
+
+// Central toolkit account bridge.
+// Firebase remains the authentication authority; Supabase stores account,
+// subscription and entitlement state. Supabase service credentials never reach
+// the browser.
+const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, '');
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const firebaseAdminApp = (() => {
+  if (getApps().length > 0) return getApps()[0];
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!serviceAccountJson) return null;
+  try {
+    return initializeApp({ credential: cert(JSON.parse(serviceAccountJson)) });
+  } catch (error) {
+    console.error('Invalid FIREBASE_SERVICE_ACCOUNT_JSON:', error);
+    return null;
+  }
+})();
+
+const firebaseAdminAuth = firebaseAdminApp ? getAuth(firebaseAdminApp) : null;
+
+async function supabaseRequest(path: string, init: RequestInit = {}) {
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error('Supabase account service is not configured.');
+  }
+  const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+    ...init,
+    headers: {
+      apikey: supabaseServiceRoleKey,
+      Authorization: `Bearer ${supabaseServiceRoleKey}`,
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+    },
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Supabase request failed (${response.status}): ${body}`);
+  }
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+app.get('/api/account/session', async (req, res) => {
+  const authorization = req.headers.authorization;
+  const idToken = authorization?.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length)
+    : null;
+
+  if (!idToken) return res.status(401).json({ error: 'Missing Firebase ID token.' });
+
+  if (!firebaseAdminAuth || !supabaseUrl || !supabaseServiceRoleKey) {
+    return res.status(503).json({
+      error: 'Central account service is not configured.',
+      code: 'ACCOUNT_SERVICE_NOT_CONFIGURED',
+    });
+  }
+
+  try {
+    const firebaseUser = await firebaseAdminAuth.verifyIdToken(idToken);
+    const identity = encodeURIComponent(firebaseUser.uid);
+    const profiles = await supabaseRequest(
+      `profiles?select=id,email,display_name,photo_url&auth_provider=eq.firebase&auth_subject=eq.${identity}&limit=1`,
+    );
+    let profile = profiles?.[0];
+
+    if (!profile) {
+      const created = await supabaseRequest('profiles?on_conflict=auth_provider,auth_subject', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation,resolution=merge-duplicates' },
+        body: JSON.stringify({
+          auth_provider: 'firebase',
+          auth_subject: firebaseUser.uid,
+          email: firebaseUser.email ?? null,
+          display_name: firebaseUser.name ?? null,
+          photo_url: firebaseUser.picture ?? null,
+        }),
+      });
+      profile = created?.[0];
+    }
+
+    if (!profile?.id) throw new Error('Could not create or load toolkit profile.');
+
+    const liveSubscriptions = await supabaseRequest(
+      `subscriptions?select=plan_id,provider,status,current_period_end&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&order=created_at.desc&limit=1`,
+    );
+    let subscription = liveSubscriptions?.[0];
+
+    if (!subscription) {
+      const created = await supabaseRequest('subscriptions', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({
+          user_id: profile.id,
+          plan_id: 'free',
+          provider: 'none',
+          status: 'active',
+        }),
+      });
+      subscription = created?.[0];
+    }
+
+    const planId = subscription?.plan_id || 'free';
+    const entitlementRows = (await supabaseRequest(
+      `plan_entitlements?select=feature_key,enabled&plan_id=eq.${encodeURIComponent(planId)}&enabled=eq.true`,
+    )) as Array<{ feature_key: string; enabled: boolean }> | null;
+    const overrideRows = (await supabaseRequest(
+      `app_entitlements?select=app_id,enabled&user_id=eq.${profile.id}`,
+    )) as Array<{ app_id: string; enabled: boolean }> | null;
+
+    const appAccess: Record<string, boolean> = Object.fromEntries(
+      ['budget-planner', 'app-2', 'app-3', 'app-4'].map((appId) => [appId, true]),
+    );
+    for (const row of overrideRows ?? []) appAccess[row.app_id] = Boolean(row.enabled);
+
+    return res.json({
+      version: 1,
+      session: {
+        user: {
+          id: profile.id,
+          email: profile.email ?? firebaseUser.email ?? null,
+          displayName: profile.display_name ?? firebaseUser.name ?? null,
+          photoUrl: profile.photo_url ?? firebaseUser.picture ?? null,
+        },
+        subscription: {
+          planId,
+          status: subscription?.status || 'active',
+          provider: subscription?.provider || 'none',
+          currentPeriodEnd: subscription?.current_period_end || null,
+        },
+        entitlements: {
+          apps: appAccess,
+          features: Object.fromEntries(
+            (entitlementRows ?? []).map((row) => [row.feature_key, Boolean(row.enabled)]),
+          ),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Toolkit account session error:', error);
+    return res.status(500).json({ error: 'Unable to load toolkit account session.' });
+  }
+});
+
 
 // Initialize Gemini Client
 const apiKey = process.env.GEMINI_API_KEY;
