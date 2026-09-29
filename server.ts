@@ -116,17 +116,17 @@ app.get('/api/account/session', async (req, res) => {
     }
 
     const planId = subscription?.plan_id || 'free';
-    const entitlementRows = await supabaseRequest(
+    const entitlementRows = (await supabaseRequest(
       `plan_entitlements?select=feature_key,enabled&plan_id=eq.${encodeURIComponent(planId)}&enabled=eq.true`,
-    );
-    const overrideRows = await supabaseRequest(
+    )) as Array<{ feature_key: string; enabled: boolean }> | null;
+    const overrideRows = (await supabaseRequest(
       `app_entitlements?select=app_id,enabled&user_id=eq.${profile.id}`,
-    );
+    )) as Array<{ app_id: string; enabled: boolean }> | null;
 
     const appAccess: Record<string, boolean> = Object.fromEntries(
       ['budget-planner', 'app-2', 'app-3', 'app-4'].map((appId) => [appId, true]),
     );
-    for (const row of overrideRows || []) appAccess[row.app_id] = Boolean(row.enabled);
+    for (const row of overrideRows ?? []) appAccess[row.app_id] = Boolean(row.enabled);
 
     return res.json({
       version: 1,
@@ -146,7 +146,7 @@ app.get('/api/account/session', async (req, res) => {
         entitlements: {
           apps: appAccess,
           features: Object.fromEntries(
-            (entitlementRows || []).map((row) => [row.feature_key, Boolean(row.enabled)]),
+            (entitlementRows ?? []).map((row) => [row.feature_key, Boolean(row.enabled)]),
           ),
         },
       },
