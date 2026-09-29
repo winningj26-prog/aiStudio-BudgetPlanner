@@ -72,8 +72,9 @@ export const GoogleSheetsSettingsCard: React.FC<GoogleSheetsSettingsCardProps> =
     }, 4500);
   };
 
-  // Google OAuth Login
-  const handleConnectGoogle = async () => {
+  // Recovery only: the normal path authorizes Sheets during the main Google login.
+  // This is used when a browser refresh has discarded the short-lived OAuth access token.
+  const handleReconnectGoogle = async () => {
     setIsLoading(true);
     try {
       const res = await googleSignIn();
@@ -263,7 +264,7 @@ export const GoogleSheetsSettingsCard: React.FC<GoogleSheetsSettingsCardProps> =
           ) : (
             <button
               type="button"
-              onClick={handleConnectGoogle}
+              onClick={handleReconnectGoogle}
               disabled={isLoading}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2 sm:py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-slate-400 transition-all cursor-pointer"
             >
@@ -285,7 +286,7 @@ export const GoogleSheetsSettingsCard: React.FC<GoogleSheetsSettingsCardProps> =
                   d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.27 2.57 1.25 6.58l4.03 3.13c.95-2.83 3.6-4.96 6.72-4.96z"
                 />
               </svg>
-              <span>Connect Google Account</span>
+              <span>Reconnect Google Sheets access</span>
             </button>
           )}
         </div>
@@ -318,14 +319,14 @@ export const GoogleSheetsSettingsCard: React.FC<GoogleSheetsSettingsCardProps> =
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-5 sm:p-6 text-center">
           <HardDrive className="mx-auto h-10 w-10 text-slate-400 mb-2" />
           <h4 className="text-sm font-bold text-slate-800">
-            Sign In with Google to Enable Spreadsheet Database
+            Google Sheets access is not currently available
           </h4>
           <p className="mx-auto mt-1 max-w-md text-xs text-slate-500 leading-relaxed">
-            Each user connects their own personal Google Drive and Google Sheets. Your records remain private and are stored directly in your Google account.
+            Your Google account is already the app login. Google Sheets access is normally authorized during sign-in; reconnect only if the temporary API authorization has expired.
           </p>
           <button
             type="button"
-            onClick={handleConnectGoogle}
+            onClick={handleReconnectGoogle}
             disabled={isLoading}
             className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
           >
@@ -334,7 +335,7 @@ export const GoogleSheetsSettingsCard: React.FC<GoogleSheetsSettingsCardProps> =
             ) : (
               <FileSpreadsheet className="h-4 w-4" />
             )}
-            <span>Connect with Google</span>
+            <span>Reconnect Google Sheets</span>
           </button>
         </div>
       ) : sheetConfig ? (
