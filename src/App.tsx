@@ -356,7 +356,6 @@ export default function App() {
           selectedCell={selectedCell}
           highlightInputs={highlightInputs}
           onToggleHighlight={() => setHighlightInputs(!highlightInputs)}
-          onResetSampleData={handleResetSampleData}
           onExportData={handleExportData}
           activeTab={activeTab}
           onGoHome={() => handleSelectTab('start_here')}
