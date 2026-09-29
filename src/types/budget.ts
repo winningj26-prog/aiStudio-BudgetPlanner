@@ -109,6 +109,7 @@ export type WorksheetTab =
   | 'dashboard'
   | 'calendar_view'
   | 'debt_payoff'
+  | 'net_worth'
   | 'annual_summary'
   | 'tech_specs';
 

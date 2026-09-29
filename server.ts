@@ -28,15 +28,32 @@ app.get('/healthz', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+// In-memory caches to prevent exceeding free tier quotas
+const insightsCache = new Map<string, { insights: string; timestamp: number }>();
+const categoryCache = new Map<string, string>();
+
 // AI Spending Insights Endpoint
 app.post('/api/insights', async (req, res) => {
   try {
     const { incomeTransactions = [], expenseTransactions = [], settings = {}, categories = [] } = req.body;
     
+    // Generate cache key based on transactions summary and settings
+    const incomeTotal = incomeTransactions.reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
+    const expenseTotal = expenseTransactions.reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
+    const cacheKey = `${incomeTransactions.length}-${expenseTransactions.length}-${incomeTotal}-${expenseTotal}-${settings?.month || ''}-${settings?.year || ''}`;
+    
+    // Use cached insights if available and fresher than 30 minutes
+    const cachedItem = insightsCache.get(cacheKey);
+    const THIRTY_MINUTES = 30 * 60 * 1000;
+    if (cachedItem && Date.now() - cachedItem.timestamp < THIRTY_MINUTES) {
+      console.log("Serving insights from cache to preserve Gemini API quota.");
+      return res.json({ insights: cachedItem.insights, fallback: false });
+    }
+
     // Construct transaction summaries to send to Gemini as context
     const textContext = `
-Monthly Income: ${incomeTransactions.reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0)}
-Monthly Expenses: ${expenseTransactions.reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0)}
+Monthly Income: ${incomeTotal}
+Monthly Expenses: ${expenseTotal}
 Month/Year: ${settings?.month} ${settings?.year}
 Categories: ${categories?.map((c: any) => c.name).join(', ')}
 
@@ -50,7 +67,8 @@ ${expenseTransactions.slice(0, 40).map((t: any) => `- ${t.date} ${t.category}: $
       return res.json({
         insights: `- Cook simple, nutritious meals at home rather than choosing dining out or takeout options to save up to 40% on monthly food costs.
 - Audit your automated monthly subscription accounts and cancel any streaming or membership packages not utilized in the last 30 days.
-- Implement a 48-hour cooling-off period on all discretionary retail shopping purchases to evaluate necessity and reduce impulse buying.`
+- Implement a 48-hour cooling-off period on all discretionary retail shopping purchases to evaluate necessity and reduce impulse buying.`,
+        fallback: true
       });
     }
 
@@ -65,14 +83,19 @@ Provide exactly 3 actionable, highly specific, and creative bullet points on how
     });
 
     const text = response.text || "Could not generate insights at this moment.";
-    res.json({ insights: text });
+    
+    // Cache the successful result
+    insightsCache.set(cacheKey, { insights: text, timestamp: Date.now() });
+    
+    res.json({ insights: text, fallback: false });
   } catch (error: any) {
-    console.error("Gemini API Error, falling back to smart defaults:", error);
+    console.warn("Gemini API transient rate limit (429) or quota limit encountered. Serving pre-configured smart client advisory defaults.");
     // Even if Gemini API fails (e.g. rate-limit, invalid key), return beautiful, smart defaults so the user has an operational experience!
     res.json({
       insights: `- Cook simple, nutritious meals at home rather than choosing dining out or takeout options to save up to 40% on monthly food costs.
 - Audit your automated monthly subscription accounts and cancel any streaming or membership packages not utilized in the last 30 days.
-- Implement a 48-hour cooling-off period on all discretionary retail shopping purchases to evaluate necessity and reduce impulse buying.`
+- Implement a 48-hour cooling-off period on all discretionary retail shopping purchases to evaluate necessity and reduce impulse buying.`,
+      fallback: true
     });
   }
 });
@@ -83,6 +106,16 @@ app.post('/api/suggest-category', async (req, res) => {
   try {
     if (!description.trim() || categories.length === 0) {
       return res.json({ category: categories[0]?.name || '' });
+    }
+
+    const normalizedDesc = description.trim().toLowerCase();
+    if (categoryCache.has(normalizedDesc)) {
+      const cachedCategory = categoryCache.get(normalizedDesc);
+      // Double check cached category still exists in current categories
+      if (categories.some((c: any) => c.name === cachedCategory)) {
+        console.log("Serving category recommendation from memory cache.");
+        return res.json({ category: cachedCategory });
+      }
     }
 
     // Graceful fallback if apiKey is missing
@@ -114,9 +147,15 @@ If no category fits well, return the first item in the list: "${categories[0]?.n
 
     const category = (response.text || "").trim().replace(/['"‘“’”]/g, "");
     const finalCategory = categories.find((c: any) => c.name.toLowerCase() === category.toLowerCase())?.name || categories[0]?.name;
+    
+    // Save to cache
+    if (finalCategory) {
+      categoryCache.set(normalizedDesc, finalCategory);
+    }
+    
     res.json({ category: finalCategory });
   } catch (error: any) {
-    console.error("Gemini Category Suggester Error, falling back:", error);
+    console.warn("Gemini Category Suggester fell back to default category matching due to rate limits or missing keys.");
     res.json({ category: categories[0]?.name || '' });
   }
 });

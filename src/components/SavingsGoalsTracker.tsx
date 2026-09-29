@@ -66,6 +66,11 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   const [goalColor, setGoalColor] = useState('#059669');
   const [goalNotes, setGoalNotes] = useState('');
 
+  // Savings Goal Calculator Widget states
+  const [calcTargetAmount, setCalcTargetAmount] = useState('5000');
+  const [calcDuration, setCalcDuration] = useState('12');
+  const [calcInterestRate, setCalcInterestRate] = useState('5.0');
+
   // Combined category options
   const allCategories = [
     ...categories.filter((c) => c.isActive).map((c) => c.name),
@@ -205,6 +210,36 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
     setContributeGoal(null);
   };
 
+  const handleCreateGoalFromCalc = () => {
+    setEditingGoal(null);
+    setGoalName('My Savings Target');
+    setTargetAmount(calcTargetAmount);
+    
+    // Calculate required monthly contribution
+    const target = parseFloat(calcTargetAmount) || 0;
+    const months = parseFloat(calcDuration) || 1;
+    const rate = parseFloat(calcInterestRate) || 0;
+    let monthly = target / months;
+    if (target > 0 && months > 0 && rate > 0) {
+      const i = (rate / 100) / 12;
+      monthly = (target * i) / (Math.pow(1 + i, months) - 1);
+    }
+    
+    setCurrentAmount('0');
+    setCategoryName('Savings');
+    
+    // Target date = current date + months
+    const today = new Date();
+    today.setMonth(today.getMonth() + Math.round(months));
+    const targetDateStr = today.toISOString().split('T')[0];
+    setTargetDate(targetDateStr);
+    
+    setMonthlyContribution(monthly.toFixed(0));
+    setGoalColor('#0284c7');
+    setGoalNotes(`Calculated target using ${calcInterestRate}% est. interest rate over ${calcDuration} months.`);
+    setIsAddGoalModalOpen(true);
+  };
+
   return (
     <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 lg:p-7 shadow-xs space-y-6">
       {/* ---------------------------------------------------- */}
@@ -284,67 +319,191 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
       </div>
 
       {/* ---------------------------------------------------- */}
-      {/* 2. Executive Overall Progress Card */}
+      {/* 2. Executive Overall Progress & Savings Goal Calculator */}
       {/* ---------------------------------------------------- */}
-      <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/60 via-slate-50/40 to-blue-50/50 p-4 sm:p-5 shadow-2xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase font-extrabold tracking-wider text-emerald-800">
-                Cumulative Savings Goal Progress
-              </span>
-              <span className="rounded-md bg-emerald-200/70 text-emerald-900 text-[10px] font-black px-1.5 py-0.5">
-                {overallProgressPct.toFixed(1)}% Achieved
-              </span>
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Left Card: Cumulative Overall Progress */}
+        <div className="lg:col-span-7 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/60 via-slate-50/40 to-blue-50/50 p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-800">
+                  Cumulative Savings Goal Progress
+                </span>
+                <span className="rounded-md bg-emerald-200/70 text-emerald-900 text-[10px] font-black px-1.5 py-0.5">
+                  {overallProgressPct.toFixed(1)}% Achieved
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl sm:text-2xl font-black text-slate-900">
+                  {formatCurrency(totalSaved, settings.currency)}
+                </span>
+                <span className="text-xs font-semibold text-slate-500">
+                  of {formatCurrency(totalTarget, settings.currency)} target
+                </span>
+              </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl sm:text-2xl font-black text-slate-900">
-                {formatCurrency(totalSaved, settings.currency)}
-              </span>
-              <span className="text-xs sm:text-sm font-semibold text-slate-500">
-                of {formatCurrency(totalTarget, settings.currency)} target
-              </span>
+
+            {/* Quick Metrics Capsules */}
+            <div className="flex flex-wrap items-center gap-2 pt-4 text-[11px]">
+              <div className="rounded-lg border border-slate-200/80 bg-white/95 px-2.5 py-1 shadow-3xs">
+                <span className="text-[9px] font-bold text-slate-400 uppercase block leading-tight">Remaining</span>
+                <span className="font-extrabold text-slate-800">
+                  {formatCurrency(totalRemaining, settings.currency)}
+                </span>
+              </div>
+
+              <div className="rounded-lg border border-slate-200/80 bg-white/95 px-2.5 py-1 shadow-3xs">
+                <span className="text-[9px] font-bold text-slate-400 uppercase block leading-tight">Planned Inflow</span>
+                <span className="font-extrabold text-blue-700">
+                  {formatCurrency(totalMonthlyCommitment, settings.currency)}/mo
+                </span>
+              </div>
+
+              <div className="rounded-lg border border-slate-200/80 bg-white/95 px-2.5 py-1 shadow-3xs">
+                <span className="text-[9px] font-bold text-slate-400 uppercase block leading-tight">Goals Met</span>
+                <span className="font-extrabold text-emerald-700">
+                  {completedGoalsCount} / {savingsGoals.length}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Quick Metrics Capsules */}
-          <div className="flex flex-wrap items-center gap-2.5 text-xs">
-            <div className="rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">Remaining to Target</span>
-              <span className="font-extrabold text-slate-800">
-                {formatCurrency(totalRemaining, settings.currency)}
-              </span>
+          {/* Master Progress Bar */}
+          <div className="mt-5 space-y-1.5">
+            <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-slate-200/80 shadow-inner">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-blue-600 transition-all duration-500 shadow-xs"
+                style={{ width: `${overallProgressPct}%` }}
+              />
             </div>
-
-            <div className="rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">Monthly Planned Inflow</span>
-              <span className="font-extrabold text-blue-700">
-                {formatCurrency(totalMonthlyCommitment, settings.currency)}/mo
-              </span>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">Milestones Met</span>
-              <span className="font-extrabold text-emerald-700">
-                {completedGoalsCount} / {savingsGoals.length}
-              </span>
+            <div className="flex justify-between text-[10px] font-bold text-slate-400">
+              <span>$0.00</span>
+              <span>50%</span>
+              <span>{formatCurrency(totalTarget, settings.currency)}</span>
             </div>
           </div>
         </div>
 
-        {/* Master Progress Bar */}
-        <div className="mt-4 space-y-1.5">
-          <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-200/80 shadow-inner">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-blue-600 transition-all duration-500 shadow-xs"
-              style={{ width: `${overallProgressPct}%` }}
-            />
+        {/* Right Card: Savings Goal Calculator Widget */}
+        <div className="lg:col-span-5 rounded-xl border border-blue-200/85 bg-gradient-to-br from-blue-50/50 via-slate-50/40 to-emerald-50/30 p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+              <div className="flex items-center gap-1.5">
+                <PiggyBank className="h-4.5 w-4.5 text-blue-600 shrink-0" />
+                <span className="text-xs uppercase font-extrabold tracking-wider text-blue-800">
+                  Savings Goal Calculator
+                </span>
+              </div>
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-bold text-blue-800 border border-blue-200/60">
+                Calculator Widget
+              </span>
+            </div>
+
+            {/* Inputs grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[11px]">
+              {/* Target Amount */}
+              <div className="space-y-1">
+                <label className="block font-bold text-slate-500">Target Amount ({settings.currency})</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={calcTargetAmount}
+                  onChange={(e) => setCalcTargetAmount(e.target.value)}
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-slate-800 font-extrabold focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+
+              {/* Duration (Months) */}
+              <div className="space-y-1">
+                <label className="block font-bold text-slate-500">Duration (Months)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="360"
+                  step="1"
+                  value={calcDuration}
+                  onChange={(e) => setCalcDuration(e.target.value)}
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-slate-800 font-bold focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+
+              {/* Annual Interest Rate (%) */}
+              <div className="space-y-1">
+                <label className="block font-bold text-slate-500">Est. APY (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="30"
+                  step="0.1"
+                  value={calcInterestRate}
+                  onChange={(e) => setCalcInterestRate(e.target.value)}
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-slate-800 font-bold focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+            </div>
+
+            {/* Calculations and Output displays */}
+            {(() => {
+              const targetVal = parseFloat(calcTargetAmount) || 0;
+              const durationVal = parseFloat(calcDuration) || 1;
+              const interestRateVal = parseFloat(calcInterestRate) || 0;
+
+              let calculatedContribution = 0;
+              let totalInterestEarned = 0;
+              let principalDeposits = targetVal;
+
+              if (targetVal > 0 && durationVal > 0) {
+                if (interestRateVal > 0) {
+                  const i = (interestRateVal / 100) / 12; // monthly compounding rate
+                  calculatedContribution = (targetVal * i) / (Math.pow(1 + i, durationVal) - 1);
+                  principalDeposits = calculatedContribution * durationVal;
+                  totalInterestEarned = Math.max(0, targetVal - principalDeposits);
+                } else {
+                  calculatedContribution = targetVal / durationVal;
+                  principalDeposits = targetVal;
+                  totalInterestEarned = 0;
+                }
+              }
+
+              return (
+                <div className="mt-3.5 space-y-2 text-[11px]">
+                  <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-2.5 flex items-center justify-between shadow-3xs">
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-500 uppercase block">Required Monthly Contribution</span>
+                      <strong className="text-base font-black text-blue-900 leading-none">
+                        {formatCurrency(calculatedContribution, settings.currency)}
+                      </strong>
+                    </div>
+
+                    {totalInterestEarned > 0 && (
+                      <div className="text-right">
+                        <span className="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[9px] font-black text-emerald-800 border border-emerald-200/50">
+                          +{formatCurrency(totalInterestEarned, settings.currency)} interest earned!
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold px-1">
+                    <span>Principal: {formatCurrency(principalDeposits, settings.currency)}</span>
+                    <span>Compound APY: {calcInterestRate}%</span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
-          <div className="flex justify-between text-[11px] font-semibold text-slate-500">
-            <span>$0.00</span>
-            <span>50%</span>
-            <span>{formatCurrency(totalTarget, settings.currency)}</span>
-          </div>
+
+          <button
+            type="button"
+            onClick={handleCreateGoalFromCalc}
+            disabled={!(parseFloat(calcTargetAmount) > 0)}
+            className="mt-4 w-full rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-extrabold py-1.5 text-xs transition-colors shadow-2xs hover:shadow-xs cursor-pointer flex items-center justify-center gap-1"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Apply to My Target Goals</span>
+          </button>
         </div>
       </div>
 

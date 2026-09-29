@@ -53,6 +53,7 @@ import { ExpensesSheet } from './components/worksheets/ExpensesSheet';
 import { MonthlyBudgetSheet } from './components/worksheets/MonthlyBudgetSheet';
 import { DashboardSheet } from './components/worksheets/DashboardSheet';
 import { DebtPayoffSheet } from './components/worksheets/DebtPayoffSheet';
+import { NetWorthForecaster } from './components/worksheets/NetWorthForecaster';
 import { AnnualSummarySheet } from './components/worksheets/AnnualSummarySheet';
 import { CalendarViewSheet } from './components/worksheets/CalendarViewSheet';
 import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
@@ -381,6 +382,8 @@ export default function App() {
           onGoHome={() => handleSelectTab('start_here')}
           settings={settings}
           onUpdateSettings={handleUpdateSettings}
+          incomeTransactions={incomeTransactions}
+          expenseTransactions={expenseTransactions}
         />
 
         {/* Main Worksheet Viewport */}
@@ -468,6 +471,21 @@ export default function App() {
             onUpdateDebts={setDebts}
             settings={settings}
             highlightInputs={highlightInputs}
+            onSelectCell={setSelectedCell}
+          />
+        )}
+
+        {activeTab === 'net_worth' && (
+          <NetWorthForecaster
+            debts={debts}
+            settings={settings}
+            currentMonthlySavings={
+              incomeTransactions.reduce((sum, t) => sum + t.amount, 0) -
+              expenseTransactions.reduce((sum, t) => sum + t.amount, 0)
+            }
+            currentMonthlyExpenses={
+              expenseTransactions.reduce((sum, t) => sum + t.amount, 0)
+            }
             onSelectCell={setSelectedCell}
           />
         )}

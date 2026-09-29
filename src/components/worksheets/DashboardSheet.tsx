@@ -213,11 +213,13 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   const [aiInsights, setAiInsights] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [isAiFallback, setIsAiFallback] = useState(false);
 
   // Function to fetch AI insights from Express proxy backend
   const fetchAiInsights = async () => {
     setIsAiLoading(true);
     setAiError(null);
+    setIsAiFallback(false);
     try {
       const response = await fetch('/api/insights', {
         method: 'POST',
@@ -234,6 +236,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
       }
       const data = await response.json();
       setAiInsights(data.insights);
+      setIsAiFallback(data.fallback || false);
     } catch (err: any) {
       console.warn("Express backend /api/insights not reachable or failed. Using high-fidelity local financial advisor insights:", err);
       
@@ -255,6 +258,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
       }
       
       setAiInsights(fallBackInsights);
+      setIsAiFallback(true);
       setAiError(null);
     } finally {
       setIsAiLoading(false);
@@ -527,6 +531,33 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
 
       {activeSubTab === 'overview' ? (
         <div className="space-y-4">
+          {/* Visual over-budget warning system */}
+          {overBudgetCategories.length > 0 && (
+            <div className="rounded-xl border-2 border-rose-200 bg-rose-50 p-4 shadow-2xs text-rose-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-pulse">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600 shadow-3xs">
+                  <AlertCircle className="h-5.5 w-5.5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-rose-800">
+                    Budget Ceiling Breached ({overBudgetCategories.length} Category Alert{overBudgetCategories.length > 1 ? 's' : ''})
+                  </h4>
+                  <p className="text-xs text-rose-700 font-semibold leading-relaxed mt-0.5">
+                    Actual spending has exceeded your planned limit for:{' '}
+                    <span className="font-black text-rose-950 underline decoration-rose-400">
+                      {overBudgetCategories.map((cat) => {
+                        const planned = plannedExpenses[cat.name] || 0;
+                        const actual = sumExpensesByCategory(expenseTransactions, cat.name);
+                        const overBy = actual - planned;
+                        return `${cat.name} (Over by ${formatCurrency(overBy, settings.currency)})`;
+                      }).join(', ')}
+                    </span>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* System Alerts & Notifications Hub */}
           {notifications.length > 0 && (
             <div className="rounded-xl border border-amber-200 bg-amber-50/45 p-4 shadow-3xs space-y-3">
@@ -998,7 +1029,13 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
 
           <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-medium">
             <span>Powered by Gemini 3.8 Flash</span>
-            <span className="text-slate-500 font-semibold uppercase">Ready • Secured</span>
+            {isAiFallback ? (
+              <span className="text-amber-600 font-bold uppercase flex items-center gap-1" title="Offline smart advisory recommendations active due to rate-limiting or quota limitations">
+                <AlertTriangle className="h-3.5 w-3.5 animate-bounce text-amber-500" /> Offline Advisor Active
+              </span>
+            ) : (
+              <span className="text-slate-500 font-semibold uppercase">Ready • Secured</span>
+            )}
           </div>
         </div>
       </div>

@@ -75,36 +75,23 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
   const [createCatName, setCreateCatName] = useState('');
   const [createCatPlanned, setCreateCatPlanned] = useState('');
 
+  // Find available active categories that are NOT already budgeted
+  const availableCategoriesToBudget = (activeTab === 'income' ? incomeCategories : expenseCategories)
+    .filter(c => c.isActive && !(activeTab === 'income' ? plannedIncome : plannedExpenses).hasOwnProperty(c.name));
+
   const handleCreateCategoryBudget = (e: React.FormEvent) => {
     e.preventDefault();
     const name = createCatName.trim();
-    if (!name) return;
+    if (!name || name === '-- Select Category --') {
+      alert('Please select a valid category from the list.');
+      return;
+    }
     const plannedVal = parseFloat(createCatPlanned) || 0;
 
-    const newCategory: CategoryItem = {
-      id: `${activeTab === 'income' ? 'inc' : 'exp'}_${Date.now()}`,
-      name,
-      isActive: true,
-    };
-
     if (activeTab === 'income') {
-      if (onUpdateIncomeCategories) {
-        if (incomeCategories.some(c => c.name.toLowerCase().trim() === name.toLowerCase().trim())) {
-          alert('A category with this name already exists.');
-          return;
-        }
-        onUpdateIncomeCategories([...incomeCategories, newCategory]);
-      }
       const baseMonthlyVal = plannedVal / scaleFactor;
       onUpdatePlannedIncome({ ...plannedIncome, [name]: baseMonthlyVal });
     } else {
-      if (onUpdateExpenseCategories) {
-        if (expenseCategories.some(c => c.name.toLowerCase().trim() === name.toLowerCase().trim())) {
-          alert('A category with this name already exists.');
-          return;
-        }
-        onUpdateExpenseCategories([...expenseCategories, newCategory]);
-      }
       const baseMonthlyVal = plannedVal / scaleFactor;
       onUpdatePlannedExpenses({ ...plannedExpenses, [name]: baseMonthlyVal });
     }
@@ -585,17 +572,28 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
           <form onSubmit={handleCreateCategoryBudget} className="flex flex-wrap items-end gap-3 p-4 bg-blue-50/30 border-b border-slate-200 animate-in slide-in-from-top-1 duration-150">
             <div className="flex-1 min-w-[180px] space-y-1">
               <label htmlFor="create-cat-name" className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                Category Name
+                Category Selection
               </label>
-              <input
-                id="create-cat-name"
-                type="text"
-                required
-                placeholder={activeTab === 'income' ? "e.g. Consulting, Dividends..." : "e.g. Subscriptions, Pet Care..."}
-                value={createCatName}
-                onChange={(e) => setCreateCatName(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:outline-hidden"
-              />
+              {availableCategoriesToBudget.length === 0 ? (
+                <div className="w-full text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                  All active categories are already budgeted!
+                </div>
+              ) : (
+                <select
+                  id="create-cat-name"
+                  required
+                  value={createCatName}
+                  onChange={(e) => setCreateCatName(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:outline-hidden cursor-pointer"
+                >
+                  <option value="">-- Select Category --</option>
+                  {availableCategoriesToBudget.map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div className="w-40 space-y-1">
@@ -615,7 +613,8 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
 
             <button
               type="submit"
-              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-2xs hover:shadow-xs cursor-pointer h-[34px]"
+              disabled={availableCategoriesToBudget.length === 0}
+              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-lg transition-colors shadow-2xs hover:shadow-xs cursor-pointer h-[34px]"
             >
               Add Budget Category
             </button>
@@ -753,91 +752,115 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
                   </td>
                 </tr>
 
-                {expenseItems.map((item) => (
-                  <tr
-                    key={item.category}
-                    onClick={() =>
-                      onSelectCell({
-                        reference: `tbl_Budget[Expense="${item.category}"]`,
-                        value: `Planned: ${formatCurrency(item.planned, settings.currency)}, Actual: ${formatCurrency(item.actual, settings.currency)}`,
-                        formula: `=SUMIF(tbl_Expenses[Category], "${item.category}", tbl_Expenses[Amount])`,
-                        isCalculated: true,
-                      })
-                    }
-                    className="hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    <td className="px-4 py-2.5 font-medium text-slate-800">
-                      {item.category}
-                    </td>
-
-                    {/* Planned (Editable input) */}
-                    <td
-                      className={`px-4 py-2.5 text-right font-mono text-slate-700 ${inputCellClass}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEditing(item.category, item.planned);
-                      }}
+                {expenseItems.map((item) => {
+                  const isOverBudget = item.actual > item.planned;
+                  return (
+                    <tr
+                      key={item.category}
+                      onClick={() =>
+                        onSelectCell({
+                          reference: `tbl_Budget[Expense="${item.category}"]`,
+                          value: `Planned: ${formatCurrency(item.planned, settings.currency)}, Actual: ${formatCurrency(item.actual, settings.currency)}`,
+                          formula: `=SUMIF(tbl_Expenses[Category], "${item.category}", tbl_Expenses[Amount])`,
+                          isCalculated: true,
+                        })
+                      }
+                      className={`transition-colors cursor-pointer ${
+                        isOverBudget 
+                          ? 'bg-rose-50/70 hover:bg-rose-100/60 border-l-4 border-l-rose-500' 
+                          : 'hover:bg-slate-50'
+                      }`}
                     >
-                      {editingCategory === item.category ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <input
-                            type="number"
-                            autoFocus
-                            value={tempValue}
-                            onChange={(e) => setTempValue(e.target.value)}
-                            onBlur={() => savePlanned(item.category, 'expense')}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') savePlanned(item.category, 'expense');
-                              if (e.key === 'Escape') setEditingCategory(null);
-                            }}
-                            className="w-24 rounded border border-blue-500 bg-white px-1.5 py-0.5 text-right font-mono text-xs font-bold text-slate-900 shadow-xs focus:outline-hidden"
-                          />
-                        </div>
-                      ) : (
-                        <span className="border-b border-dashed border-slate-400 hover:border-slate-700">
-                          {formatCurrency(item.planned, settings.currency)}
+                      <td className={`px-4 py-2.5 font-semibold ${isOverBudget ? 'text-rose-900 font-extrabold' : 'text-slate-800'}`}>
+                        {item.category}
+                        {isOverBudget && (
+                          <span className="ml-2 inline-flex items-center rounded-md bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold text-rose-800 border border-rose-200 uppercase tracking-wider animate-pulse">
+                            Over Budget
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Planned (Editable input) */}
+                      <td
+                        className={`px-4 py-2.5 text-right font-mono text-slate-700 ${inputCellClass}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditing(item.category, item.planned);
+                        }}
+                      >
+                        {editingCategory === item.category ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <input
+                              type="number"
+                              autoFocus
+                              value={tempValue}
+                              onChange={(e) => setTempValue(e.target.value)}
+                              onBlur={() => savePlanned(item.category, 'expense')}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') savePlanned(item.category, 'expense');
+                                if (e.key === 'Escape') setEditingCategory(null);
+                              }}
+                              className="w-24 rounded border border-blue-500 bg-white px-1.5 py-0.5 text-right font-mono text-xs font-bold text-slate-900 shadow-xs focus:outline-hidden"
+                            />
+                          </div>
+                        ) : (
+                          <span className="border-b border-dashed border-slate-400 hover:border-slate-700">
+                            {formatCurrency(item.planned, settings.currency)}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actual Amount (Calculated) */}
+                      <td className={`px-4 py-2.5 text-right font-mono font-bold ${
+                        isOverBudget 
+                          ? 'text-rose-700 bg-rose-100/50 font-black rounded-sm border border-rose-200/50' 
+                          : 'text-slate-900'
+                      }`}>
+                        {formatCurrency(item.actual, settings.currency)}
+                      </td>
+
+                      {/* Difference (Planned - Actual) */}
+                      <td className={`px-4 py-2.5 text-right font-mono font-semibold ${
+                        isOverBudget 
+                          ? 'bg-rose-100/30 rounded-sm' 
+                          : ''
+                      }`}>
+                        <span
+                          className={
+                            item.difference >= 0 ? 'text-emerald-700' : 'text-rose-600 font-bold'
+                          }
+                        >
+                          {item.difference >= 0 ? '+' : ''}
+                          {formatCurrency(item.difference, settings.currency)}
                         </span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Actual Amount (Calculated) */}
-                    <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
-                      {formatCurrency(item.actual, settings.currency)}
-                    </td>
+                      {/* % Used */}
+                      <td className={`px-4 py-2.5 text-right font-mono font-semibold ${
+                        isOverBudget 
+                          ? 'bg-rose-100/30 rounded-sm' 
+                          : ''
+                      }`}>
+                        <span
+                          className={
+                            item.percentUsed > 100
+                              ? 'text-rose-700 font-black'
+                              : item.percentUsed > 80
+                              ? 'text-amber-700 font-bold'
+                              : 'text-slate-700'
+                          }
+                        >
+                          {formatPercent(item.percentUsed, 0)}
+                        </span>
+                      </td>
 
-                    {/* Difference (Planned - Actual) */}
-                    <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                      <span
-                        className={
-                          item.difference >= 0 ? 'text-emerald-700' : 'text-rose-600'
-                        }
-                      >
-                        {item.difference >= 0 ? '+' : ''}
-                        {formatCurrency(item.difference, settings.currency)}
-                      </span>
-                    </td>
-
-                    {/* % Used */}
-                    <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                      <span
-                        className={
-                          item.percentUsed > 100
-                            ? 'text-rose-700 font-bold'
-                            : item.percentUsed > 80
-                            ? 'text-amber-700 font-bold'
-                            : 'text-slate-700'
-                        }
-                      >
-                        {formatPercent(item.percentUsed, 0)}
-                      </span>
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-4 py-2.5 text-center">
-                      {renderStatusBadge(item.status)}
-                    </td>
-                  </tr>
-                ))}
+                      {/* Status */}
+                      <td className="px-4 py-2.5 text-center">
+                        {renderStatusBadge(item.status)}
+                      </td>
+                    </tr>
+                  );
+                })}
 
                 {/* Subtotal Expenses */}
                 <tr className="bg-rose-100/50 font-bold text-slate-900 border-t border-rose-200">
