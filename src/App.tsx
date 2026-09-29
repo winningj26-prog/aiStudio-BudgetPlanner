@@ -283,18 +283,6 @@ export default function App() {
     saveToStorage(STORAGE_KEYS.PAYMENT_METHODS, PAYMENT_METHODS);
   };
 
-  // Login handler: used only by the authenticated Google flow
-  const handleLogin = (email: string) => {
-    setUserEmail(email);
-    setIsLoggedIn(true);
-    setActiveTab('start_here');
-    setSelectedCell({
-      reference: 'StartHere!A1',
-      value: 'Welcome to Your Personal Monthly Budget Planner',
-      isCalculated: false,
-    });
-  };
-
   // Logout handler
   const handleLogout = () => {
     setIsLoggedIn(false);
@@ -329,11 +317,7 @@ export default function App() {
   // 1. If not logged in, render the Login Screen
   if (!isLoggedIn) {
     return (
-      <LoginView
-        initialEmail={userEmail}
-        onLogin={handleLogin}
-        onGoogleLogin={handleGoogleLogin}
-      />
+      <LoginView onGoogleLogin={handleGoogleLogin} />
     );
   }
 
