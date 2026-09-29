@@ -38,6 +38,8 @@ import {
 } from './utils/storage';
 import { User } from 'firebase/auth';
 import { initAuth, googleSignOut } from './services/googleAuth';
+import { syncToolkitAccount } from './services/toolkitAccount';
+import type { ToolkitEntitlementResponse } from './types/toolkit';
 import {
   GoogleSheetConfig,
   PulledData,
@@ -191,6 +193,7 @@ export default function App() {
   // Google OAuth and Google Sheets state (token held in-memory only per security guidelines)
   const [googleUser, setGoogleUser] = useState<User | null>(null);
   const [googleToken, setGoogleToken] = useState<string | null>(null);
+  const [toolkitSession, setToolkitSession] = useState<ToolkitEntitlementResponse | null>(null);
 
   const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(() =>
     loadFromStorage<GoogleSheetConfig | null>(STORAGE_KEYS.GOOGLE_SHEET_CONFIG, null)
@@ -225,6 +228,33 @@ export default function App() {
     );
     return () => unsubscribe();
   }, []);
+
+  // Sync the signed-in Firebase identity with the central toolkit account service.
+  // If Supabase is not configured yet, the existing BudgetPlanner experience remains
+  // fully usable and the account bridge simply retries on the next sign-in/session.
+  useEffect(() => {
+    if (!googleUser) {
+      setToolkitSession(null);
+      return;
+    }
+
+    let cancelled = false;
+    void googleUser.getIdToken().then(async (idToken) => {
+      try {
+        const session = await syncToolkitAccount({ idToken });
+        if (!cancelled) setToolkitSession(session);
+      } catch (error) {
+        if (!cancelled) {
+          setToolkitSession(null);
+          console.warn('Toolkit account service unavailable:', error);
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleUser]);
 
   // Handle data pulled from Google Sheet
   const handleDataPulled = (data: PulledData) => {
@@ -291,6 +321,7 @@ export default function App() {
     await googleSignOut();
     setGoogleUser(null);
     setGoogleToken(null);
+    setToolkitSession(null);
     setIsLoggedIn(false);
   };
 
