@@ -34,7 +34,7 @@ import {
   STORAGE_KEYS,
   loadFromStorage,
   saveToStorage,
-  clearBudgetStorage,
+  clearLegacyV1Storage,
 } from './utils/storage';
 import { User } from 'firebase/auth';
 import { initAuth } from './services/googleAuth';
@@ -58,17 +58,18 @@ import { CalendarViewSheet } from './components/worksheets/CalendarViewSheet';
 import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
 
 export default function App() {
-  // Authentication state: starts logged in with demo user, can log out/in
+  clearLegacyV1Storage();
+  // Authentication state: users start signed out and authenticate with Google
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() =>
-    loadFromStorage<boolean>(STORAGE_KEYS.IS_LOGGED_IN, true)
+    loadFromStorage<boolean>(STORAGE_KEYS.IS_LOGGED_IN, false)
   );
   const [userEmail, setUserEmail] = useState<string>(() =>
-    loadFromStorage<string>(STORAGE_KEYS.USER_EMAIL, 'winningj26@gmail.com')
+    loadFromStorage<string>(STORAGE_KEYS.USER_EMAIL, '')
   );
 
   // Navigation state (initial route after login is 'start_here', the home landing page)
   const [activeTab, setActiveTab] = useState<WorksheetTab>(() =>
-    loadFromStorage<WorksheetTab>('pmbp_active_tab_v1', 'start_here')
+    loadFromStorage<WorksheetTab>(STORAGE_KEYS.ACTIVE_TAB, 'start_here')
   );
 
   // Global persistent settings (Currency, Month, Year, Date Format)
@@ -189,7 +190,7 @@ export default function App() {
   }, [isLoggedIn]);
 
   useEffect(() => {
-    saveToStorage('pmbp_active_tab_v1', activeTab);
+    saveToStorage(STORAGE_KEYS.ACTIVE_TAB, activeTab);
   }, [activeTab]);
 
   // Google OAuth and Google Sheets state (token held in-memory only per security guidelines)
@@ -282,39 +283,9 @@ export default function App() {
     saveToStorage(STORAGE_KEYS.PAYMENT_METHODS, PAYMENT_METHODS);
   };
 
-  // Login handler: guarantees landing on the home page ('start_here') after login
-  const handleLogin = (email: string) => {
-    setUserEmail(email);
-    setIsLoggedIn(true);
-    setActiveTab('start_here');
-    setSelectedCell({
-      reference: 'StartHere!A1',
-      value: 'Welcome to Your Personal Monthly Budget Planner',
-      isCalculated: false,
-    });
-  };
-
   // Logout handler
   const handleLogout = () => {
     setIsLoggedIn(false);
-  };
-
-  // Reset to default sample data
-  const handleResetSampleData = () => {
-    if (window.confirm('Reset all transactions and budget figures to the default sample dataset ($5,600 income / $2,460 expenses)?')) {
-      setSettings(INITIAL_SETTINGS);
-      setIncomeCategories(INITIAL_INCOME_CATEGORIES);
-      setExpenseCategories(INITIAL_EXPENSE_CATEGORIES);
-      setPaymentMethods(PAYMENT_METHODS);
-      setIncomeTransactions(INITIAL_INCOME_TRANSACTIONS);
-      setExpenseTransactions(INITIAL_EXPENSE_TRANSACTIONS);
-      setPlannedIncome(INITIAL_PLANNED_INCOME);
-      setPlannedExpenses(INITIAL_PLANNED_EXPENSES);
-      setSavingsGoals(INITIAL_SAVINGS_GOALS);
-      setDebts(INITIAL_DEBTS);
-      setRecurringTransactions(INITIAL_RECURRING_TRANSACTIONS);
-      clearBudgetStorage();
-    }
   };
 
   // Export workbook modal state
@@ -346,11 +317,7 @@ export default function App() {
   // 1. If not logged in, render the Login Screen
   if (!isLoggedIn) {
     return (
-      <LoginView
-        initialEmail={userEmail}
-        onLogin={handleLogin}
-        onGoogleLogin={handleGoogleLogin}
-      />
+      <LoginView onGoogleLogin={handleGoogleLogin} />
     );
   }
 
@@ -389,7 +356,6 @@ export default function App() {
           selectedCell={selectedCell}
           highlightInputs={highlightInputs}
           onToggleHighlight={() => setHighlightInputs(!highlightInputs)}
-          onResetSampleData={handleResetSampleData}
           onExportData={handleExportData}
           activeTab={activeTab}
           onGoHome={() => handleSelectTab('start_here')}

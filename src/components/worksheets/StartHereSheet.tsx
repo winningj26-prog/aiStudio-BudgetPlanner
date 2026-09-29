@@ -33,7 +33,7 @@ interface StartHereSheetProps {
 export const StartHereSheet: React.FC<StartHereSheetProps> = ({
   onNavigate,
   onSelectCell,
-  userEmail = 'winningj26@gmail.com',
+  userEmail = '',
   onLogout,
 }) => {
   // 6 Sequential Quick Start Steps (Streamlined without redundant navigation directory)

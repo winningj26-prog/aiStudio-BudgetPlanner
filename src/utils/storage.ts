@@ -4,20 +4,21 @@
  */
 
 export const STORAGE_KEYS = {
-  SETTINGS: 'pmbp_settings_v1',
-  INCOME_CATEGORIES: 'pmbp_income_categories_v1',
-  EXPENSE_CATEGORIES: 'pmbp_expense_categories_v1',
-  PAYMENT_METHODS: 'pmbp_payment_methods_v1',
-  INCOME_TRANSACTIONS: 'pmbp_income_transactions_v1',
-  EXPENSE_TRANSACTIONS: 'pmbp_expense_transactions_v1',
-  PLANNED_INCOME: 'pmbp_planned_income_v1',
-  PLANNED_EXPENSES: 'pmbp_planned_expenses_v1',
-  SAVINGS_GOALS: 'pmbp_savings_goals_v1',
-  DEBTS: 'pmbp_debts_v1',
-  RECURRING_TRANSACTIONS: 'pmbp_recurring_transactions_v1',
-  USER_EMAIL: 'pmbp_user_email_v1',
-  IS_LOGGED_IN: 'pmbp_is_logged_in_v1',
-  GOOGLE_SHEET_CONFIG: 'pmbp_google_sheet_config_v1',
+  SETTINGS: 'pmbp_settings_v2',
+  INCOME_CATEGORIES: 'pmbp_income_categories_v2',
+  EXPENSE_CATEGORIES: 'pmbp_expense_categories_v2',
+  PAYMENT_METHODS: 'pmbp_payment_methods_v2',
+  INCOME_TRANSACTIONS: 'pmbp_income_transactions_v2',
+  EXPENSE_TRANSACTIONS: 'pmbp_expense_transactions_v2',
+  PLANNED_INCOME: 'pmbp_planned_income_v2',
+  PLANNED_EXPENSES: 'pmbp_planned_expenses_v2',
+  SAVINGS_GOALS: 'pmbp_savings_goals_v2',
+  DEBTS: 'pmbp_debts_v2',
+  RECURRING_TRANSACTIONS: 'pmbp_recurring_transactions_v2',
+  USER_EMAIL: 'pmbp_user_email_v2',
+  IS_LOGGED_IN: 'pmbp_is_logged_in_v2',
+  GOOGLE_SHEET_CONFIG: 'pmbp_google_sheet_config_v2',
+  ACTIVE_TAB: 'pmbp_active_tab_v2',
 } as const;
 
 /**
@@ -80,4 +81,31 @@ export function clearBudgetStorage(): void {
   } catch (error) {
     console.warn('[storage] Error clearing budget storage:', error);
   }
+}
+
+
+/**
+ * Remove legacy V1 browser storage so previously seeded demo data cannot reappear
+ * after the clean-data release.
+ */
+export function clearLegacyV1Storage(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  const legacyKeys = [
+    'pmbp_settings_v1',
+    'pmbp_income_categories_v1',
+    'pmbp_expense_categories_v1',
+    'pmbp_payment_methods_v1',
+    'pmbp_income_transactions_v1',
+    'pmbp_expense_transactions_v1',
+    'pmbp_planned_income_v1',
+    'pmbp_planned_expenses_v1',
+    'pmbp_savings_goals_v1',
+    'pmbp_debts_v1',
+    'pmbp_recurring_transactions_v1',
+    'pmbp_user_email_v1',
+    'pmbp_is_logged_in_v1',
+    'pmbp_google_sheet_config_v1',
+    'pmbp_active_tab_v1',
+  ];
+  legacyKeys.forEach((key) => window.localStorage.removeItem(key));
 }
