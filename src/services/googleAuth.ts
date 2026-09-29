@@ -64,7 +64,6 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
   } catch (error: any) {
     console.error('Google Sign-in error:', error);
     throw error;
-  } finally {
   }
 };
 
@@ -81,5 +80,5 @@ export const googleSignOut = async (): Promise<void> => {
     console.warn('Error during sign out:', err);
   } finally {
     cachedAccessToken = null;
-      }
+  }
 };
