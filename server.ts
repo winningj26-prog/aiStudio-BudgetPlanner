@@ -80,9 +80,13 @@ app.get('/api/account/session', async (req, res) => {
     let profile = profiles?.[0];
 
     if (!profile) {
-      const created = await supabaseRequest('profiles?on_conflict=auth_provider,auth_subject', {
+      // The identity migration uses a unique index rather than a named
+      // PostgreSQL constraint. Avoid PostgREST's on_conflict target here and
+      // create the profile only after the identity lookup above confirms it is
+      // absent.
+      const created = await supabaseRequest('profiles', {
         method: 'POST',
-        headers: { Prefer: 'return=representation,resolution=merge-duplicates' },
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify({
           auth_provider: 'firebase',
           auth_subject: firebaseUser.uid,
