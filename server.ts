@@ -19,7 +19,10 @@ app.use(express.json());
 // subscription and entitlement state. Supabase service credentials never reach
 // the browser.
 const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, '');
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+// Keep the legacy variable as a temporary fallback during the Supabase API-key migration.
+// The preferred server credential is the new Secret API key (sb_secret_...).
+const supabaseServiceRoleKey = supabaseSecretKey || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const firebaseAdminApp = (() => {
   if (getApps().length > 0) return getApps()[0];
