@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import { verifyFirebaseIdToken, isFirebaseAdminConfigured } from './server/firebaseAdmin';
+import { syncToolkitAccount, isAccountServiceConfigured } from './src/services/toolkitAccount';
 
 dotenv.config();
 
@@ -26,6 +28,29 @@ const ai = new GoogleGenAI({
 // Lightweight production health check for load balancers and deployment smoke tests
 app.get('/healthz', (_req, res) => {
   res.status(200).json({ status: 'ok' });
+});
+
+// Central toolkit account session. Firebase remains the identity source;
+// Supabase stores the shared account, subscription and entitlement state.
+app.post('/api/toolkit/session', async (req, res) => {
+  try {
+    if (!isFirebaseAdminConfigured() || !isAccountServiceConfigured()) {
+      return res.status(503).json({ error: 'Toolkit account service is not configured' });
+    }
+
+    const decoded = await verifyFirebaseIdToken(req.headers.authorization);
+    const session = await syncToolkitAccount({
+      uid: decoded.uid,
+      email: decoded.email ?? null,
+      displayName: decoded.name ?? null,
+      photoUrl: decoded.picture ?? null,
+    });
+
+    return res.json(session);
+  } catch (error) {
+    console.error('Toolkit account session error:', error);
+    return res.status(401).json({ error: 'Unable to establish toolkit account session' });
+  }
 });
 
 // AI Spending Insights Endpoint
