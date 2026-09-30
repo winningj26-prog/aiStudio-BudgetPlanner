@@ -810,11 +810,6 @@ export default function App() {
             }
             authUser={authUser}
             googleAccessToken={googleAccessToken}
-            onGoogleAuthSuccess={(user, token) => {
-              setAuthUser(user);
-              setGoogleAccessToken(token);
-              if (user.email) setUserEmail(user.email);
-            }}
             onGoogleSignOut={() => {
               setAuthUser(null);
               setGoogleAccessToken(null);
