@@ -142,6 +142,13 @@ export default function App() {
 
   const [highlightInputs, setHighlightInputs] = useState<boolean>(false);
 
+  // Google OAuth and Google Sheets state (token held in-memory only per security guidelines)
+  const [googleUser, setGoogleUser] = useState<User | null>(null);
+  const [googleToken, setGoogleToken] = useState<string | null>(null);
+  const [toolkitSession, setToolkitSession] = useState<ToolkitEntitlementResponse | null>(null);
+
+  const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(null);
+
   // The UI persists through a repository boundary. Today this repository is
   // localStorage; a future cloud repository can implement the same contract
   // without changing worksheet components.
@@ -204,13 +211,7 @@ export default function App() {
   const [googleToken, setGoogleToken] = useState<string | null>(null);
   const [toolkitSession, setToolkitSession] = useState<ToolkitEntitlementResponse | null>(null);
 
-  const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(() =>
-    loadFromStorage<GoogleSheetConfig | null>(STORAGE_KEYS.GOOGLE_SHEET_CONFIG, null)
-  );
-
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.GOOGLE_SHEET_CONFIG, storageUserId, sheetConfig);
-  }, [sheetConfig, storageUserId]);
+  const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(null);
 
   // Listen to Firebase/Google Auth state changes
   useEffect(() => {
