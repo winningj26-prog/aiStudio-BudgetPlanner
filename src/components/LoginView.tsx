@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { ArrowRight, Mail, Lock, ShieldCheck, Sparkles } from 'lucide-react';
-import { User } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
 import {
   googleSignIn,
   emailPasswordSignIn,
   emailPasswordSignUp,
   sendPasswordReset,
-} from '../services/googleAuth';
+} from '../services/supabaseAuth';
 
 interface LoginViewProps {
-  onGoogleLogin: (user: User, token: string) => void;
+  onGoogleLogin: (user: User, token: string | null) => void;
 }
 
 type AuthMode = 'signIn' | 'signUp';
@@ -23,12 +23,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onGoogleLogin }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const runAuth = async (action: () => Promise<User>) => {
+  const runAuth = async (action: () => Promise<unknown>) => {
     setIsLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      await action();
+      const result = await action();
+      if (mode === 'signUp' && result && typeof result === 'object' && 'session' in result && !result.session) {
+        setSuccessMessage('Account created. Check your email to confirm your address, then sign in.');
+      }
     } catch (error: any) {
       console.error('Email authentication failed:', error);
       const messages: Record<string, string> = {
@@ -62,8 +65,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onGoogleLogin }) => {
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      const res = await googleSignIn();
-      if (res) onGoogleLogin(res.user, res.accessToken);
+      await googleSignIn();
     } catch (error: any) {
       console.error('Google Sign-In failed:', error);
       setErrorMessage(error?.message || 'Could not complete Google Sign-In.');
