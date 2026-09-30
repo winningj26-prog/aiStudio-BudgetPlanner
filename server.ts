@@ -561,7 +561,7 @@ app.post('/api/insights', async (req, res) => {
       body: JSON.stringify({
         p_user_id: profile.id,
         p_usage_key: 'budget.aiInsights',
-        p_period_start: new Date().toISOString().slice(0, 10).replace(/\\d{2}$/, '01'),
+        p_period_start: `${new Date().toISOString().slice(0, 7)}-01`,
         p_quantity: 1,
       }),
     });
