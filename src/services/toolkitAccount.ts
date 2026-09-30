@@ -21,3 +21,44 @@ export async function loadToolkitAccountSession(
     return null;
   }
 }
+
+
+export async function completeToolkitOnboarding(
+  user: User,
+  displayName: string,
+  planId: 'free' | 'plus' | 'pro',
+): Promise<void> {
+  const idToken = await user.getIdToken();
+  const response = await fetch('/api/account/onboarding', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ displayName, planId }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || 'Unable to save onboarding details.');
+  }
+}
+
+export async function createBillingCheckout(
+  user: User,
+  planId: 'plus' | 'pro',
+): Promise<{ checkoutUrl: string; sessionId: string; planId: 'plus' | 'pro' }> {
+  const idToken = await user.getIdToken();
+  const response = await fetch('/api/billing/checkout', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ planId }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.checkoutUrl) {
+    throw new Error(body.error || 'Unable to start subscription checkout.');
+  }
+  return body;
+}
