@@ -42,14 +42,22 @@ async function supabaseRequest(path: string, init: RequestInit = {}) {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     throw new Error('Supabase account service is not configured.');
   }
+  const headers: Record<string, string> = {
+    apikey: supabaseServiceRoleKey,
+    'Content-Type': 'application/json',
+    ...(init.headers as Record<string, string> | undefined),
+  };
+
+  // New Supabase Secret API keys are not JWTs. They must be sent through
+  // the apikey header and must not be placed in Authorization: Bearer.
+  // Legacy service_role JWTs still require the Authorization header.
+  if (!supabaseSecretKey) {
+    headers.Authorization = `Bearer ${supabaseServiceRoleKey}`;
+  }
+
   const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
     ...init,
-    headers: {
-      apikey: supabaseServiceRoleKey,
-      Authorization: `Bearer ${supabaseServiceRoleKey}`,
-      'Content-Type': 'application/json',
-      ...(init.headers || {}),
-    },
+    headers,
   });
   if (!response.ok) {
     const body = await response.text();
