@@ -50,6 +50,27 @@ export const googleSignIn = async (): Promise<void> => {
   if (error) throw error;
 };
 
+export const connectGoogle = async (): Promise<void> => {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const { error } = sessionData.session
+    ? await supabase.auth.linkIdentity({
+        provider: 'google',
+        options: {
+          scopes: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
+          queryParams: { access_type: 'offline', prompt: 'consent' },
+        },
+      })
+    : await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          scopes: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
+          queryParams: { access_type: 'offline', prompt: 'consent' },
+        },
+      });
+
+  if (error) throw error;
+};
+
 export const getAccessToken = async (): Promise<string | null> => {
   const { data } = await supabase.auth.getSession();
   cachedGoogleAccessToken = data.session?.provider_token ?? cachedGoogleAccessToken;
