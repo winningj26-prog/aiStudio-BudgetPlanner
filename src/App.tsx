@@ -38,6 +38,7 @@ import {
   migrateLegacyV2StorageToAccount,
 } from './utils/storage';
 import { createLocalWorkbookRepository } from './services/workbookRepository';
+import { loadCloudWorkbook, saveCloudWorkbook } from './services/cloudWorkbookRepository';
 import { User } from 'firebase/auth';
 import { initAuth, googleSignOut } from './services/googleAuth';
 import { loadToolkitAccountSession } from './services/toolkitAccount';
@@ -146,6 +147,7 @@ export default function App() {
   const [googleUser, setGoogleUser] = useState<User | null>(null);
   const [googleToken, setGoogleToken] = useState<string | null>(null);
   const [toolkitSession, setToolkitSession] = useState<ToolkitEntitlementResponse | null>(null);
+  const [cloudReady, setCloudReady] = useState(false);
 
   const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(null);
 
@@ -320,6 +322,102 @@ export default function App() {
       cancelled = true;
     };
   }, [googleUser]);
+
+
+  // Hydrate cloud-synced accounts after Firebase identity and toolkit
+  // entitlements are available. Local storage remains the fallback/offline
+  // source for accounts without cloud sync.
+  useEffect(() => {
+    if (!googleUser || !toolkitSession) {
+      setCloudReady(false);
+      return;
+    }
+
+    if (!hasToolkitFeature(toolkitSession.session.entitlements, 'budget.cloudSync')) {
+      setCloudReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    void loadCloudWorkbook(googleUser)
+      .then((snapshot) => {
+        if (cancelled) return;
+
+        if (snapshot.data) {
+          const cloud = snapshot.data;
+          setSettings(cloud.settings);
+          setIncomeCategories(cloud.incomeCategories);
+          setExpenseCategories(cloud.expenseCategories);
+          setPaymentMethods(cloud.paymentMethods);
+          setIncomeTransactions(cloud.incomeTransactions);
+          setExpenseTransactions(cloud.expenseTransactions);
+          setPlannedIncome(cloud.plannedIncome);
+          setPlannedExpenses(cloud.plannedExpenses);
+          setSavingsGoals(cloud.savingsGoals);
+          setDebts(cloud.debts);
+          setRecurringTransactions(cloud.recurringTransactions);
+          setUserEmail(cloud.userEmail);
+          setActiveTab(cloud.activeTab);
+          setSheetConfig(cloud.sheetConfig);
+        }
+
+        setCloudReady(true);
+      })
+      .catch((error) => {
+        console.warn('Cloud workbook unavailable; continuing with local storage.', error);
+        if (!cancelled) setCloudReady(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleUser, toolkitSession]);
+
+  // Persist cloud-enabled workbooks with a small debounce so rapid spreadsheet
+  // edits are coalesced into one account-scoped snapshot.
+  useEffect(() => {
+    if (!googleUser || !cloudReady) return;
+
+    const timer = window.setTimeout(() => {
+      void saveCloudWorkbook(googleUser, {
+        settings,
+        incomeCategories,
+        expenseCategories,
+        paymentMethods,
+        incomeTransactions,
+        expenseTransactions,
+        plannedIncome,
+        plannedExpenses,
+        savingsGoals,
+        debts,
+        recurringTransactions,
+        userEmail,
+        activeTab,
+        sheetConfig,
+      }).catch((error) => {
+        console.warn('Cloud workbook save failed; local storage remains available.', error);
+      });
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    googleUser,
+    cloudReady,
+    settings,
+    incomeCategories,
+    expenseCategories,
+    paymentMethods,
+    incomeTransactions,
+    expenseTransactions,
+    plannedIncome,
+    plannedExpenses,
+    savingsGoals,
+    debts,
+    recurringTransactions,
+    userEmail,
+    activeTab,
+    sheetConfig,
+  ]);
 
   // Handle data pulled from Google Sheet
   const handleDataPulled = (data: PulledData) => {
