@@ -4,8 +4,6 @@ import path from 'path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
 
 dotenv.config();
 
@@ -16,29 +14,12 @@ const app = express();
 app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
-// Central toolkit account bridge.
-// Firebase remains the authentication authority; Supabase stores account,
-// subscription and entitlement state. Supabase service credentials never reach
-// the browser.
+// Supabase is the sole authentication and application backend.
+// The browser uses a publishable key; this server uses the Supabase Secret API
+// key only for privileged account/subscription operations.
 const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, '');
 const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
-// Keep the legacy variable as a temporary fallback during the Supabase API-key migration.
-// The preferred server credential is the new Secret API key (sb_secret_...).
 const supabaseServiceRoleKey = supabaseSecretKey || process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const firebaseAdminApp = (() => {
-  if (getApps().length > 0) return getApps()[0];
-  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!serviceAccountJson) return null;
-  try {
-    return initializeApp({ credential: cert(JSON.parse(serviceAccountJson)) });
-  } catch (error) {
-    console.error('Invalid FIREBASE_SERVICE_ACCOUNT_JSON:', error);
-    return null;
-  }
-})();
-
-const firebaseAdminAuth = firebaseAdminApp ? getAuth(firebaseAdminApp) : null;
 
 async function supabaseRequest(path: string, init: RequestInit = {}) {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
@@ -70,46 +51,9 @@ async function supabaseRequest(path: string, init: RequestInit = {}) {
 }
 
 app.get('/api/account/session', async (req, res) => {
-  const authorization = req.headers.authorization;
-  const idToken = authorization?.startsWith('Bearer ')
-    ? authorization.slice('Bearer '.length)
-    : null;
-
-  if (!idToken) return res.status(401).json({ error: 'Missing Firebase ID token.' });
-
-  if (!firebaseAdminAuth || !supabaseUrl || !supabaseServiceRoleKey) {
-    return res.status(503).json({
-      error: 'Central account service is not configured.',
-      code: 'ACCOUNT_SERVICE_NOT_CONFIGURED',
-    });
-  }
-
   try {
-    const firebaseUser = await firebaseAdminAuth.verifyIdToken(idToken);
-    const identity = encodeURIComponent(firebaseUser.uid);
-    const profiles = await supabaseRequest(
-      `profiles?select=id,email,display_name,photo_url,onboarding_completed&auth_provider=eq.firebase&auth_subject=eq.${identity}&limit=1`,
-    );
-    let profile = profiles?.[0];
-
-    if (!profile) {
-      // The identity migration uses a unique index rather than a named
-      // PostgreSQL constraint. Avoid PostgREST's on_conflict target here and
-      // create the profile only after the identity lookup above confirms it is
-      // absent.
-      const created = await supabaseRequest('profiles', {
-        method: 'POST',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({
-          auth_provider: 'firebase',
-          auth_subject: firebaseUser.uid,
-          email: firebaseUser.email ?? null,
-          display_name: firebaseUser.name ?? null,
-          photo_url: firebaseUser.picture ?? null,
-        }),
-      });
-      profile = created?.[0];
-    }
+    const authUser = await verifySupabaseRequest(req);
+    const profile = await getOrCreateToolkitProfile(authUser);
 
     if (!profile?.id) throw new Error('Could not create or load toolkit profile.');
 
@@ -153,9 +97,9 @@ app.get('/api/account/session', async (req, res) => {
       session: {
         user: {
           id: profile.id,
-          email: profile.email ?? firebaseUser.email ?? null,
-          displayName: profile.display_name ?? firebaseUser.name ?? null,
-          photoUrl: profile.photo_url ?? firebaseUser.picture ?? null,
+          email: profile.email ?? authUser.email ?? null,
+          displayName: profile.display_name ?? authUser.user_metadata?.full_name ?? null,
+          photoUrl: profile.photo_url ?? authUser.user_metadata?.avatar_url ?? null,
           onboardingComplete: Boolean(profile.onboarding_completed),
         },
         subscription: {
@@ -173,24 +117,17 @@ app.get('/api/account/session', async (req, res) => {
       },
     });
   } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
     console.error('Toolkit account session error:', error);
-    return res.status(500).json({ error: 'Unable to load toolkit account session.' });
+    return res.status(status).json({
+      error: status === 401 ? 'Invalid authentication session.' : 'Unable to load toolkit account session.',
+    });
   }
 });
 
 app.post('/api/account/onboarding', async (req, res) => {
-  const authorization = req.headers.authorization;
-  const idToken = authorization?.startsWith('Bearer ')
-    ? authorization.slice('Bearer '.length)
-    : null;
-
-  if (!idToken) return res.status(401).json({ error: 'Missing Firebase ID token.' });
-  if (!firebaseAdminAuth || !supabaseUrl || !supabaseServiceRoleKey) {
-    return res.status(503).json({ error: 'Central account service is not configured.' });
-  }
-
   try {
-    const firebaseUser = await firebaseAdminAuth.verifyIdToken(idToken);
+    const authUser = await verifySupabaseRequest(req);
     const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
     const planId = req.body?.planId;
 
@@ -199,13 +136,10 @@ app.post('/api/account/onboarding', async (req, res) => {
       return res.status(400).json({ error: 'Invalid subscription plan.' });
     }
 
-    const profile = await getToolkitProfile(firebaseUser.uid);
+    const profile = await getOrCreateToolkitProfile(authUser);
     if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
 
-    const profileState = await supabaseRequest(
-      `profiles?select=onboarding_completed&auth_provider=eq.firebase&auth_subject=eq.${encodeURIComponent(firebaseUser.uid)}&limit=1`,
-    );
-    if (profileState?.[0]?.onboarding_completed) {
+    if (profile.onboarding_completed) {
       return res.status(409).json({
         error: 'Onboarding has already been completed for this account.',
         code: 'ONBOARDING_ALREADY_COMPLETED',
@@ -248,22 +182,73 @@ app.post('/api/account/onboarding', async (req, res) => {
 
     return res.json({ ok: true, planId });
   } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
     console.error('Toolkit onboarding error:', error);
-    return res.status(500).json({ error: 'Unable to save onboarding details.' });
+    return res.status(status).json({ error: 'Unable to save onboarding details.' });
   }
 });
 
+async function getOrCreateToolkitProfile(authUser: { id: string; email?: string | null; user_metadata?: Record<string, any> | null }) {
+  const userId = encodeURIComponent(authUser.id);
+  let profiles = await supabaseRequest(
+    `profiles?select=id,email,display_name,photo_url,onboarding_completed,auth_user_id&auth_user_id=eq.${userId}&limit=1`,
+  );
+  let profile = profiles?.[0];
 
-async function getToolkitProfile(firebaseUid: string) {
-  const identity = encodeURIComponent(firebaseUid);
+  // Claim the pre-Supabase profile when the authenticated Supabase user proves
+  // ownership of the same email. This preserves existing account/workbook data.
+  if (!profile && authUser.email) {
+    const email = encodeURIComponent(authUser.email);
+    profiles = await supabaseRequest(
+      `profiles?select=id,email,display_name,photo_url,onboarding_completed,auth_user_id,auth_provider&email=ilike.${email}&limit=1`,
+    );
+    const legacyProfile = profiles?.[0];
+    if (legacyProfile && !legacyProfile.auth_user_id) {
+      await supabaseRequest(`profiles?id=eq.${legacyProfile.id}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          auth_provider: 'supabase',
+          auth_subject: authUser.id,
+          auth_user_id: authUser.id,
+          email: authUser.email,
+          photo_url: legacyProfile.photo_url ?? authUser.user_metadata?.avatar_url ?? null,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      profile = { ...legacyProfile, auth_user_id: authUser.id, auth_provider: 'supabase' };
+    }
+  }
+
+  if (!profile) {
+    const created = await supabaseRequest('profiles', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        auth_provider: 'supabase',
+        auth_subject: authUser.id,
+        auth_user_id: authUser.id,
+        email: authUser.email ?? null,
+        display_name: authUser.user_metadata?.full_name ?? null,
+        photo_url: authUser.user_metadata?.avatar_url ?? null,
+      }),
+    });
+    profile = created?.[0];
+  }
+
+  return profile ?? null;
+}
+
+async function getToolkitProfile(supabaseUserId: string) {
+  const identity = encodeURIComponent(supabaseUserId);
   const profiles = await supabaseRequest(
-    `profiles?select=id,email,display_name,photo_url&auth_provider=eq.firebase&auth_subject=eq.${identity}&limit=1`,
+    `profiles?select=id,email,display_name,photo_url,onboarding_completed&auth_user_id=eq.${identity}&limit=1`,
   );
   return profiles?.[0] ?? null;
 }
 
-async function requireToolkitFeature(firebaseUid: string, featureKey: string) {
-  const profile = await getToolkitProfile(firebaseUid);
+async function requireToolkitFeature(supabaseUserId: string, featureKey: string) {
+  const profile = await getToolkitProfile(supabaseUserId);
   if (!profile?.id) {
     const error = new Error('Toolkit profile not found.');
     (error as Error & { status?: number }).status = 404;
@@ -287,8 +272,8 @@ async function requireToolkitFeature(firebaseUid: string, featureKey: string) {
   return profile;
 }
 
-async function requireCloudSync(firebaseUid: string) {
-  const profile = await getToolkitProfile(firebaseUid);
+async function requireCloudSync(supabaseUserId: string) {
+  const profile = await getToolkitProfile(supabaseUserId);
   if (!profile?.id) {
     const error = new Error('Toolkit profile not found.');
     (error as Error & { status?: number }).status = 404;
@@ -312,30 +297,42 @@ async function requireCloudSync(firebaseUid: string) {
   return profile;
 }
 
-async function verifyFirebaseRequest(req: express.Request) {
+async function verifySupabaseRequest(req: express.Request) {
   const authorization = req.headers.authorization;
-  const idToken = authorization?.startsWith('Bearer ')
+  const accessToken = authorization?.startsWith('Bearer ')
     ? authorization.slice('Bearer '.length)
     : null;
 
-  if (!idToken) {
-    const error = new Error('Missing Firebase ID token.');
+  if (!accessToken) {
+    const error = new Error('Missing Supabase access token.');
     (error as Error & { status?: number }).status = 401;
     throw error;
   }
-  if (!firebaseAdminAuth || !supabaseUrl || !supabaseServiceRoleKey) {
-    const error = new Error('Central account service is not configured.');
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    const error = new Error('Supabase account service is not configured.');
     (error as Error & { status?: number }).status = 503;
     throw error;
   }
 
-  return firebaseAdminAuth.verifyIdToken(idToken);
+  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: {
+      apikey: supabaseServiceRoleKey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    const error = new Error('Invalid Supabase access token.');
+    (error as Error & { status?: number }).status = response.status === 401 ? 401 : 503;
+    throw error;
+  }
+
+  return response.json() as Promise<{ id: string; email?: string | null; user_metadata?: Record<string, any> | null }>;
 }
 
 app.get('/api/workbook', async (req, res) => {
   try {
-    const firebaseUser = await verifyFirebaseRequest(req);
-    const profile = await requireCloudSync(firebaseUser.uid);
+    const authUser = await verifySupabaseRequest(req);
+    const profile = await requireCloudSync(authUser.uid);
     const rows = await supabaseRequest(
       `workbook_snapshots?select=data,version,updated_at&user_id=eq.${profile.id}&limit=1`,
     );
@@ -355,8 +352,8 @@ app.get('/api/workbook', async (req, res) => {
 
 app.put('/api/workbook', async (req, res) => {
   try {
-    const firebaseUser = await verifyFirebaseRequest(req);
-    const profile = await requireCloudSync(firebaseUser.uid);
+    const authUser = await verifySupabaseRequest(req);
+    const profile = await requireCloudSync(authUser.uid);
     const data = req.body?.data;
 
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -439,8 +436,8 @@ function verifyMonimeWebhookSignature(rawBody: Buffer, signatureHeader: string |
 
 app.post('/api/billing/checkout', async (req, res) => {
   try {
-    const firebaseUser = await verifyFirebaseRequest(req);
-    const profile = await getToolkitProfile(firebaseUser.uid);
+    const authUser = await verifySupabaseRequest(req);
+    const profile = await getToolkitProfile(authUser.uid);
     const planId = req.body?.planId as keyof typeof monimePlanConfig;
     const plan = monimePlanConfig[planId];
 
@@ -619,8 +616,8 @@ const categoryCache = new Map<string, string>();
 // AI Spending Insights Endpoint
 app.post('/api/insights', async (req, res) => {
   try {
-    const firebaseUser = await verifyFirebaseRequest(req);
-    const profile = await requireToolkitFeature(firebaseUser.uid, 'budget.aiInsights');
+    const authUser = await verifySupabaseRequest(req);
+    const profile = await requireToolkitFeature(authUser.uid, 'budget.aiInsights');
 
     const { incomeTransactions = [], expenseTransactions = [], settings = {}, categories = [] } = req.body || {};
     const incomeTotal = incomeTransactions.reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
