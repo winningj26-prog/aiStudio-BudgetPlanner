@@ -368,11 +368,7 @@ export default function App() {
 
   // Update settings handler
   const handleUpdateSettings = (newSettings: Partial<SettingsState>) => {
-    setSettings((prev) => {
-      const updated = { ...prev, ...newSettings };
-      if (storageUserId) saveToAccountStorage(STORAGE_KEYS.SETTINGS, storageUserId, updated);
-      return updated;
-    });
+    setSettings((prev) => ({ ...prev, ...newSettings }));
   };
 
   // Reset settings only to template defaults
@@ -381,20 +377,6 @@ export default function App() {
     setIncomeCategories(INITIAL_INCOME_CATEGORIES);
     setExpenseCategories(INITIAL_EXPENSE_CATEGORIES);
     setPaymentMethods(PAYMENT_METHODS);
-    if (storageUserId) {
-      saveToAccountStorage(STORAGE_KEYS.SETTINGS, storageUserId, INITIAL_SETTINGS);
-      saveToAccountStorage(
-        STORAGE_KEYS.INCOME_CATEGORIES,
-        storageUserId,
-        INITIAL_INCOME_CATEGORIES,
-      );
-      saveToAccountStorage(
-        STORAGE_KEYS.EXPENSE_CATEGORIES,
-        storageUserId,
-        INITIAL_EXPENSE_CATEGORIES,
-      );
-      saveToAccountStorage(STORAGE_KEYS.PAYMENT_METHODS, storageUserId, PAYMENT_METHODS);
-    }
   };
 
   // Logout handler
