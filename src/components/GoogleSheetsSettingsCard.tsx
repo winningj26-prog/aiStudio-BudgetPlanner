@@ -31,12 +31,11 @@ import {
   verifySpreadsheet,
   PulledData,
 } from '../services/googleSheetsService';
-import { connectGoogle, supabaseSignOut } from '../services/supabaseAuth';
+import { connectGoogle } from '../services/supabaseAuth';
 
 interface GoogleSheetsSettingsCardProps {
   googleUser: User | null;
   googleToken: string | null;
-  onGoogleAuthSuccess: (user: User, token: string | null) => void;
   onGoogleSignOut: () => void;
   sheetConfig: GoogleSheetConfig | null;
   onUpdateSheetConfig: (config: GoogleSheetConfig | null) => void;
@@ -47,7 +46,6 @@ interface GoogleSheetsSettingsCardProps {
 export const GoogleSheetsSettingsCard: React.FC<GoogleSheetsSettingsCardProps> = ({
   googleUser,
   googleToken,
-  onGoogleAuthSuccess,
   onGoogleSignOut,
   sheetConfig,
   onUpdateSheetConfig,
