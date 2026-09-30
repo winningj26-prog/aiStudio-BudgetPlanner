@@ -183,6 +183,31 @@ async function getToolkitProfile(firebaseUid: string) {
   return profiles?.[0] ?? null;
 }
 
+async function requireToolkitFeature(firebaseUid: string, featureKey: string) {
+  const profile = await getToolkitProfile(firebaseUid);
+  if (!profile?.id) {
+    const error = new Error('Toolkit profile not found.');
+    (error as Error & { status?: number }).status = 404;
+    throw error;
+  }
+
+  const subscriptions = await supabaseRequest(
+    `subscriptions?select=plan_id,status&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&order=created_at.desc&limit=1`,
+  );
+  const planId = subscriptions?.[0]?.plan_id ?? 'free';
+  const entitlements = await supabaseRequest(
+    `plan_entitlements?select=enabled&plan_id=eq.${encodeURIComponent(planId)}&feature_key=eq.${encodeURIComponent(featureKey)}&enabled=eq.true&limit=1`,
+  );
+
+  if (!entitlements?.[0]?.enabled) {
+    const error = new Error(`Feature ${featureKey} is not enabled for this account.`);
+    (error as Error & { status?: number }).status = 403;
+    throw error;
+  }
+
+  return profile;
+}
+
 async function requireCloudSync(firebaseUid: string) {
   const profile = await getToolkitProfile(firebaseUid);
   if (!profile?.id) {
@@ -515,22 +540,32 @@ const categoryCache = new Map<string, string>();
 // AI Spending Insights Endpoint
 app.post('/api/insights', async (req, res) => {
   try {
-    const { incomeTransactions = [], expenseTransactions = [], settings = {}, categories = [] } = req.body;
-    
-    // Generate cache key based on transactions summary and settings
+    const firebaseUser = await verifyFirebaseRequest(req);
+    const profile = await requireToolkitFeature(firebaseUser.uid, 'budget.aiInsights');
+
+    const { incomeTransactions = [], expenseTransactions = [], settings = {}, categories = [] } = req.body || {};
     const incomeTotal = incomeTransactions.reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
     const expenseTotal = expenseTransactions.reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
-    const cacheKey = `${incomeTransactions.length}-${expenseTransactions.length}-${incomeTotal}-${expenseTotal}-${settings?.month || ''}-${settings?.year || ''}`;
-    
-    // Use cached insights if available and fresher than 30 minutes
+    const cacheKey = `${profile.id}-${incomeTransactions.length}-${expenseTransactions.length}-${incomeTotal}-${expenseTotal}-${settings?.month || ''}-${settings?.year || ''}`;
+
     const cachedItem = insightsCache.get(cacheKey);
     const THIRTY_MINUTES = 30 * 60 * 1000;
     if (cachedItem && Date.now() - cachedItem.timestamp < THIRTY_MINUTES) {
-      console.log("Serving insights from cache to preserve Gemini API quota.");
-      return res.json({ insights: cachedItem.insights, fallback: false });
+      return res.json({ insights: cachedItem.insights, fallback: false, cached: true });
     }
 
-    // Construct transaction summaries to send to Gemini as context
+    // Count billable AI insight generations server-side. Cached responses do not
+    // consume another usage unit.
+    await supabaseRequest('rpc/increment_usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_user_id: profile.id,
+        p_usage_key: 'budget.aiInsights',
+        p_period_start: new Date().toISOString().slice(0, 10).replace(/\\d{2}$/, '01'),
+        p_quantity: 1,
+      }),
+    });
+
     const textContext = `
 Monthly Income: ${incomeTotal}
 Monthly Expenses: ${expenseTotal}
@@ -538,45 +573,38 @@ Month/Year: ${settings?.month} ${settings?.year}
 Categories: ${categories?.map((c: any) => c.name).join(', ')}
 
 Transactions list:
-${expenseTransactions.slice(0, 40).map((t: any) => `- ${t.date} ${t.category}: ${t.description} (${t.amount})`).join('\n')}
+${expenseTransactions.slice(0, 40).map((t: any) => `- ${t.date} ${t.category}: ${t.description} (${t.amount})`).join('\\n')}
 `;
 
-    // Graceful fallback if apiKey is missing or placeholder
     if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
-      console.warn("GEMINI_API_KEY is not set or placeholder. Returning smart financial advisory insights.");
       return res.json({
-        insights: `- Cook simple, nutritious meals at home rather than choosing dining out or takeout options to save up to 40% on monthly food costs.
-- Audit your automated monthly subscription accounts and cancel any streaming or membership packages not utilized in the last 30 days.
-- Implement a 48-hour cooling-off period on all discretionary retail shopping purchases to evaluate necessity and reduce impulse buying.`,
-        fallback: true
+        insights: `- Review your highest-spend categories and identify one recurring discretionary expense to reduce this month.
+- Check subscriptions and memberships for services you have not used recently.
+- Consider a short cooling-off period before discretionary purchases so planned spending stays aligned with your monthly budget.`,
+        fallback: true,
       });
     }
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: `
-You are a brilliant and practical financial advisor. Analyze the following monthly financial snapshot and transactions:
+You are a practical financial budgeting assistant. Analyze the following monthly financial snapshot and transactions:
 ${textContext}
 
-Provide exactly 3 actionable, highly specific, and creative bullet points on how the user can reduce their discretionary expenses based on these transactions. Keep the tone encouraging, professional, and clear. Each bullet point should be no longer than two sentences and should directly reference categories or patterns seen in the transaction log. No introductory or concluding text, just the 3 bullet points. Do not include asterisks or numbering, just the bullet points themselves.
+Provide exactly 3 actionable, highly specific bullet points based on the transaction patterns. Keep the tone encouraging, professional, and clear. Each bullet should be no longer than two sentences. Do not provide investment, lending, tax, or other regulated financial advice. Do not include introductory or concluding text.
 `,
     });
 
-    const text = response.text || "Could not generate insights at this moment.";
-    
-    // Cache the successful result
+    const text = response.text || 'Could not generate insights at this moment.';
     insightsCache.set(cacheKey, { insights: text, timestamp: Date.now() });
-    
-    res.json({ insights: text, fallback: false });
-  } catch (error: any) {
-    console.warn("Gemini API transient rate limit (429) or quota limit encountered. Serving pre-configured smart client advisory defaults.");
-    // Even if Gemini API fails (e.g. rate-limit, invalid key), return beautiful, smart defaults so the user has an operational experience!
-    res.json({
-      insights: `- Cook simple, nutritious meals at home rather than choosing dining out or takeout options to save up to 40% on monthly food costs.
-- Audit your automated monthly subscription accounts and cancel any streaming or membership packages not utilized in the last 30 days.
-- Implement a 48-hour cooling-off period on all discretionary retail shopping purchases to evaluate necessity and reduce impulse buying.`,
-      fallback: true
-    });
+    return res.json({ insights: text, fallback: false, cached: false });
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
+    console.warn('AI insights request failed:', error);
+    if (status === 403) {
+      return res.status(403).json({ error: 'AI Insights is not enabled for this account.' });
+    }
+    return res.status(status).json({ error: 'Unable to generate AI insights.' });
   }
 });
 
