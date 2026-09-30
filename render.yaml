@@ -14,5 +14,21 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: MONIME_ACCESS_TOKEN
+        sync: false
+      - key: MONIME_SPACE_ID
+        sync: false
+      - key: MONIME_WEBHOOK_SECRET
+        sync: false
+      - key: MONIME_API_VERSION
+        value: caph.2025-08-23
+      - key: MONIME_CURRENCY
+        value: SLE
+      - key: MONIME_PLUS_AMOUNT
+        sync: false
+      - key: MONIME_PRO_AMOUNT
+        sync: false
+      - key: APP_BASE_URL
+        value: https://budget-planner-00uq.onrender.com
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
