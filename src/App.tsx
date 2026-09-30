@@ -206,13 +206,6 @@ export default function App() {
     sheetConfig,
   ]);
 
-  // Google OAuth and Google Sheets state (token held in-memory only per security guidelines)
-  const [googleUser, setGoogleUser] = useState<User | null>(null);
-  const [googleToken, setGoogleToken] = useState<string | null>(null);
-  const [toolkitSession, setToolkitSession] = useState<ToolkitEntitlementResponse | null>(null);
-
-  const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(null);
-
   // Listen to Firebase/Google Auth state changes
   useEffect(() => {
     clearLegacyV1Storage();
