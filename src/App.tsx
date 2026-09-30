@@ -33,8 +33,10 @@ import { sumIncomeTransactions, sumExpenseTransactions, buildAnnualSummary } fro
 import {
   STORAGE_KEYS,
   loadFromStorage,
-  saveToStorage,
   clearLegacyV1Storage,
+  loadFromAccountStorage,
+  saveToAccountStorage,
+  migrateLegacyV2StorageToAccount,
 } from './utils/storage';
 import { User } from 'firebase/auth';
 import { initAuth, googleSignOut } from './services/googleAuth';
@@ -66,6 +68,7 @@ export default function App() {
   // preferences/data and must never be treated as proof of identity.
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [storageUserId, setStorageUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>(() =>
     loadFromStorage<string>(STORAGE_KEYS.USER_EMAIL, '')
   );
@@ -141,56 +144,56 @@ export default function App() {
 
   // Automatically save settings and categories to localStorage on changes
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.SETTINGS, settings);
-  }, [settings]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.SETTINGS, storageUserId, settings);
+  }, [settings, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.INCOME_CATEGORIES, incomeCategories);
-  }, [incomeCategories]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.INCOME_CATEGORIES, storageUserId, incomeCategories);
+  }, [incomeCategories, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.EXPENSE_CATEGORIES, expenseCategories);
-  }, [expenseCategories]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.EXPENSE_CATEGORIES, storageUserId, expenseCategories);
+  }, [expenseCategories, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.PAYMENT_METHODS, paymentMethods);
-  }, [paymentMethods]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.PAYMENT_METHODS, storageUserId, paymentMethods);
+  }, [paymentMethods, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.INCOME_TRANSACTIONS, incomeTransactions);
-  }, [incomeTransactions]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.INCOME_TRANSACTIONS, storageUserId, incomeTransactions);
+  }, [incomeTransactions, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.EXPENSE_TRANSACTIONS, expenseTransactions);
-  }, [expenseTransactions]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.EXPENSE_TRANSACTIONS, storageUserId, expenseTransactions);
+  }, [expenseTransactions, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.PLANNED_INCOME, plannedIncome);
-  }, [plannedIncome]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.PLANNED_INCOME, storageUserId, plannedIncome);
+  }, [plannedIncome, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.PLANNED_EXPENSES, plannedExpenses);
-  }, [plannedExpenses]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.PLANNED_EXPENSES, storageUserId, plannedExpenses);
+  }, [plannedExpenses, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.SAVINGS_GOALS, savingsGoals);
-  }, [savingsGoals]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.SAVINGS_GOALS, storageUserId, savingsGoals);
+  }, [savingsGoals, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.DEBTS, debts);
-  }, [debts]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.DEBTS, storageUserId, debts);
+  }, [debts, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.RECURRING_TRANSACTIONS, recurringTransactions);
-  }, [recurringTransactions]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.RECURRING_TRANSACTIONS, storageUserId, recurringTransactions);
+  }, [recurringTransactions, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.USER_EMAIL, userEmail);
-  }, [userEmail]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.USER_EMAIL, storageUserId, userEmail);
+  }, [userEmail, storageUserId]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.ACTIVE_TAB, activeTab);
-  }, [activeTab]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.ACTIVE_TAB, storageUserId, activeTab);
+  }, [activeTab, storageUserId]);
 
   // Google OAuth and Google Sheets state (token held in-memory only per security guidelines)
   const [googleUser, setGoogleUser] = useState<User | null>(null);
@@ -202,8 +205,8 @@ export default function App() {
   );
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.GOOGLE_SHEET_CONFIG, sheetConfig);
-  }, [sheetConfig]);
+    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.GOOGLE_SHEET_CONFIG, storageUserId, sheetConfig);
+  }, [sheetConfig, storageUserId]);
 
   // Listen to Firebase/Google Auth state changes
   useEffect(() => {
@@ -231,6 +234,76 @@ export default function App() {
     );
     return () => unsubscribe();
   }, []);
+
+  // Load the authenticated user's local workbook namespace before enabling
+  // persistence. This prevents one Google account's browser data from being
+  // reused by another account on the same browser.
+  useEffect(() => {
+    if (!googleUser) {
+      setStorageUserId(null);
+      return;
+    }
+
+    const userId = googleUser.uid;
+    migrateLegacyV2StorageToAccount(userId);
+
+    setSettings(loadFromAccountStorage(STORAGE_KEYS.SETTINGS, userId, INITIAL_SETTINGS));
+    setIncomeCategories(
+      loadFromAccountStorage(STORAGE_KEYS.INCOME_CATEGORIES, userId, INITIAL_INCOME_CATEGORIES),
+    );
+    setExpenseCategories(
+      loadFromAccountStorage(STORAGE_KEYS.EXPENSE_CATEGORIES, userId, INITIAL_EXPENSE_CATEGORIES),
+    );
+    setPaymentMethods(
+      loadFromAccountStorage(STORAGE_KEYS.PAYMENT_METHODS, userId, PAYMENT_METHODS),
+    );
+    setIncomeTransactions(
+      loadFromAccountStorage(
+        STORAGE_KEYS.INCOME_TRANSACTIONS,
+        userId,
+        INITIAL_INCOME_TRANSACTIONS,
+      ),
+    );
+    setExpenseTransactions(
+      loadFromAccountStorage(
+        STORAGE_KEYS.EXPENSE_TRANSACTIONS,
+        userId,
+        INITIAL_EXPENSE_TRANSACTIONS,
+      ),
+    );
+    setPlannedIncome(
+      loadFromAccountStorage(STORAGE_KEYS.PLANNED_INCOME, userId, INITIAL_PLANNED_INCOME),
+    );
+    setPlannedExpenses(
+      loadFromAccountStorage(STORAGE_KEYS.PLANNED_EXPENSES, userId, INITIAL_PLANNED_EXPENSES),
+    );
+    setSavingsGoals(
+      loadFromAccountStorage(STORAGE_KEYS.SAVINGS_GOALS, userId, INITIAL_SAVINGS_GOALS),
+    );
+    setDebts(loadFromAccountStorage(STORAGE_KEYS.DEBTS, userId, INITIAL_DEBTS));
+    setRecurringTransactions(
+      loadFromAccountStorage(
+        STORAGE_KEYS.RECURRING_TRANSACTIONS,
+        userId,
+        INITIAL_RECURRING_TRANSACTIONS,
+      ),
+    );
+    setUserEmail(
+      loadFromAccountStorage(STORAGE_KEYS.USER_EMAIL, userId, googleUser.email ?? ''),
+    );
+    setActiveTab(
+      loadFromAccountStorage<WorksheetTab>(STORAGE_KEYS.ACTIVE_TAB, userId, 'start_here'),
+    );
+    setSheetConfig(
+      loadFromAccountStorage<GoogleSheetConfig | null>(
+        STORAGE_KEYS.GOOGLE_SHEET_CONFIG,
+        userId,
+        null,
+      ),
+    );
+
+    setStorageUserId(userId);
+  }, [googleUser]);
 
   // Load the central toolkit account after Firebase restores authentication.
   // If Supabase is unavailable, the budgeting app remains usable locally.
@@ -293,7 +366,7 @@ export default function App() {
   const handleUpdateSettings = (newSettings: Partial<SettingsState>) => {
     setSettings((prev) => {
       const updated = { ...prev, ...newSettings };
-      saveToStorage(STORAGE_KEYS.SETTINGS, updated);
+      if (storageUserId) saveToAccountStorage(STORAGE_KEYS.SETTINGS, storageUserId, updated);
       return updated;
     });
   };
@@ -304,10 +377,20 @@ export default function App() {
     setIncomeCategories(INITIAL_INCOME_CATEGORIES);
     setExpenseCategories(INITIAL_EXPENSE_CATEGORIES);
     setPaymentMethods(PAYMENT_METHODS);
-    saveToStorage(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
-    saveToStorage(STORAGE_KEYS.INCOME_CATEGORIES, INITIAL_INCOME_CATEGORIES);
-    saveToStorage(STORAGE_KEYS.EXPENSE_CATEGORIES, INITIAL_EXPENSE_CATEGORIES);
-    saveToStorage(STORAGE_KEYS.PAYMENT_METHODS, PAYMENT_METHODS);
+    if (storageUserId) {
+      saveToAccountStorage(STORAGE_KEYS.SETTINGS, storageUserId, INITIAL_SETTINGS);
+      saveToAccountStorage(
+        STORAGE_KEYS.INCOME_CATEGORIES,
+        storageUserId,
+        INITIAL_INCOME_CATEGORIES,
+      );
+      saveToAccountStorage(
+        STORAGE_KEYS.EXPENSE_CATEGORIES,
+        storageUserId,
+        INITIAL_EXPENSE_CATEGORIES,
+      );
+      saveToAccountStorage(STORAGE_KEYS.PAYMENT_METHODS, storageUserId, PAYMENT_METHODS);
+    }
   };
 
   // Logout handler
