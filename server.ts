@@ -286,7 +286,7 @@ async function requireCloudSync(firebaseUid: string) {
   }
 
   const subscriptions = await supabaseRequest(
-    `subscriptions?select=plan_id,status&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&order=created_at.desc&limit=1`,
+    `subscriptions?select=plan_id,status&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&or=(current_period_end.is.null,current_period_end.gt.%24%7BencodeURIComponent(new%20Date().toISOString())%7D)&order=created_at.desc&limit=1`,
   );
   const planId = subscriptions?.[0]?.plan_id ?? 'free';
   const entitlements = await supabaseRequest(
