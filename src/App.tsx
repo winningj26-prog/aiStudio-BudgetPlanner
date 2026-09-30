@@ -66,6 +66,7 @@ import { CalendarViewSheet } from './components/worksheets/CalendarViewSheet';
 import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
 import { AdvancedAnalyticsSheet } from './components/worksheets/AdvancedAnalyticsSheet';
 import { ToolkitHomeView } from './components/ToolkitHomeView';
+import { PasswordRecoveryView } from './components/PasswordRecoveryView';
 
 export default function App() {
   // Authentication is owned by Supabase Auth. Local storage is only used for workbook
@@ -153,6 +154,7 @@ export default function App() {
   const [cloudReady, setCloudReady] = useState(false);
   const [accountSessionReady, setAccountSessionReady] = useState(false);
   const [showToolkitHome, setShowToolkitHome] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(null);
 
@@ -236,7 +238,10 @@ export default function App() {
         setAccountSessionReady(false);
         setIsLoggedIn(false);
         setAuthReady(true);
-      }
+      },
+      () => {
+        setIsPasswordRecovery(true);
+      },
     );
     return () => unsubscribe();
   }, []);
@@ -525,6 +530,22 @@ export default function App() {
           <p className="mt-1 text-xs text-slate-500">Checking your Google account session.</p>
         </div>
       </div>
+    );
+  }
+
+  // Password recovery is a dedicated flow and must take precedence over the normal app launcher.
+  if (isPasswordRecovery) {
+    return (
+      <PasswordRecoveryView
+        onComplete={() => {
+          setIsPasswordRecovery(false);
+          setAuthUser(null);
+          setGoogleAccessToken(null);
+          setToolkitSession(null);
+          setAccountSessionReady(false);
+          setIsLoggedIn(false);
+        }}
+      />
     );
   }
 
