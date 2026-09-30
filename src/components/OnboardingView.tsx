@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check, ShieldCheck, ArrowRight } from 'lucide-react';
-import type { User } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
 import type { ToolkitPlanId, ToolkitEntitlementResponse } from '../types/toolkit';
 import { completeToolkitOnboarding, createBillingCheckout, loadToolkitAccountSession } from '../services/toolkitAccount';
 
