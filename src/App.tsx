@@ -33,7 +33,6 @@ import { sumIncomeTransactions, sumExpenseTransactions, buildAnnualSummary } fro
 import {
   STORAGE_KEYS,
   loadFromStorage,
-  saveToStorage,
   clearLegacyV1Storage,
   loadFromAccountStorage,
   saveToAccountStorage,
