@@ -332,7 +332,7 @@ async function verifySupabaseRequest(req: express.Request) {
 app.get('/api/workbook', async (req, res) => {
   try {
     const authUser = await verifySupabaseRequest(req);
-    const profile = await requireCloudSync(authUser.uid);
+    const profile = await requireCloudSync(authUser.id);
     const rows = await supabaseRequest(
       `workbook_snapshots?select=data,version,updated_at&user_id=eq.${profile.id}&limit=1`,
     );
@@ -353,7 +353,7 @@ app.get('/api/workbook', async (req, res) => {
 app.put('/api/workbook', async (req, res) => {
   try {
     const authUser = await verifySupabaseRequest(req);
-    const profile = await requireCloudSync(authUser.uid);
+    const profile = await requireCloudSync(authUser.id);
     const data = req.body?.data;
 
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -437,7 +437,7 @@ function verifyMonimeWebhookSignature(rawBody: Buffer, signatureHeader: string |
 app.post('/api/billing/checkout', async (req, res) => {
   try {
     const authUser = await verifySupabaseRequest(req);
-    const profile = await getToolkitProfile(authUser.uid);
+    const profile = await getToolkitProfile(authUser.id);
     const planId = req.body?.planId as keyof typeof monimePlanConfig;
     const plan = monimePlanConfig[planId];
 
@@ -617,7 +617,7 @@ const categoryCache = new Map<string, string>();
 app.post('/api/insights', async (req, res) => {
   try {
     const authUser = await verifySupabaseRequest(req);
-    const profile = await requireToolkitFeature(authUser.uid, 'budget.aiInsights');
+    const profile = await requireToolkitFeature(authUser.id, 'budget.aiInsights');
 
     const { incomeTransactions = [], expenseTransactions = [], settings = {}, categories = [] } = req.body || {};
     const incomeTotal = incomeTransactions.reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
