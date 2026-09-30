@@ -29,7 +29,7 @@ export async function completeToolkitOnboarding(
   displayName: string,
   planId: 'free' | 'plus' | 'pro',
 ): Promise<void> {
-  const idToken = await user.getIdToken();
+  const idToken = await getAuthAccessToken();
   const response = await fetch('/api/account/onboarding', {
     method: 'POST',
     headers: {
@@ -48,7 +48,7 @@ export async function createBillingCheckout(
   user: User,
   planId: 'plus' | 'pro',
 ): Promise<{ checkoutUrl: string; sessionId: string; planId: 'plus' | 'pro' }> {
-  const idToken = await user.getIdToken();
+  const idToken = await getAuthAccessToken();
   const response = await fetch('/api/billing/checkout', {
     method: 'POST',
     headers: {
