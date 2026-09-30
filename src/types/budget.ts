@@ -111,6 +111,7 @@ export type WorksheetTab =
   | 'debt_payoff'
   | 'net_worth'
   | 'annual_summary'
+  | 'advanced_analytics'
   | 'tech_specs';
 
 export interface TestResultItem {
