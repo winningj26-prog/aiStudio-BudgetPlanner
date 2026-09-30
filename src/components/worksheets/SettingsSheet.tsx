@@ -48,7 +48,6 @@ interface SettingsSheetProps {
   googleSheetsEnabled?: boolean;
   googleUser?: User | null;
   googleToken?: string | null;
-  onGoogleAuthSuccess?: (user: User, token: string | null) => void;
   onGoogleSignOut?: () => void;
   sheetConfig?: GoogleSheetConfig | null;
   onUpdateSheetConfig?: (config: GoogleSheetConfig | null) => void;
@@ -71,7 +70,6 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
   googleSheetsEnabled = true,
   googleUser = null,
   googleToken = null,
-  onGoogleAuthSuccess = () => {},
   onGoogleSignOut = () => {},
   sheetConfig = null,
   onUpdateSheetConfig = () => {},
