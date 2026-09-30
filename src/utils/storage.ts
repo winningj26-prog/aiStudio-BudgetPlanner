@@ -108,3 +108,76 @@ export function clearLegacyV1Storage(): void {
   ];
   legacyKeys.forEach((key) => window.localStorage.removeItem(key));
 }
+
+
+/**
+ * Build an account-scoped localStorage key.
+ *
+ * Firebase UID is used only as a namespace; it is not treated as authorization.
+ * Cloud authorization remains a server/database responsibility.
+ */
+export function getAccountStorageKey(key: string, userId: string): string {
+  return `pmbp_account_${encodeURIComponent(userId)}_${key}`;
+}
+
+/**
+ * Load a value from the current user's local browser namespace.
+ */
+export function loadFromAccountStorage<T>(key: string, userId: string, fallback: T): T {
+  return loadFromStorage<T>(getAccountStorageKey(key, userId), fallback);
+}
+
+/**
+ * Save a value to the current user's local browser namespace.
+ */
+export function saveToAccountStorage<T>(key: string, userId: string, value: T): boolean {
+  return saveToStorage(getAccountStorageKey(key, userId), value);
+}
+
+/**
+ * Determine whether this account already has any scoped workbook data.
+ */
+export function hasAccountStorage(userId: string): boolean {
+  if (typeof window === 'undefined' || !window.localStorage) return false;
+
+  const prefix = `pmbp_account_${encodeURIComponent(userId)}_`;
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
+/**
+ * One-time migration of the old unscoped V2 browser workbook into the first
+ * authenticated account that opens it. Existing account-scoped data always wins.
+ *
+ * This keeps the current user's data intact while preventing it from being
+ * reused when a different Google account signs in on the same browser.
+ */
+export function migrateLegacyV2StorageToAccount(userId: string): boolean {
+  if (typeof window === 'undefined' || !window.localStorage) return false;
+  if (hasAccountStorage(userId)) return false;
+
+  let migrated = false;
+  for (const key of Object.values(STORAGE_KEYS)) {
+    const legacyValue = window.localStorage.getItem(key);
+    if (legacyValue === null) continue;
+
+    const scopedKey = getAccountStorageKey(key, userId);
+    if (window.localStorage.getItem(scopedKey) === null) {
+      window.localStorage.setItem(scopedKey, legacyValue);
+      migrated = true;
+    }
+  }
+
+  // Once migrated, remove only the old unscoped V2 keys. Account-scoped copies
+  // remain available to this account and are never removed by this migration.
+  if (migrated) {
+    for (const key of Object.values(STORAGE_KEYS)) {
+      window.localStorage.removeItem(key);
+    }
+  }
+
+  return migrated;
+}
