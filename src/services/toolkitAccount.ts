@@ -1,4 +1,4 @@
-import type { User } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
 import type { ToolkitEntitlementResponse } from '../types/toolkit';
 
 export async function loadToolkitAccountSession(
