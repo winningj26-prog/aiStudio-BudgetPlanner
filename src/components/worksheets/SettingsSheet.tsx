@@ -28,7 +28,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { User } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
 import { GoogleSheetsSettingsCard } from '../GoogleSheetsSettingsCard';
 import { GoogleSheetConfig, SyncPayload, PulledData } from '../../services/googleSheetsService';
 
@@ -48,7 +48,7 @@ interface SettingsSheetProps {
   googleSheetsEnabled?: boolean;
   googleUser?: User | null;
   googleToken?: string | null;
-  onGoogleAuthSuccess?: (user: User, token: string) => void;
+  onGoogleAuthSuccess?: (user: User, token: string | null) => void;
   onGoogleSignOut?: () => void;
   sheetConfig?: GoogleSheetConfig | null;
   onUpdateSheetConfig?: (config: GoogleSheetConfig | null) => void;
