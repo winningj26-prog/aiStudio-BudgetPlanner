@@ -325,7 +325,9 @@ export default function App() {
     void loadToolkitAccountSession(googleUser).then((session) => {
       if (!cancelled) {
         setToolkitSession(session);
-        setShowToolkitHome(Boolean(session?.session.user.onboardingComplete));
+        // Authentication must always land in the shared Toolkit launcher.
+        // The BudgetPlanner workbook is entered only by an explicit app selection.
+        setShowToolkitHome(Boolean(session));
         setAccountSessionReady(true);
       }
     });
@@ -561,9 +563,32 @@ export default function App() {
     );
   }
 
-  // 3. New accounts complete onboarding before entering the workbook.
-  // Existing accounts created before onboarding are treated as needing setup
-  // only when the central account service explicitly reports it.
+  // Never fall through to the BudgetPlanner workbook if the central Toolkit
+  // account cannot be loaded. Authentication alone is not permission to open
+  // an app; the Toolkit launcher is the only entry point.
+  if (accountSessionReady && !toolkitSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
+        <div className="max-w-md rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
+          <h2 className="text-lg font-black text-slate-900">Toolkit unavailable</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Your Toolkit account could not be loaded. BudgetPlanner will not open until the
+            Toolkit session is available.
+          </p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. New accounts complete onboarding before entering the Toolkit launcher.
+  // Existing accounts are routed to the Toolkit launcher after authentication.
   if (accountSessionReady && toolkitSession && !toolkitSession.session.user.onboardingComplete) {
     return (
       <OnboardingView
@@ -579,11 +604,12 @@ export default function App() {
     );
   }
 
-  // 4. Existing accounts continue into the workbook.
+  // 4. Existing accounts always return to the Toolkit launcher after login.
+  // The workbook is only opened by the explicit BudgetPlanner app selection.
 
-  // 5. If activeTab is 'start_here', render the dedicated Home Landing Page
+  // 5. If the Toolkit session is available, render the dedicated Toolkit launcher
   // (Completely outside the Excel dashboard shell and dashboard header)
-  if (showToolkitHome && toolkitSession) {
+  if (toolkitSession && showToolkitHome) {
     return (
       <ToolkitHomeView
         session={toolkitSession}
