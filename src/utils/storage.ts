@@ -148,6 +148,23 @@ export function hasAccountStorage(userId: string): boolean {
   return false;
 }
 
+function hasAnyAccountStorage(): boolean {
+  if (typeof window === 'undefined' || !window.localStorage) return false;
+
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith('pmbp_account_')) return true;
+  }
+  return false;
+}
+
+function clearUnscopedV2Storage(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  for (const key of Object.values(STORAGE_KEYS)) {
+    window.localStorage.removeItem(key);
+  }
+}
+
 /**
  * One-time migration of the old unscoped V2 browser workbook into the first
  * authenticated account that opens it. Existing account-scoped data always wins.
@@ -158,6 +175,13 @@ export function hasAccountStorage(userId: string): boolean {
 export function migrateLegacyV2StorageToAccount(userId: string): boolean {
   if (typeof window === 'undefined' || !window.localStorage) return false;
   if (hasAccountStorage(userId)) return false;
+
+  // If any account namespace already exists, the old unscoped keys are
+  // ambiguous and must never be assigned to a different account.
+  if (hasAnyAccountStorage()) {
+    clearUnscopedV2Storage();
+    return false;
+  }
 
   let migrated = false;
   for (const key of Object.values(STORAGE_KEYS)) {
@@ -174,9 +198,7 @@ export function migrateLegacyV2StorageToAccount(userId: string): boolean {
   // Once migrated, remove only the old unscoped V2 keys. Account-scoped copies
   // remain available to this account and are never removed by this migration.
   if (migrated) {
-    for (const key of Object.values(STORAGE_KEYS)) {
-      window.localStorage.removeItem(key);
-    }
+    clearUnscopedV2Storage();
   }
 
   return migrated;
