@@ -325,6 +325,7 @@ export default function App() {
     void loadToolkitAccountSession(googleUser).then((session) => {
       if (!cancelled) {
         setToolkitSession(session);
+        setShowToolkitHome(Boolean(session?.session.user.onboardingComplete));
         setAccountSessionReady(true);
       }
     });
@@ -466,6 +467,7 @@ export default function App() {
       setUserEmail(user.email);
     }
     setIsLoggedIn(true);
+    setShowToolkitHome(false);
     setActiveTab('start_here');
   };
 
@@ -488,6 +490,7 @@ export default function App() {
     setGoogleUser(null);
     setGoogleToken(null);
     setToolkitSession(null);
+    setShowToolkitHome(false);
     setIsLoggedIn(false);
   };
 
@@ -552,7 +555,10 @@ export default function App() {
         user={googleUser!}
         session={toolkitSession}
         onComplete={(session) => {
-          if (session) setToolkitSession(session);
+          if (session) {
+            setToolkitSession(session);
+            setShowToolkitHome(true);
+          }
         }}
       />
     );
