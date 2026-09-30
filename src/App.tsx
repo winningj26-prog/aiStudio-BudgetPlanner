@@ -546,6 +546,21 @@ export default function App() {
     );
   }
 
+  // 3. Wait for the Toolkit account/session check before rendering the
+  // workbook. Firebase can restore authentication before the Toolkit API
+  // responds; rendering the workbook here would cause a visible landing-page flash.
+  if (googleUser && !accountSessionReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
+        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
+          <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+          <p className="text-sm font-semibold text-slate-800">Loading your Toolkit…</p>
+          <p className="mt-1 text-xs text-slate-500">Preparing your account workspace.</p>
+        </div>
+      </div>
+    );
+  }
+
   // 3. New accounts complete onboarding before entering the workbook.
   // Existing accounts created before onboarding are treated as needing setup
   // only when the central account service explicitly reports it.
