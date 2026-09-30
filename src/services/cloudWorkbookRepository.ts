@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { User } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
 import type { WorkbookData } from './workbookRepository';
 
 interface CloudWorkbookResponse {
