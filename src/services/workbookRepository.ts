@@ -14,7 +14,7 @@ import type {
   WorksheetTab,
 } from '../types/budget';
 import type { GoogleSheetConfig } from '../services/googleSheetsService';
-import { STORAGE_KEYS, loadFromAccountStorage, saveToAccountStorage } from './storage';
+import { STORAGE_KEYS, loadFromAccountStorage, saveToAccountStorage } from '../utils/storage';
 
 export interface WorkbookData {
   settings: SettingsState;
