@@ -202,6 +202,16 @@ app.post('/api/account/onboarding', async (req, res) => {
     const profile = await getToolkitProfile(firebaseUser.uid);
     if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
 
+    const profileState = await supabaseRequest(
+      `profiles?select=onboarding_completed&auth_provider=eq.firebase&auth_subject=eq.${encodeURIComponent(firebaseUser.uid)}&limit=1`,
+    );
+    if (profileState?.[0]?.onboarding_completed) {
+      return res.status(409).json({
+        error: 'Onboarding has already been completed for this account.',
+        code: 'ONBOARDING_ALREADY_COMPLETED',
+      });
+    }
+
     await supabaseRequest(`profiles?id=eq.${profile.id}`, {
       method: 'PATCH',
       headers: { Prefer: 'return=minimal' },
