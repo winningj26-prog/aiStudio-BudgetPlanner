@@ -250,7 +250,7 @@ export default function App() {
       return;
     }
 
-    const userId = authUser.uid;
+    const userId = authUser.id;
     migrateLegacyV2StorageToAccount(userId);
 
     setSettings(loadFromAccountStorage(STORAGE_KEYS.SETTINGS, userId, INITIAL_SETTINGS));
@@ -808,8 +808,8 @@ export default function App() {
               toolkitSession === null ||
               hasToolkitFeature(toolkitSession.session.entitlements, 'budget.googleSheets')
             }
-            authUser={authUser}
-            googleAccessToken={googleAccessToken}
+            googleUser={googleAccessToken ? authUser : null}
+            googleToken={googleAccessToken}
             onGoogleSignOut={() => {
               setGoogleAccessToken(null);
             }}
