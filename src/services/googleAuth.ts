@@ -7,6 +7,9 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   getAuth,
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   GoogleAuthProvider,
   onAuthStateChanged,
   User,
@@ -81,4 +84,22 @@ export const googleSignOut = async (): Promise<void> => {
   } finally {
     cachedAccessToken = null;
   }
+};
+
+
+export const emailPasswordSignIn = async (email: string, password: string): Promise<User> => {
+  const result = await signInWithEmailAndPassword(auth, email.trim(), password);
+  return result.user;
+};
+
+export const emailPasswordSignUp = async (
+  email: string,
+  password: string,
+): Promise<User> => {
+  const result = await createUserWithEmailAndPassword(auth, email.trim(), password);
+  return result.user;
+};
+
+export const sendPasswordReset = async (email: string): Promise<void> => {
+  await sendPasswordResetEmail(auth, email.trim());
 };

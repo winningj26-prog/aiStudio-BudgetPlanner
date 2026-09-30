@@ -42,6 +42,7 @@ import { loadCloudWorkbook, saveCloudWorkbook } from './services/cloudWorkbookRe
 import { User } from 'firebase/auth';
 import { initAuth, googleSignOut } from './services/googleAuth';
 import { loadToolkitAccountSession } from './services/toolkitAccount';
+import { OnboardingView } from './components/OnboardingView';
 import { hasToolkitFeature } from './types/toolkit';
 import type { ToolkitEntitlementResponse } from './types/toolkit';
 import {
@@ -149,6 +150,7 @@ export default function App() {
   const [googleToken, setGoogleToken] = useState<string | null>(null);
   const [toolkitSession, setToolkitSession] = useState<ToolkitEntitlementResponse | null>(null);
   const [cloudReady, setCloudReady] = useState(false);
+  const [accountSessionReady, setAccountSessionReady] = useState(false);
 
   const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(null);
 
@@ -229,6 +231,7 @@ export default function App() {
         setGoogleUser(null);
         setGoogleToken(null);
         setToolkitSession(null);
+        setAccountSessionReady(false);
         setIsLoggedIn(false);
         setAuthReady(true);
       }
@@ -311,12 +314,17 @@ export default function App() {
   useEffect(() => {
     if (!googleUser) {
       setToolkitSession(null);
+      setAccountSessionReady(false);
       return;
     }
 
     let cancelled = false;
+    setAccountSessionReady(false);
     void loadToolkitAccountSession(googleUser).then((session) => {
-      if (!cancelled) setToolkitSession(session);
+      if (!cancelled) {
+        setToolkitSession(session);
+        setAccountSessionReady(true);
+      }
     });
 
     return () => {
@@ -533,7 +541,24 @@ export default function App() {
     );
   }
 
-  // 3. If activeTab is 'start_here', render the dedicated Home Landing Page
+  // 3. New accounts complete onboarding before entering the workbook.
+  // Existing accounts created before onboarding are treated as needing setup
+  // only when the central account service explicitly reports it.
+  if (accountSessionReady && toolkitSession && !toolkitSession.session.user.onboardingComplete) {
+    return (
+      <OnboardingView
+        user={googleUser!}
+        session={toolkitSession}
+        onComplete={(session) => {
+          if (session) setToolkitSession(session);
+        }}
+      />
+    );
+  }
+
+  // 4. Existing accounts continue into the workbook.
+
+  // 5. If activeTab is 'start_here', render the dedicated Home Landing Page
   // (Completely outside the Excel dashboard shell and dashboard header)
   if (activeTab === 'start_here') {
     return (
@@ -546,7 +571,7 @@ export default function App() {
     );
   }
 
-  // 4. Otherwise, the user is inside the Dashboard / Workbook worksheets
+  // 6. Otherwise, the user is inside the Dashboard / Workbook worksheets
   // (Renders the Sidebar Menu, Formula Bar, and Active Worksheet Viewport)
   return (
     <div className="flex min-h-screen flex-col lg:flex-row bg-slate-100 font-sans text-slate-900 antialiased selection:bg-blue-200">

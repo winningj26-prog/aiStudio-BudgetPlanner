@@ -38,6 +38,7 @@ export interface ToolkitUser {
   email: string | null;
   displayName: string | null;
   photoUrl: string | null;
+  onboardingComplete: boolean;
 }
 
 export interface ToolkitSubscription {
@@ -45,6 +46,7 @@ export interface ToolkitSubscription {
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete';
   provider: 'monime' | 'none';
   currentPeriodEnd: string | null;
+  selectedAt?: string | null;
 }
 
 export interface ToolkitEntitlements {

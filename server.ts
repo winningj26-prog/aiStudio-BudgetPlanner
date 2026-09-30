@@ -88,7 +88,7 @@ app.get('/api/account/session', async (req, res) => {
     const firebaseUser = await firebaseAdminAuth.verifyIdToken(idToken);
     const identity = encodeURIComponent(firebaseUser.uid);
     const profiles = await supabaseRequest(
-      `profiles?select=id,email,display_name,photo_url&auth_provider=eq.firebase&auth_subject=eq.${identity}&limit=1`,
+      `profiles?select=id,email,display_name,photo_url,onboarding_completed&auth_provider=eq.firebase&auth_subject=eq.${identity}&limit=1`,
     );
     let profile = profiles?.[0];
 
@@ -153,6 +153,7 @@ app.get('/api/account/session', async (req, res) => {
           email: profile.email ?? firebaseUser.email ?? null,
           displayName: profile.display_name ?? firebaseUser.name ?? null,
           photoUrl: profile.photo_url ?? firebaseUser.picture ?? null,
+          onboardingComplete: Boolean(profile.onboarding_completed),
         },
         subscription: {
           planId,
@@ -171,6 +172,71 @@ app.get('/api/account/session', async (req, res) => {
   } catch (error) {
     console.error('Toolkit account session error:', error);
     return res.status(500).json({ error: 'Unable to load toolkit account session.' });
+  }
+});
+
+app.post('/api/account/onboarding', async (req, res) => {
+  const authorization = req.headers.authorization;
+  const idToken = authorization?.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length)
+    : null;
+
+  if (!idToken) return res.status(401).json({ error: 'Missing Firebase ID token.' });
+  if (!firebaseAdminAuth || !supabaseUrl || !supabaseServiceRoleKey) {
+    return res.status(503).json({ error: 'Central account service is not configured.' });
+  }
+
+  try {
+    const firebaseUser = await firebaseAdminAuth.verifyIdToken(idToken);
+    const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
+    const planId = req.body?.planId;
+
+    if (!displayName) return res.status(400).json({ error: 'Display name is required.' });
+    if (!['free', 'plus', 'pro'].includes(planId)) {
+      return res.status(400).json({ error: 'Invalid subscription plan.' });
+    }
+
+    const profile = await getToolkitProfile(firebaseUser.uid);
+    if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
+
+    await supabaseRequest(`profiles?id=eq.${profile.id}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        display_name: displayName,
+        onboarding_completed: true,
+        onboarding_completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
+    });
+
+    // Free selection is immediately active. Paid selection only records that
+    // onboarding is complete; Monime checkout/webhooks remain the authority
+    // that activates Plus or Pro.
+    if (planId === 'free') {
+      const live = await supabaseRequest(
+        `subscriptions?select=id&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&limit=1`,
+      );
+      if (live?.[0]?.id) {
+        await supabaseRequest(`subscriptions?id=eq.${live[0].id}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            plan_id: 'free',
+            provider: 'none',
+            provider_subscription_id: null,
+            status: 'active',
+            current_period_end: null,
+            updated_at: new Date().toISOString(),
+          }),
+        });
+      }
+    }
+
+    return res.json({ ok: true, planId });
+  } catch (error) {
+    console.error('Toolkit onboarding error:', error);
+    return res.status(500).json({ error: 'Unable to save onboarding details.' });
   }
 });
 
