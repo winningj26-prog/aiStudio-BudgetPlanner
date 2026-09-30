@@ -28,6 +28,7 @@ interface StartHereSheetProps {
   onSelectCell: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
   userEmail?: string;
   onLogout?: () => void;
+  onOpenToolkit?: () => void;
 }
 
 export const StartHereSheet: React.FC<StartHereSheetProps> = ({
@@ -35,6 +36,7 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
   onSelectCell,
   userEmail = '',
   onLogout,
+  onOpenToolkit,
 }) => {
   // 6 Sequential Quick Start Steps (Streamlined without redundant navigation directory)
   const quickStartSteps = [
@@ -243,6 +245,17 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
               <User className="h-3.5 w-3.5 text-blue-600" />
               <span className="max-w-[160px] truncate">{userEmail}</span>
             </div>
+
+            {onOpenToolkit && (
+              <button
+                onClick={onOpenToolkit}
+                title="Open toolkit"
+                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-2 sm:px-2.5 py-1.5 sm:py-2 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors cursor-pointer"
+              >
+                <span className="hidden sm:inline">Toolkit</span>
+                <span className="sm:hidden">Apps</span>
+              </button>
+            )}
 
             {onLogout && (
               <button
