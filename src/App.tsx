@@ -35,9 +35,9 @@ import {
   loadFromStorage,
   clearLegacyV1Storage,
   loadFromAccountStorage,
-  saveToAccountStorage,
   migrateLegacyV2StorageToAccount,
 } from './utils/storage';
+import { createLocalWorkbookRepository } from './services/workbookRepository';
 import { User } from 'firebase/auth';
 import { initAuth, googleSignOut } from './services/googleAuth';
 import { loadToolkitAccountSession } from './services/toolkitAccount';
@@ -142,58 +142,62 @@ export default function App() {
 
   const [highlightInputs, setHighlightInputs] = useState<boolean>(false);
 
-  // Automatically save settings and categories to localStorage on changes
+  // The UI persists through a repository boundary. Today this repository is
+  // localStorage; a future cloud repository can implement the same contract
+  // without changing worksheet components.
   useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.SETTINGS, storageUserId, settings);
-  }, [settings, storageUserId]);
+    if (!storageUserId) return;
 
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.INCOME_CATEGORIES, storageUserId, incomeCategories);
-  }, [incomeCategories, storageUserId]);
+    const repository = createLocalWorkbookRepository(storageUserId, {
+      settings: INITIAL_SETTINGS,
+      incomeCategories: INITIAL_INCOME_CATEGORIES,
+      expenseCategories: INITIAL_EXPENSE_CATEGORIES,
+      paymentMethods: PAYMENT_METHODS,
+      incomeTransactions: INITIAL_INCOME_TRANSACTIONS,
+      expenseTransactions: INITIAL_EXPENSE_TRANSACTIONS,
+      plannedIncome: INITIAL_PLANNED_INCOME,
+      plannedExpenses: INITIAL_PLANNED_EXPENSES,
+      savingsGoals: INITIAL_SAVINGS_GOALS,
+      debts: INITIAL_DEBTS,
+      recurringTransactions: INITIAL_RECURRING_TRANSACTIONS,
+      userEmail: '',
+      activeTab: 'start_here',
+      sheetConfig: null,
+    });
 
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.EXPENSE_CATEGORIES, storageUserId, expenseCategories);
-  }, [expenseCategories, storageUserId]);
-
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.PAYMENT_METHODS, storageUserId, paymentMethods);
-  }, [paymentMethods, storageUserId]);
-
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.INCOME_TRANSACTIONS, storageUserId, incomeTransactions);
-  }, [incomeTransactions, storageUserId]);
-
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.EXPENSE_TRANSACTIONS, storageUserId, expenseTransactions);
-  }, [expenseTransactions, storageUserId]);
-
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.PLANNED_INCOME, storageUserId, plannedIncome);
-  }, [plannedIncome, storageUserId]);
-
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.PLANNED_EXPENSES, storageUserId, plannedExpenses);
-  }, [plannedExpenses, storageUserId]);
-
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.SAVINGS_GOALS, storageUserId, savingsGoals);
-  }, [savingsGoals, storageUserId]);
-
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.DEBTS, storageUserId, debts);
-  }, [debts, storageUserId]);
-
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.RECURRING_TRANSACTIONS, storageUserId, recurringTransactions);
-  }, [recurringTransactions, storageUserId]);
-
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.USER_EMAIL, storageUserId, userEmail);
-  }, [userEmail, storageUserId]);
-
-  useEffect(() => {
-    if (storageUserId) saveToAccountStorage(STORAGE_KEYS.ACTIVE_TAB, storageUserId, activeTab);
-  }, [activeTab, storageUserId]);
+    repository.save({
+      settings,
+      incomeCategories,
+      expenseCategories,
+      paymentMethods,
+      incomeTransactions,
+      expenseTransactions,
+      plannedIncome,
+      plannedExpenses,
+      savingsGoals,
+      debts,
+      recurringTransactions,
+      userEmail,
+      activeTab,
+      sheetConfig,
+    });
+  }, [
+    storageUserId,
+    settings,
+    incomeCategories,
+    expenseCategories,
+    paymentMethods,
+    incomeTransactions,
+    expenseTransactions,
+    plannedIncome,
+    plannedExpenses,
+    savingsGoals,
+    debts,
+    recurringTransactions,
+    userEmail,
+    activeTab,
+    sheetConfig,
+  ]);
 
   // Google OAuth and Google Sheets state (token held in-memory only per security guidelines)
   const [googleUser, setGoogleUser] = useState<User | null>(null);
@@ -364,11 +368,7 @@ export default function App() {
 
   // Update settings handler
   const handleUpdateSettings = (newSettings: Partial<SettingsState>) => {
-    setSettings((prev) => {
-      const updated = { ...prev, ...newSettings };
-      if (storageUserId) saveToAccountStorage(STORAGE_KEYS.SETTINGS, storageUserId, updated);
-      return updated;
-    });
+    setSettings((prev) => ({ ...prev, ...newSettings }));
   };
 
   // Reset settings only to template defaults
@@ -377,20 +377,6 @@ export default function App() {
     setIncomeCategories(INITIAL_INCOME_CATEGORIES);
     setExpenseCategories(INITIAL_EXPENSE_CATEGORIES);
     setPaymentMethods(PAYMENT_METHODS);
-    if (storageUserId) {
-      saveToAccountStorage(STORAGE_KEYS.SETTINGS, storageUserId, INITIAL_SETTINGS);
-      saveToAccountStorage(
-        STORAGE_KEYS.INCOME_CATEGORIES,
-        storageUserId,
-        INITIAL_INCOME_CATEGORIES,
-      );
-      saveToAccountStorage(
-        STORAGE_KEYS.EXPENSE_CATEGORIES,
-        storageUserId,
-        INITIAL_EXPENSE_CATEGORIES,
-      );
-      saveToAccountStorage(STORAGE_KEYS.PAYMENT_METHODS, storageUserId, PAYMENT_METHODS);
-    }
   };
 
   // Logout handler
