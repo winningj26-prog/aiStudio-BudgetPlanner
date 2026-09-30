@@ -71,6 +71,14 @@ export const connectGoogle = async (): Promise<void> => {
   if (error) throw error;
 };
 
+export const getAuthAccessToken = async (): Promise<string> => {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.access_token) {
+    throw new Error('No authenticated Supabase session is available.');
+  }
+  return data.session.access_token;
+};
+
 export const getAccessToken = async (): Promise<string | null> => {
   const { data } = await supabase.auth.getSession();
   cachedGoogleAccessToken = data.session?.provider_token ?? cachedGoogleAccessToken;
