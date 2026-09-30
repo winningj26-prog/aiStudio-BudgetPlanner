@@ -17,7 +17,7 @@ const plans: Array<{ id: ToolkitPlanId; name: string; price: string; description
 ];
 
 export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete }) => {
-  const [displayName, setDisplayName] = useState(user.displayName ?? '');
+  const [displayName, setDisplayName] = useState((user.user_metadata?.full_name as string | undefined) ?? '');
   const [planId, setPlanId] = useState<ToolkitPlanId>('free');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
