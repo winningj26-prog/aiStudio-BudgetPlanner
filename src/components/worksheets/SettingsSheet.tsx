@@ -481,7 +481,6 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
         <GoogleSheetsSettingsCard
           googleUser={googleUser}
           googleToken={googleToken}
-          onGoogleAuthSuccess={onGoogleAuthSuccess}
           onGoogleSignOut={onGoogleSignOut}
           sheetConfig={sheetConfig}
           onUpdateSheetConfig={onUpdateSheetConfig}
