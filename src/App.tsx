@@ -65,6 +65,7 @@ import { AnnualSummarySheet } from './components/worksheets/AnnualSummarySheet';
 import { CalendarViewSheet } from './components/worksheets/CalendarViewSheet';
 import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
 import { AdvancedAnalyticsSheet } from './components/worksheets/AdvancedAnalyticsSheet';
+import { ToolkitHomeView } from './components/ToolkitHomeView';
 
 export default function App() {
   // Authentication is owned by Firebase. Local storage is only used for workbook
@@ -151,6 +152,7 @@ export default function App() {
   const [toolkitSession, setToolkitSession] = useState<ToolkitEntitlementResponse | null>(null);
   const [cloudReady, setCloudReady] = useState(false);
   const [accountSessionReady, setAccountSessionReady] = useState(false);
+  const [showToolkitHome, setShowToolkitHome] = useState(false);
 
   const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(null);
 
@@ -560,6 +562,19 @@ export default function App() {
 
   // 5. If activeTab is 'start_here', render the dedicated Home Landing Page
   // (Completely outside the Excel dashboard shell and dashboard header)
+  if (showToolkitHome && toolkitSession) {
+    return (
+      <ToolkitHomeView
+        session={toolkitSession}
+        onOpenBudgetPlanner={() => {
+          setShowToolkitHome(false);
+          setActiveTab('start_here');
+        }}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   if (activeTab === 'start_here') {
     return (
       <StartHereSheet
@@ -567,6 +582,7 @@ export default function App() {
         onSelectCell={setSelectedCell}
         userEmail={userEmail}
         onLogout={handleLogout}
+        onOpenToolkit={() => setShowToolkitHome(true)}
       />
     );
   }
@@ -582,6 +598,7 @@ export default function App() {
         settings={settings}
         onUpdateSettings={handleUpdateSettings}
         userEmail={userEmail}
+        userDisplayName={toolkitSession?.session.user.displayName ?? undefined}
         onLogout={handleLogout}
         advancedAnalyticsEnabled={advancedAnalyticsEnabled}
         onOpenExportModal={() => setIsExportModalOpen(true)}

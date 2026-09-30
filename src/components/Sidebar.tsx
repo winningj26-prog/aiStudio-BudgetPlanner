@@ -25,6 +25,7 @@ interface SidebarProps {
   settings: SettingsState;
   onUpdateSettings: (newSettings: Partial<SettingsState>) => void;
   userEmail?: string;
+  userDisplayName?: string;
   onLogout?: () => void;
   onOpenExportModal?: () => void;
   advancedAnalyticsEnabled?: boolean;
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   settings,
   userEmail = '',
+  userDisplayName = '',
   onLogout,
   advancedAnalyticsEnabled = false,
 }) => {
@@ -56,9 +58,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   // Username display derivation
-  const displayName = userEmail.includes('@')
+  const displayName = userDisplayName || (userEmail.includes('@')
     ? userEmail.split('@')[0].replace(/[._]/g, ' ')
-    : userEmail;
+    : userEmail);
   const capitalizedName = displayName
     ? displayName
         .split(' ')

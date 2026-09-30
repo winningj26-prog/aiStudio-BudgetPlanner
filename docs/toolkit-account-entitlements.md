@@ -34,7 +34,7 @@ interface ToolkitEntitlementResponse {
     subscription: {
       planId: 'free' | 'plus' | 'pro';
       status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete';
-      provider: 'stripe' | 'none';
+      provider: 'monime' | 'none';
       currentPeriodEnd: string | null;
     };
     entitlements: {
@@ -91,7 +91,7 @@ features and may require revising which features belong in each plan.
 - Local storage must never be treated as proof of subscription or entitlement.
 - A frontend entitlement flag is for UI/product behavior only.
 - Paid API capabilities must be enforced server-side.
-- Stripe subscription state must be updated from verified webhooks.
+- Monime subscription state must be updated from verified webhooks; the billing layer remains the authority for paid access.
 - Never trust a client-supplied `planId`, `isPremium`, or entitlement flag
   for authorization.
 - Google OAuth access tokens must not be persisted in localStorage.
@@ -110,5 +110,12 @@ The next backend phase can implement these concepts with:
 - `usage`
 
 BudgetPlanner should continue working locally while this service is built.
+
+## Toolkit launcher
+
+The shared launcher is account-aware. BudgetPlanner is currently the only enabled
+application; future app identifiers default to unavailable until their backend
+app entitlement is explicitly enabled. This prevents placeholder apps from being
+mistakenly exposed as production applications.
 Only after the account service is validated should workbook cloud persistence
 or subscription-gated features be switched to authoritative backend state.

@@ -114,7 +114,7 @@ app.get('/api/account/session', async (req, res) => {
     if (!profile?.id) throw new Error('Could not create or load toolkit profile.');
 
     const liveSubscriptions = await supabaseRequest(
-      `subscriptions?select=plan_id,provider,status,current_period_end&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&order=created_at.desc&limit=1`,
+      `subscriptions?select=plan_id,provider,status,current_period_end&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&or=(current_period_end.is.null,current_period_end.gt.${encodeURIComponent(new Date().toISOString())})&order=created_at.desc&limit=1`,
     );
     let subscription = liveSubscriptions?.[0];
 
@@ -140,9 +140,12 @@ app.get('/api/account/session', async (req, res) => {
       `app_entitlements?select=app_id,enabled&user_id=eq.${profile.id}`,
     )) as Array<{ app_id: string; enabled: boolean }> | null;
 
-    const appAccess: Record<string, boolean> = Object.fromEntries(
-      ['budget-planner', 'app-2', 'app-3', 'app-4'].map((appId) => [appId, true]),
-    );
+    const appAccess: Record<string, boolean> = {
+      'budget-planner': true,
+      'app-2': false,
+      'app-3': false,
+      'app-4': false,
+    };
     for (const row of overrideRows ?? []) appAccess[row.app_id] = Boolean(row.enabled);
 
     return res.json({
@@ -215,7 +218,7 @@ app.post('/api/account/onboarding', async (req, res) => {
     // that activates Plus or Pro.
     if (planId === 'free') {
       const live = await supabaseRequest(
-        `subscriptions?select=id&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&limit=1`,
+        `subscriptions?select=id&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&or=(current_period_end.is.null,current_period_end.gt.${encodeURIComponent(new Date().toISOString())})&limit=1`,
       );
       if (live?.[0]?.id) {
         await supabaseRequest(`subscriptions?id=eq.${live[0].id}`, {
@@ -258,7 +261,7 @@ async function requireToolkitFeature(firebaseUid: string, featureKey: string) {
   }
 
   const subscriptions = await supabaseRequest(
-    `subscriptions?select=plan_id,status&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&order=created_at.desc&limit=1`,
+    `subscriptions?select=plan_id,status,current_period_end&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&or=(current_period_end.is.null,current_period_end.gt.${encodeURIComponent(new Date().toISOString())})&order=created_at.desc&limit=1`,
   );
   const planId = subscriptions?.[0]?.plan_id ?? 'free';
   const entitlements = await supabaseRequest(
@@ -283,7 +286,7 @@ async function requireCloudSync(firebaseUid: string) {
   }
 
   const subscriptions = await supabaseRequest(
-    `subscriptions?select=plan_id,status&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&order=created_at.desc&limit=1`,
+    `subscriptions?select=plan_id,status&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&or=(current_period_end.is.null,current_period_end.gt.${encodeURIComponent(new Date().toISOString())})&order=created_at.desc&limit=1`,
   );
   const planId = subscriptions?.[0]?.plan_id ?? 'free';
   const entitlements = await supabaseRequest(
