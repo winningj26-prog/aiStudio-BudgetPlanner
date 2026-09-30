@@ -325,7 +325,9 @@ export default function App() {
     void loadToolkitAccountSession(googleUser).then((session) => {
       if (!cancelled) {
         setToolkitSession(session);
-        setShowToolkitHome(Boolean(session?.session.user.onboardingComplete));
+        // Authentication must always land in the shared Toolkit launcher.
+        // The BudgetPlanner workbook is entered only by an explicit app selection.
+        setShowToolkitHome(Boolean(session));
         setAccountSessionReady(true);
       }
     });
@@ -579,11 +581,12 @@ export default function App() {
     );
   }
 
-  // 4. Existing accounts continue into the workbook.
+  // 4. Existing accounts always return to the Toolkit launcher after login.
+  // The workbook is only opened by the explicit BudgetPlanner app selection.
 
-  // 5. If activeTab is 'start_here', render the dedicated Home Landing Page
+  // 5. If the Toolkit session is available, render the dedicated Toolkit launcher
   // (Completely outside the Excel dashboard shell and dashboard header)
-  if (showToolkitHome && toolkitSession) {
+  if (toolkitSession && showToolkitHome) {
     return (
       <ToolkitHomeView
         session={toolkitSession}
