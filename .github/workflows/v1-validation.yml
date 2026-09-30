@@ -16,16 +16,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - name: Install dependencies
         run: npm install
+
       - name: Type check
         run: npm run lint
+
       - name: Production build
         run: npm run build
+
       - name: Production smoke test
         run: |
           NODE_ENV=production PORT=4173 GEMINI_API_KEY=MY_GEMINI_API_KEY npm start > /tmp/budget-planner-server.log 2>&1 &
@@ -38,4 +43,25 @@ jobs:
             sleep 1
           done
           cat /tmp/budget-planner-server.log
+          exit 1
+
+      - name: Build production Docker image
+        run: docker build --tag budget-planner:v1-validation .
+
+      - name: Docker smoke test
+        run: |
+          docker run --detach --rm \
+            --name budget-planner-validation \
+            --publish 8080:8080 \
+            --env NODE_ENV=production \
+            --env GEMINI_API_KEY=MY_GEMINI_API_KEY \
+            budget-planner:v1-validation
+          trap 'docker stop budget-planner-validation >/dev/null 2>&1 || true' EXIT
+          for i in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:8080/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs budget-planner-validation
           exit 1
