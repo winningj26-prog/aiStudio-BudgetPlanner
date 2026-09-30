@@ -30,11 +30,16 @@ export const LoginView: React.FC = () => {
     } catch (error: any) {
       console.error('Email authentication failed:', error);
       const messages: Record<string, string> = {
-        'auth/invalid-credential': 'The email or password is incorrect.',
-        'auth/email-already-in-use': 'An account already exists with this email. Try signing in.',
-        'auth/weak-password': 'Choose a stronger password.',
-        'auth/invalid-email': 'Enter a valid email address.',
-        'auth/too-many-requests': 'Too many attempts. Please wait and try again.',
+        invalid_credentials: 'The email or password is incorrect.',
+        email_exists: 'An account already exists with this email. Try signing in.',
+        user_already_exists: 'An account already exists with this email. Try signing in.',
+        weak_password: 'Choose a stronger password.',
+        email_address_invalid: 'Enter a valid email address.',
+        over_request_rate_limit: 'Too many attempts. Please wait and try again.',
+        over_email_send_rate_limit: 'Too many emails have been sent. Please wait and try again.',
+        email_not_confirmed: 'Please confirm your email address before signing in.',
+        signup_disabled: 'New account creation is currently disabled.',
+        email_provider_disabled: 'Email/password sign-up is currently disabled.',
       };
       setErrorMessage(messages[error?.code] || error?.message || 'Authentication failed.');
     } finally {
