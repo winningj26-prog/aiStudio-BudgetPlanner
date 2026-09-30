@@ -173,6 +173,116 @@ app.get('/api/account/session', async (req, res) => {
 });
 
 
+async function getToolkitProfile(firebaseUid: string) {
+  const identity = encodeURIComponent(firebaseUid);
+  const profiles = await supabaseRequest(
+    `profiles?select=id,email,display_name,photo_url&auth_provider=eq.firebase&auth_subject=eq.${identity}&limit=1`,
+  );
+  return profiles?.[0] ?? null;
+}
+
+async function requireCloudSync(firebaseUid: string) {
+  const profile = await getToolkitProfile(firebaseUid);
+  if (!profile?.id) {
+    const error = new Error('Toolkit profile not found.');
+    (error as Error & { status?: number }).status = 404;
+    throw error;
+  }
+
+  const subscriptions = await supabaseRequest(
+    `subscriptions?select=plan_id,status&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&order=created_at.desc&limit=1`,
+  );
+  const planId = subscriptions?.[0]?.plan_id ?? 'free';
+  const entitlements = await supabaseRequest(
+    `plan_entitlements?select=enabled&plan_id=eq.${encodeURIComponent(planId)}&feature_key=eq.budget.cloudSync&enabled=eq.true&limit=1`,
+  );
+
+  if (!entitlements?.[0]?.enabled) {
+    const error = new Error('Cloud sync is not enabled for this account.');
+    (error as Error & { status?: number }).status = 403;
+    throw error;
+  }
+
+  return profile;
+}
+
+async function verifyFirebaseRequest(req: express.Request) {
+  const authorization = req.headers.authorization;
+  const idToken = authorization?.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length)
+    : null;
+
+  if (!idToken) {
+    const error = new Error('Missing Firebase ID token.');
+    (error as Error & { status?: number }).status = 401;
+    throw error;
+  }
+  if (!firebaseAdminAuth || !supabaseUrl || !supabaseServiceRoleKey) {
+    const error = new Error('Central account service is not configured.');
+    (error as Error & { status?: number }).status = 503;
+    throw error;
+  }
+
+  return firebaseAdminAuth.verifyIdToken(idToken);
+}
+
+app.get('/api/workbook', async (req, res) => {
+  try {
+    const firebaseUser = await verifyFirebaseRequest(req);
+    const profile = await requireCloudSync(firebaseUser.uid);
+    const rows = await supabaseRequest(
+      `workbook_snapshots?select=data,version,updated_at&user_id=eq.${profile.id}&limit=1`,
+    );
+    const snapshot = rows?.[0];
+
+    return res.json({
+      data: snapshot?.data ?? null,
+      version: snapshot?.version ?? null,
+      updatedAt: snapshot?.updated_at ?? null,
+    });
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
+    console.error('Cloud workbook load error:', error);
+    return res.status(status).json({ error: status === 403 ? 'Cloud sync is not enabled for this account.' : 'Unable to load cloud workbook.' });
+  }
+});
+
+app.put('/api/workbook', async (req, res) => {
+  try {
+    const firebaseUser = await verifyFirebaseRequest(req);
+    const profile = await requireCloudSync(firebaseUser.uid);
+    const data = req.body?.data;
+
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return res.status(400).json({ error: 'Workbook data must be an object.' });
+    }
+
+    // user_id is the primary key, so this is a deterministic account-scoped
+    // upsert. The client never supplies the account identifier.
+    const rows = await supabaseRequest('workbook_snapshots?on_conflict=user_id', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation,resolution=merge-duplicates' },
+      body: JSON.stringify({
+        user_id: profile.id,
+        data,
+        version: 1,
+      }),
+    });
+    const snapshot = rows?.[0];
+
+    return res.json({
+      data: snapshot?.data ?? data,
+      version: snapshot?.version ?? 1,
+      updatedAt: snapshot?.updated_at ?? null,
+    });
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
+    console.error('Cloud workbook save error:', error);
+    return res.status(status).json({ error: status === 403 ? 'Cloud sync is not enabled for this account.' : 'Unable to save cloud workbook.' });
+  }
+});
+
+
 // Initialize Gemini Client
 const apiKey = process.env.GEMINI_API_KEY;
 const ai = new GoogleGenAI({
