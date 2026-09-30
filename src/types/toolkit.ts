@@ -43,7 +43,7 @@ export interface ToolkitUser {
 export interface ToolkitSubscription {
   planId: ToolkitPlanId;
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete';
-  provider: 'stripe' | 'none';
+  provider: 'monime' | 'none';
   currentPeriodEnd: string | null;
 }
 

@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
@@ -12,6 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 // Central toolkit account bridge.
@@ -282,6 +284,213 @@ app.put('/api/workbook', async (req, res) => {
   }
 });
 
+
+
+const monimeAccessToken = process.env.MONIME_ACCESS_TOKEN;
+const monimeSpaceId = process.env.MONIME_SPACE_ID;
+const monimeWebhookSecret = process.env.MONIME_WEBHOOK_SECRET;
+const monimeApiVersion = process.env.MONIME_API_VERSION || 'caph.2025-08-23';
+const monimeCurrency = process.env.MONIME_CURRENCY || 'SLE';
+const monimePlusAmount = Number(process.env.MONIME_PLUS_AMOUNT || 0);
+const monimeProAmount = Number(process.env.MONIME_PRO_AMOUNT || 0);
+const appBaseUrl = (process.env.APP_BASE_URL || '').replace(/\/$/, '');
+
+const monimePlanConfig = {
+  plus: { name: 'Toolkit Plus', amount: monimePlusAmount },
+  pro: { name: 'Toolkit Pro', amount: monimeProAmount },
+} as const;
+
+async function monimeRequest(pathname: string, init: RequestInit = {}) {
+  if (!monimeAccessToken || !monimeSpaceId) {
+    throw new Error('Monime billing is not configured.');
+  }
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${monimeAccessToken}`,
+    'Content-Type': 'application/json',
+    'Monime-Space-Id': monimeSpaceId,
+    'Monime-Version': monimeApiVersion,
+    ...(init.headers as Record<string, string> | undefined),
+  };
+  const response = await fetch(`https://api.monime.io${pathname}`, { ...init, headers });
+  const body = await response.text();
+  if (!response.ok) throw new Error(`Monime request failed (${response.status}): ${body}`);
+  return body ? JSON.parse(body) : null;
+}
+
+function getMonimeSignatureHeader(req: express.Request) {
+  const configured = (process.env.MONIME_WEBHOOK_SIGNATURE_HEADER || 'monime-signature').toLowerCase();
+  return req.headers[configured] as string | undefined;
+}
+
+function verifyMonimeWebhookSignature(rawBody: Buffer, signatureHeader: string | undefined) {
+  if (!monimeWebhookSecret || !signatureHeader) return false;
+  const match = signatureHeader.match(/(?:^|[, ]+)(?:sha256=|v1=)?([a-f0-9]{64})(?:$|[, ]+)/i);
+  const supplied = match?.[1] || (signatureHeader.match(/^[a-f0-9]{64}$/i)?.[0] ?? '');
+  if (!supplied) return false;
+  const expected = crypto.createHmac('sha256', monimeWebhookSecret).update(rawBody).digest('hex');
+  const a = Buffer.from(supplied, 'hex');
+  const b = Buffer.from(expected, 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+app.post('/api/billing/checkout', async (req, res) => {
+  try {
+    const firebaseUser = await verifyFirebaseRequest(req);
+    const profile = await getToolkitProfile(firebaseUser.uid);
+    const planId = req.body?.planId as keyof typeof monimePlanConfig;
+    const plan = monimePlanConfig[planId];
+
+    if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
+    if (!plan || !Number.isSafeInteger(plan.amount) || plan.amount <= 0) {
+      return res.status(503).json({ error: 'This billing plan is not configured yet.' });
+    }
+    if (!appBaseUrl) {
+      return res.status(503).json({ error: 'APP_BASE_URL is not configured.' });
+    }
+
+    const reference = `budgetplanner-${profile.id}-${planId}-${Date.now()}`;
+    const idempotencyKey = crypto.randomUUID();
+    const checkout = await monimeRequest('/v1/checkout-sessions', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({
+        name: plan.name,
+        lineItems: [{
+          name: plan.name,
+          price: { currency: monimeCurrency, value: plan.amount },
+          type: 'custom',
+          quantity: 1,
+          reference: planId,
+          description: `BudgetPlanner ${planId} toolkit plan - 30 day billing period`,
+        }],
+        description: `BudgetPlanner ${planId} plan`,
+        cancelUrl: `${appBaseUrl}/?billing=cancelled`,
+        successUrl: `${appBaseUrl}/?billing=success`,
+        reference,
+        metadata: {
+          toolkitUserId: profile.id,
+          planId,
+          product: 'budget-planner-toolkit',
+        },
+      }),
+    });
+
+    const session = checkout?.result;
+    if (!session?.id || !session?.redirectUrl) throw new Error('Monime returned an invalid checkout session.');
+
+    await supabaseRequest('billing_checkout_sessions', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        user_id: profile.id,
+        plan_id: planId,
+        provider: 'monime',
+        provider_session_id: session.id,
+        status: 'pending',
+        amount_value: plan.amount,
+        currency: monimeCurrency,
+      }),
+    });
+
+    return res.json({ checkoutUrl: session.redirectUrl, sessionId: session.id, planId });
+  } catch (error) {
+    console.error('Monime checkout error:', error);
+    const message = error instanceof Error ? error.message : '';
+    return res.status(message.includes('not configured') ? 503 : 500).json({
+      error: message.includes('not configured') ? message : 'Unable to start Monime checkout.',
+    });
+  }
+});
+
+app.post('/api/billing/webhook', async (req, res) => {
+  const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from('');
+  if (!verifyMonimeWebhookSignature(rawBody, getMonimeSignatureHeader(req))) {
+    return res.status(401).json({ error: 'Invalid webhook signature.' });
+  }
+
+  try {
+    const payload = JSON.parse(rawBody.toString('utf8'));
+    const eventId = payload?.event?.id;
+    const eventName = payload?.event?.name;
+    const objectId = payload?.object?.id;
+
+    if (!eventId || !eventName) return res.status(400).json({ error: 'Invalid Monime webhook payload.' });
+
+    const existing = await supabaseRequest(
+      `billing_events?select=id&provider=eq.monime&id=eq.${encodeURIComponent(eventId)}&limit=1`,
+    );
+    if (existing?.[0]) return res.status(200).json({ received: true, duplicate: true });
+
+    await supabaseRequest('billing_events', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        id: eventId,
+        provider: 'monime',
+        event_name: eventName,
+        object_id: objectId ?? null,
+        payload,
+      }),
+    });
+
+    if (eventName !== 'checkout_session.completed') {
+      return res.status(200).json({ received: true });
+    }
+
+    const checkoutRows = await supabaseRequest(
+      `billing_checkout_sessions?select=id,user_id,plan_id,status&provider_session_id=eq.${encodeURIComponent(objectId)}&limit=1`,
+    );
+    const checkout = checkoutRows?.[0];
+    if (!checkout) {
+      console.warn('Monime checkout completed without a local checkout record:', objectId);
+      return res.status(200).json({ received: true });
+    }
+
+    const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const live = await supabaseRequest(
+      `subscriptions?select=id&user_id=eq.${checkout.user_id}&status=in.(active,trialing,past_due,incomplete)&limit=1`,
+    );
+
+    if (live?.[0]?.id) {
+      await supabaseRequest(`subscriptions?id=eq.${live[0].id}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          plan_id: checkout.plan_id,
+          provider: 'monime',
+          provider_subscription_id: objectId,
+          status: 'active',
+          current_period_end: periodEnd,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+    } else {
+      await supabaseRequest('subscriptions', {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          user_id: checkout.user_id,
+          plan_id: checkout.plan_id,
+          provider: 'monime',
+          provider_subscription_id: objectId,
+          status: 'active',
+          current_period_end: periodEnd,
+        }),
+      });
+    }
+
+    await supabaseRequest(`billing_checkout_sessions?provider_session_id=eq.${encodeURIComponent(objectId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ status: 'completed', updated_at: new Date().toISOString() }),
+    });
+
+    return res.status(200).json({ received: true });
+  } catch (error) {
+    console.error('Monime webhook processing error:', error);
+    return res.status(500).json({ error: 'Unable to process Monime webhook.' });
+  }
+});
 
 // Initialize Gemini Client
 const apiKey = process.env.GEMINI_API_KEY;
