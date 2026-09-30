@@ -39,8 +39,8 @@ import {
 } from './utils/storage';
 import { createLocalWorkbookRepository } from './services/workbookRepository';
 import { loadCloudWorkbook, saveCloudWorkbook } from './services/cloudWorkbookRepository';
-import { User } from 'firebase/auth';
-import { initAuth, googleSignOut } from './services/googleAuth';
+import type { User } from '@supabase/supabase-js';
+import { initAuth, supabaseSignOut } from './services/supabaseAuth';
 import { loadToolkitAccountSession } from './services/toolkitAccount';
 import { OnboardingView } from './components/OnboardingView';
 import { hasToolkitFeature } from './types/toolkit';
@@ -68,7 +68,7 @@ import { AdvancedAnalyticsSheet } from './components/worksheets/AdvancedAnalytic
 import { ToolkitHomeView } from './components/ToolkitHomeView';
 
 export default function App() {
-  // Authentication is owned by Firebase. Local storage is only used for workbook
+  // Authentication is owned by Supabase Auth. Local storage is only used for workbook
   // preferences/data and must never be treated as proof of identity.
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -147,8 +147,8 @@ export default function App() {
   const [highlightInputs, setHighlightInputs] = useState<boolean>(false);
 
   // Google OAuth and Google Sheets state (token held in-memory only per security guidelines)
-  const [googleUser, setGoogleUser] = useState<User | null>(null);
-  const [googleToken, setGoogleToken] = useState<string | null>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const [toolkitSession, setToolkitSession] = useState<ToolkitEntitlementResponse | null>(null);
   const [cloudReady, setCloudReady] = useState(false);
   const [accountSessionReady, setAccountSessionReady] = useState(false);
@@ -213,7 +213,7 @@ export default function App() {
     sheetConfig,
   ]);
 
-  // Listen to Firebase/Google Auth state changes
+  // Listen to Supabase Auth state changes
   useEffect(() => {
     clearLegacyV1Storage();
   }, []);
@@ -221,8 +221,8 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = initAuth(
       (user, token) => {
-        setGoogleUser(user);
-        setGoogleToken(token);
+        setAuthUser(user);
+        setGoogleAccessToken(token);
         setIsLoggedIn(true);
         setAuthReady(true);
         if (user.email) {
@@ -230,8 +230,8 @@ export default function App() {
         }
       },
       () => {
-        setGoogleUser(null);
-        setGoogleToken(null);
+        setAuthUser(null);
+        setGoogleAccessToken(null);
         setToolkitSession(null);
         setAccountSessionReady(false);
         setIsLoggedIn(false);
@@ -242,15 +242,15 @@ export default function App() {
   }, []);
 
   // Load the authenticated user's local workbook namespace before enabling
-  // persistence. This prevents one Google account's browser data from being
-  // reused by another account on the same browser.
+  // persistence. This prevents one account's browser data from being reused by
+  // another account on the same browser.
   useEffect(() => {
-    if (!googleUser) {
+    if (!authUser) {
       setStorageUserId(null);
       return;
     }
 
-    const userId = googleUser.uid;
+    const userId = authUser.uid;
     migrateLegacyV2StorageToAccount(userId);
 
     setSettings(loadFromAccountStorage(STORAGE_KEYS.SETTINGS, userId, INITIAL_SETTINGS));
@@ -295,7 +295,7 @@ export default function App() {
       ),
     );
     setUserEmail(
-      loadFromAccountStorage(STORAGE_KEYS.USER_EMAIL, userId, googleUser.email ?? ''),
+      loadFromAccountStorage(STORAGE_KEYS.USER_EMAIL, userId, authUser.email ?? ''),
     );
     setActiveTab(
       loadFromAccountStorage<WorksheetTab>(STORAGE_KEYS.ACTIVE_TAB, userId, 'start_here'),
@@ -309,12 +309,11 @@ export default function App() {
     );
 
     setStorageUserId(userId);
-  }, [googleUser]);
+  }, [authUser]);
 
-  // Load the central toolkit account after Firebase restores authentication.
-  // If Supabase is unavailable, the budgeting app remains usable locally.
+  // Load the central toolkit account after Supabase restores authentication.
   useEffect(() => {
-    if (!googleUser) {
+    if (!authUser) {
       setToolkitSession(null);
       setAccountSessionReady(false);
       return;
@@ -322,7 +321,7 @@ export default function App() {
 
     let cancelled = false;
     setAccountSessionReady(false);
-    void loadToolkitAccountSession(googleUser).then((session) => {
+    void loadToolkitAccountSession(authUser).then((session) => {
       if (!cancelled) {
         setToolkitSession(session);
         // Authentication must always land in the shared Toolkit launcher.
@@ -335,14 +334,14 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [googleUser]);
+  }, [authUser]);
 
 
-  // Hydrate cloud-synced accounts after Firebase identity and toolkit
+  // Hydrate cloud-synced accounts after Supabase identity and toolkit
   // entitlements are available. Local storage remains the fallback/offline
   // source for accounts without cloud sync.
   useEffect(() => {
-    if (!googleUser || !toolkitSession) {
+    if (!authUser || !toolkitSession) {
       setCloudReady(false);
       return;
     }
@@ -353,7 +352,7 @@ export default function App() {
     }
 
     let cancelled = false;
-    void loadCloudWorkbook(googleUser)
+    void loadCloudWorkbook(authUser)
       .then((snapshot) => {
         if (cancelled) return;
 
@@ -385,15 +384,15 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [googleUser, toolkitSession]);
+  }, [authUser, toolkitSession]);
 
   // Persist cloud-enabled workbooks with a small debounce so rapid spreadsheet
   // edits are coalesced into one account-scoped snapshot.
   useEffect(() => {
-    if (!googleUser || !cloudReady) return;
+    if (!authUser || !cloudReady) return;
 
     const timer = window.setTimeout(() => {
-      void saveCloudWorkbook(googleUser, {
+      void saveCloudWorkbook(authUser, {
         settings,
         incomeCategories,
         expenseCategories,
@@ -415,7 +414,7 @@ export default function App() {
 
     return () => window.clearTimeout(timer);
   }, [
-    googleUser,
+    authUser,
     cloudReady,
     settings,
     incomeCategories,
@@ -461,18 +460,6 @@ export default function App() {
     }
   };
 
-  // Google Sign-In handler
-  const handleGoogleLogin = (user: User, token: string) => {
-    setGoogleUser(user);
-    setGoogleToken(token);
-    if (user.email) {
-      setUserEmail(user.email);
-    }
-    setIsLoggedIn(true);
-    setShowToolkitHome(false);
-    setActiveTab('start_here');
-  };
-
   // Update settings handler
   const handleUpdateSettings = (newSettings: Partial<SettingsState>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
@@ -488,9 +475,9 @@ export default function App() {
 
   // Logout handler
   const handleLogout = async () => {
-    await googleSignOut();
-    setGoogleUser(null);
-    setGoogleToken(null);
+    await supabaseSignOut();
+    setAuthUser(null);
+    setGoogleAccessToken(null);
     setToolkitSession(null);
     setShowToolkitHome(false);
     setIsLoggedIn(false);
@@ -527,7 +514,7 @@ export default function App() {
     'budget.advancedAnalytics',
   );
 
-  // 1. Wait for Firebase to restore/check the durable Google session before
+  // 1. Wait for Supabase Auth to restore the durable session before
   // rendering either the login screen or the workbook.
   if (!authReady) {
     return (
@@ -544,14 +531,14 @@ export default function App() {
   // 2. If not logged in, render the Login Screen
   if (!isLoggedIn) {
     return (
-      <LoginView onGoogleLogin={handleGoogleLogin} />
+      <LoginView />
     );
   }
 
   // 3. Wait for the Toolkit account/session check before rendering the
-  // workbook. Firebase can restore authentication before the Toolkit API
+  // workbook. Supabase can restore authentication before the Toolkit API
   // responds; rendering the workbook here would cause a visible landing-page flash.
-  if (googleUser && !accountSessionReady) {
+  if (authUser && !accountSessionReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
@@ -592,7 +579,7 @@ export default function App() {
   if (accountSessionReady && toolkitSession && !toolkitSession.session.user.onboardingComplete) {
     return (
       <OnboardingView
-        user={googleUser!}
+        user={authUser!}
         session={toolkitSession}
         onComplete={(session) => {
           if (session) {
@@ -821,16 +808,16 @@ export default function App() {
               toolkitSession === null ||
               hasToolkitFeature(toolkitSession.session.entitlements, 'budget.googleSheets')
             }
-            googleUser={googleUser}
-            googleToken={googleToken}
+            authUser={authUser}
+            googleAccessToken={googleAccessToken}
             onGoogleAuthSuccess={(user, token) => {
-              setGoogleUser(user);
-              setGoogleToken(token);
+              setAuthUser(user);
+              setGoogleAccessToken(token);
               if (user.email) setUserEmail(user.email);
             }}
             onGoogleSignOut={() => {
-              setGoogleUser(null);
-              setGoogleToken(null);
+              setAuthUser(null);
+              setGoogleAccessToken(null);
             }}
             sheetConfig={sheetConfig}
             onUpdateSheetConfig={setSheetConfig}
