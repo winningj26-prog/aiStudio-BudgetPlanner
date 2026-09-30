@@ -8,6 +8,7 @@ export type AuthUser = User;
 export const initAuth = (
   onAuthSuccess?: (user: User, providerToken: string | null) => void,
   onAuthFailure?: () => void,
+  onPasswordRecovery?: (session: Session | null) => void,
 ) => {
   const syncSession = (session: Session | null) => {
     cachedGoogleAccessToken = session?.provider_token ?? null;
@@ -28,7 +29,10 @@ export const initAuth = (
     syncSession(data.session);
   });
 
-  const { data } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session) => {
+  const { data } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      onPasswordRecovery?.(session);
+    }
     syncSession(session);
   });
 
@@ -106,6 +110,9 @@ export const emailPasswordSignUp = async (
   const { data, error } = await supabase.auth.signUp({
     email: email.trim(),
     password,
+    options: {
+      emailRedirectTo: window.location.origin,
+    },
   });
   if (error) throw error;
   return data;
