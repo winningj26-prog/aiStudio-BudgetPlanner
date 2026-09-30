@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { ArrowRight, Mail, Lock, ShieldCheck, Sparkles } from 'lucide-react';
-import type { User } from '@supabase/supabase-js';
 import {
   googleSignIn,
   emailPasswordSignIn,
@@ -8,13 +7,9 @@ import {
   sendPasswordReset,
 } from '../services/supabaseAuth';
 
-interface LoginViewProps {
-  onGoogleLogin: (user: User, token: string | null) => void;
-}
-
 type AuthMode = 'signIn' | 'signUp';
 
-export const LoginView: React.FC<LoginViewProps> = ({ onGoogleLogin }) => {
+export const LoginView: React.FC = () => {
   const [mode, setMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
