@@ -27,6 +27,7 @@ interface SidebarProps {
   userEmail?: string;
   onLogout?: () => void;
   onOpenExportModal?: () => void;
+  advancedAnalyticsEnabled?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   settings,
   userEmail = '',
   onLogout,
+  advancedAnalyticsEnabled = false,
 }) => {
   const [isOpenMobile, setIsOpenMobile] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -46,6 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'expenses', label: 'Expenses', icon: <CreditCard className="h-4.5 w-4.5" /> },
     { id: 'monthly_budget', label: 'Monthly Budget', icon: <BarChart3 className="h-4.5 w-4.5" /> },
     { id: 'debt_payoff', label: 'Debt Payoff', icon: <TrendingDown className="h-4.5 w-4.5" /> },
+    ...(advancedAnalyticsEnabled ? [{ id: 'advanced_analytics' as WorksheetTab, label: 'Advanced Analytics', icon: <TrendingUp className="h-4.5 w-4.5" /> }] : []),
     { id: 'net_worth', label: 'Net Worth', icon: <TrendingUp className="h-4.5 w-4.5" /> },
     { id: 'annual_summary', label: 'Annual Summary', icon: <CalendarDays className="h-4.5 w-4.5" /> },
     { id: 'settings', label: 'Settings', icon: <SettingsIcon className="h-4.5 w-4.5" /> },
