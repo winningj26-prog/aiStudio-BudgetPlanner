@@ -811,7 +811,6 @@ export default function App() {
             authUser={authUser}
             googleAccessToken={googleAccessToken}
             onGoogleSignOut={() => {
-              setAuthUser(null);
               setGoogleAccessToken(null);
             }}
             sheetConfig={sheetConfig}
