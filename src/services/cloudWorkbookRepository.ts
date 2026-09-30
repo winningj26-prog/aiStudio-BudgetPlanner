@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { User } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
+import { getAuthAccessToken } from './supabaseAuth';
 import type { WorkbookData } from './workbookRepository';
 
 interface CloudWorkbookResponse {
@@ -13,7 +14,7 @@ interface CloudWorkbookResponse {
 }
 
 async function request(user: User, init: RequestInit = {}): Promise<CloudWorkbookResponse> {
-  const token = await user.getIdToken();
+  const token = await getAuthAccessToken();
   const response = await fetch('/api/workbook', {
     ...init,
     headers: {

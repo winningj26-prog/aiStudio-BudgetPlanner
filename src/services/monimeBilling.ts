@@ -1,4 +1,5 @@
-import type { User } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
+import { getAuthAccessToken } from './supabaseAuth';
 
 export type BillingPlanId = 'plus' | 'pro';
 
@@ -12,7 +13,7 @@ export async function createMonimeCheckoutSession(
   user: User,
   planId: BillingPlanId,
 ): Promise<CheckoutSessionResponse> {
-  const idToken = await user.getIdToken();
+  const idToken = await getAuthAccessToken();
   const response = await fetch('/api/billing/checkout', {
     method: 'POST',
     headers: {

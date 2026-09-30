@@ -20,7 +20,7 @@ import {
   Trash2,
   Unlink,
 } from 'lucide-react';
-import { User } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
 import {
   GoogleSheetConfig,
   SyncPayload,
@@ -31,12 +31,11 @@ import {
   verifySpreadsheet,
   PulledData,
 } from '../services/googleSheetsService';
-import { googleSignIn, googleSignOut } from '../services/googleAuth';
+import { connectGoogle } from '../services/supabaseAuth';
 
 interface GoogleSheetsSettingsCardProps {
   googleUser: User | null;
   googleToken: string | null;
-  onGoogleAuthSuccess: (user: User, token: string) => void;
   onGoogleSignOut: () => void;
   sheetConfig: GoogleSheetConfig | null;
   onUpdateSheetConfig: (config: GoogleSheetConfig | null) => void;
@@ -47,7 +46,6 @@ interface GoogleSheetsSettingsCardProps {
 export const GoogleSheetsSettingsCard: React.FC<GoogleSheetsSettingsCardProps> = ({
   googleUser,
   googleToken,
-  onGoogleAuthSuccess,
   onGoogleSignOut,
   sheetConfig,
   onUpdateSheetConfig,
@@ -72,34 +70,26 @@ export const GoogleSheetsSettingsCard: React.FC<GoogleSheetsSettingsCardProps> =
     }, 4500);
   };
 
-  // Recovery only: the normal path authorizes Sheets during the main Google login.
-  // This is used when a browser refresh has discarded the short-lived OAuth access token.
+  // Google Sheets uses a Google identity linked to the current Supabase account.
+  // Linking is required for email/password users; it does not create a second app account.
   const handleReconnectGoogle = async () => {
     setIsLoading(true);
     try {
-      const res = await googleSignIn();
-      if (res) {
-        onGoogleAuthSuccess(res.user, res.accessToken);
-        showStatus('success', `Connected as ${res.user.email || 'Google User'}`);
-      }
+      await connectGoogle();
+      showStatus('info', 'Redirecting to Google to authorize Sheets access…');
     } catch (err: any) {
       console.error('Google connect error:', err);
-      showStatus('error', err.message || 'Failed to authenticate with Google');
+      showStatus('error', err.message || 'Failed to connect Google');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDisconnectGoogle = async () => {
-    if (
-      window.confirm(
-        'Disconnect Google Account? This will pause spreadsheet synchronization until you reconnect.'
-      )
-    ) {
-      await googleSignOut();
-      onGoogleSignOut();
-      showStatus('info', 'Google account disconnected');
-    }
+    // Keep the Supabase login session intact. This only clears the in-memory
+    // Sheets token until the next authorization refresh.
+    onGoogleSignOut();
+    showStatus('info', 'Google Sheets access cleared for this session. Reconnect when needed.');
   };
 
   // One-click create in user's Drive

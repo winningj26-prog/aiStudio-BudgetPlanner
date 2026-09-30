@@ -1,11 +1,12 @@
-import type { User } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
+import { getAuthAccessToken } from './supabaseAuth';
 import type { ToolkitEntitlementResponse } from '../types/toolkit';
 
 export async function loadToolkitAccountSession(
   user: User,
 ): Promise<ToolkitEntitlementResponse | null> {
   try {
-    const idToken = await user.getIdToken();
+    const idToken = await getAuthAccessToken();
     const response = await fetch('/api/account/session', {
       headers: { Authorization: `Bearer ${idToken}` },
     });
@@ -28,7 +29,7 @@ export async function completeToolkitOnboarding(
   displayName: string,
   planId: 'free' | 'plus' | 'pro',
 ): Promise<void> {
-  const idToken = await user.getIdToken();
+  const idToken = await getAuthAccessToken();
   const response = await fetch('/api/account/onboarding', {
     method: 'POST',
     headers: {
@@ -47,7 +48,7 @@ export async function createBillingCheckout(
   user: User,
   planId: 'plus' | 'pro',
 ): Promise<{ checkoutUrl: string; sessionId: string; planId: 'plus' | 'pro' }> {
-  const idToken = await user.getIdToken();
+  const idToken = await getAuthAccessToken();
   const response = await fetch('/api/billing/checkout', {
     method: 'POST',
     headers: {
