@@ -67,6 +67,7 @@ import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
 import { AdvancedAnalyticsSheet } from './components/worksheets/AdvancedAnalyticsSheet';
 import { ToolkitHomeView } from './components/ToolkitHomeView';
 import { PasswordRecoveryView } from './components/PasswordRecoveryView';
+import { EmailConfirmationView } from './components/EmailConfirmationView';
 
 export default function App() {
   // Authentication is owned by Supabase Auth. Local storage is only used for workbook
@@ -521,6 +522,10 @@ export default function App() {
 
   // 1. Wait for Supabase Auth to restore the durable session before
   // rendering either the login screen or the workbook.
+  if (window.location.pathname === '/auth/confirm') {
+    return <EmailConfirmationView />;
+  }
+
   if (!authReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
