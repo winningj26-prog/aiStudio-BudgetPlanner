@@ -63,6 +63,7 @@ import { NetWorthForecaster } from './components/worksheets/NetWorthForecaster';
 import { AnnualSummarySheet } from './components/worksheets/AnnualSummarySheet';
 import { CalendarViewSheet } from './components/worksheets/CalendarViewSheet';
 import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
+import { AdvancedAnalyticsSheet } from './components/worksheets/AdvancedAnalyticsSheet';
 
 export default function App() {
   // Authentication is owned by Firebase. Local storage is only used for workbook
@@ -506,6 +507,11 @@ export default function App() {
     });
   };
 
+  const advancedAnalyticsEnabled = hasToolkitFeature(
+    toolkitSession?.session.entitlements,
+    'budget.advancedAnalytics',
+  );
+
   // 1. Wait for Firebase to restore/check the durable Google session before
   // rendering either the login screen or the workbook.
   if (!authReady) {
@@ -552,6 +558,7 @@ export default function App() {
         onUpdateSettings={handleUpdateSettings}
         userEmail={userEmail}
         onLogout={handleLogout}
+        advancedAnalyticsEnabled={advancedAnalyticsEnabled}
         onOpenExportModal={() => setIsExportModalOpen(true)}
       />
 
@@ -658,6 +665,30 @@ export default function App() {
             highlightInputs={highlightInputs}
             onSelectCell={setSelectedCell}
           />
+        )}
+
+        {activeTab === 'advanced_analytics' && advancedAnalyticsEnabled && (
+          <AdvancedAnalyticsSheet
+            incomeTransactions={incomeTransactions}
+            expenseTransactions={expenseTransactions}
+            settings={settings}
+          />
+        )}
+
+        {activeTab === 'advanced_analytics' && !advancedAnalyticsEnabled && (
+          <div className="mx-auto max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center shadow-sm">
+            <h2 className="text-lg font-black text-slate-900">Advanced Analytics is a Pro feature</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Upgrade your toolkit plan to unlock deeper spending and savings analytics.
+            </p>
+            <button
+              type="button"
+              onClick={() => handleSelectTab('start_here')}
+              className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white"
+            >
+              Return Home
+            </button>
+          </div>
         )}
 
         {activeTab === 'net_worth' && (
