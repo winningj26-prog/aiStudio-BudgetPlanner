@@ -13,6 +13,7 @@ import {
   hasToolkitFeature,
 } from '../src/types/toolkit.ts';
 import { createLocalWorkbookRepository } from '../src/services/workbookRepository.ts';
+import { isValidAuthEmail, isValidAuthPassword, normalizeAuthEmail } from '../src/services/authValidation.ts';
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -130,4 +131,15 @@ test('supported plan prices accept positive values with up to two decimals', () 
   for (const amount of invalidAmounts) {
     assert.equal(Number.isFinite(amount) && amount > 0 && Math.round(amount * 100) === amount * 100, false);
   }
+});
+
+
+test('authentication validation normalizes email and enforces minimum password length', () => {
+  assert.equal(normalizeAuthEmail('  USER@Example.COM '), 'user@example.com');
+  assert.equal(normalizeAuthEmail(null), '');
+  assert.equal(isValidAuthEmail('user@example.com'), true);
+  assert.equal(isValidAuthEmail('invalid-email'), false);
+  assert.equal(isValidAuthPassword('123456'), true);
+  assert.equal(isValidAuthPassword('12345'), false);
+  assert.equal(isValidAuthPassword(null), false);
 });
