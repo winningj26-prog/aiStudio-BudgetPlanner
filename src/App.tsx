@@ -29,6 +29,7 @@ import {
   PAYMENT_METHODS,
 } from './data/initialData';
 import { formatCurrency } from './utils/formatters';
+import { normalizeWorkbookData } from './utils/workbookValidation';
 import { sumIncomeTransactions, sumExpenseTransactions, buildAnnualSummary } from './utils/formulas';
 import {
   STORAGE_KEYS,
@@ -378,7 +379,22 @@ export default function App() {
         if (cancelled) return;
 
         if (snapshot.data) {
-          const cloud = snapshot.data;
+          const cloud = normalizeWorkbookData(snapshot.data, {
+            settings,
+            incomeCategories,
+            expenseCategories,
+            paymentMethods,
+            incomeTransactions,
+            expenseTransactions,
+            plannedIncome,
+            plannedExpenses,
+            savingsGoals,
+            debts,
+            recurringTransactions,
+            userEmail,
+            activeTab,
+            sheetConfig,
+          });
           setSettings(cloud.settings);
           setIncomeCategories(cloud.incomeCategories);
           setExpenseCategories(cloud.expenseCategories);
