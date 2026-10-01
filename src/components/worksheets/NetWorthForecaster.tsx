@@ -65,7 +65,7 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
   // Form states for adding custom asset
   const [newAssetName, setNewAssetName] = useState('');
   const [newAssetAmount, setNewAssetAmount] = useState('');
-  const [newAssetCat, setNewAssetCategory] = useState<'Liquid' | 'Investment' | 'Real Estate' | 'Vehicle' | 'Business' | 'Retirement' | 'Receivable' | 'Other'>('Investment');
+  const [newAssetCat, setNewAssetCategory] = useState<'Cash' | 'Bank' | 'Investment' | 'Real Estate' | 'Vehicle' | 'Business' | 'Retirement' | 'Receivable' | 'Other'>('Bank');
 
   // Forecast configurations
   const [forecastYears, setForecastYears] = useState<number>(3); // 1, 2, or 3 years
@@ -290,7 +290,7 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
             {formatCurrency(totalAssets, settings.currency)}
           </span>
           <p className="text-[10px] text-slate-500 mt-2 font-medium">
-            Aggregating checking, stock brokerages, and estate valuations.
+            Includes your pre-existing cash, bank balances, investments, property, vehicles, businesses, and other assets.
           </p>
         </div>
 
@@ -410,10 +410,10 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
             {/* Inline Add Asset Form */}
             <form onSubmit={handleAddAsset} className="mt-4 pt-3 border-t border-slate-100 grid gap-2 sm:grid-cols-12 items-end">
               <div className="sm:col-span-5 space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 block">Asset Description</label>
+                <label className="text-[10px] font-extrabold text-slate-500 block">Account / Asset Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. Stock Investment"
+                  placeholder="e.g. Main Bank Account, House, Car"
                   value={newAssetName}
                   onChange={(e) => setNewAssetName(e.target.value)}
                   className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-semibold text-slate-800 shadow-3xs focus:border-emerald-500 focus:outline-hidden"
@@ -440,7 +440,8 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
                   onChange={(e: any) => setNewAssetCategory(e.target.value)}
                   className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-semibold text-slate-700 bg-white shadow-3xs focus:border-emerald-500"
                 >
-                  <option value="Liquid">Liquid</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Bank">Bank Account</option>
                   <option value="Investment">Investment</option>
                   <option value="Real Estate">Real Estate</option>
                   <option value="Vehicle">Vehicle</option>
