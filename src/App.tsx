@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import {
   CategoryItem,
   Debt,
+  FinancialAsset,
   ExpenseTransaction,
   IncomeTransaction,
   MonthSummary,
@@ -25,12 +26,15 @@ import {
   INITIAL_RECURRING_TRANSACTIONS,
   INITIAL_SAVINGS_GOALS,
   INITIAL_DEBTS,
+  INITIAL_FINANCIAL_ASSETS,
+  INITIAL_OPENING_CASH_BALANCE,
   INITIAL_SETTINGS,
   PAYMENT_METHODS,
 } from './data/initialData';
 import { formatCurrency } from './utils/formatters';
 import { normalizeWorkbookData } from './utils/workbookValidation';
 import { sumIncomeTransactions, sumExpenseTransactions, buildAnnualSummary } from './utils/formulas';
+import { calculateFinancialSnapshot } from './utils/financialModel';
 import {
   STORAGE_KEYS,
   loadFromStorage,
@@ -131,6 +135,12 @@ export default function App() {
   const [debts, setDebts] = useState<Debt[]>(() =>
     loadFromStorage<Debt[]>(STORAGE_KEYS.DEBTS, INITIAL_DEBTS)
   );
+  const [financialAssets, setFinancialAssets] = useState<FinancialAsset[]>(() =>
+    loadFromStorage<FinancialAsset[]>(STORAGE_KEYS.FINANCIAL_ASSETS, INITIAL_FINANCIAL_ASSETS)
+  );
+  const [openingCashBalance, setOpeningCashBalance] = useState<number>(() =>
+    loadFromStorage<number>(STORAGE_KEYS.OPENING_CASH_BALANCE, INITIAL_OPENING_CASH_BALANCE)
+  );
 
   // Recurring transactions automation rules (persistent)
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>(() =>
@@ -182,6 +192,8 @@ export default function App() {
       plannedExpenses: INITIAL_PLANNED_EXPENSES,
       savingsGoals: INITIAL_SAVINGS_GOALS,
       debts: INITIAL_DEBTS,
+      financialAssets: INITIAL_FINANCIAL_ASSETS,
+      openingCashBalance: INITIAL_OPENING_CASH_BALANCE,
       recurringTransactions: INITIAL_RECURRING_TRANSACTIONS,
       userEmail: '',
       activeTab: 'start_here',
@@ -216,6 +228,8 @@ export default function App() {
     plannedExpenses,
     savingsGoals,
     debts,
+    financialAssets,
+    openingCashBalance,
     recurringTransactions,
     userEmail,
     activeTab,
@@ -300,6 +314,12 @@ export default function App() {
       loadFromAccountStorage(STORAGE_KEYS.SAVINGS_GOALS, userId, INITIAL_SAVINGS_GOALS),
     );
     setDebts(loadFromAccountStorage(STORAGE_KEYS.DEBTS, userId, INITIAL_DEBTS));
+    setFinancialAssets(
+      loadFromAccountStorage(STORAGE_KEYS.FINANCIAL_ASSETS, userId, INITIAL_FINANCIAL_ASSETS),
+    );
+    setOpeningCashBalance(
+      loadFromAccountStorage(STORAGE_KEYS.OPENING_CASH_BALANCE, userId, INITIAL_OPENING_CASH_BALANCE),
+    );
     setRecurringTransactions(
       loadFromAccountStorage(
         STORAGE_KEYS.RECURRING_TRANSACTIONS,
@@ -390,6 +410,8 @@ export default function App() {
             plannedExpenses,
             savingsGoals,
             debts,
+            financialAssets,
+            openingCashBalance,
             recurringTransactions,
             userEmail,
             activeTab,
@@ -405,6 +427,8 @@ export default function App() {
           setPlannedExpenses(cloud.plannedExpenses);
           setSavingsGoals(cloud.savingsGoals);
           setDebts(cloud.debts);
+          setFinancialAssets(cloud.financialAssets);
+          setOpeningCashBalance(cloud.openingCashBalance);
           setRecurringTransactions(cloud.recurringTransactions);
           setUserEmail(cloud.userEmail);
           setActiveTab(cloud.activeTab);
@@ -440,6 +464,8 @@ export default function App() {
         plannedExpenses,
         savingsGoals,
         debts,
+        financialAssets,
+        openingCashBalance,
         recurringTransactions,
         userEmail,
         activeTab,
@@ -463,6 +489,8 @@ export default function App() {
     plannedExpenses,
     savingsGoals,
     debts,
+    financialAssets,
+    openingCashBalance,
     recurringTransactions,
     userEmail,
     activeTab,
@@ -885,6 +913,13 @@ export default function App() {
         {activeTab === 'net_worth' && (
           <NetWorthForecaster
             debts={debts}
+            financialAssets={financialAssets}
+            openingCashBalance={openingCashBalance}
+            onUpdateFinancialAssets={setFinancialAssets}
+            onUpdateOpeningCashBalance={setOpeningCashBalance}
+            incomeTransactions={incomeTransactions}
+            expenseTransactions={expenseTransactions}
+            savingsGoals={savingsGoals}
             settings={settings}
             currentMonthlySavings={
               incomeTransactions.reduce((sum, t) => sum + t.amount, 0) -
