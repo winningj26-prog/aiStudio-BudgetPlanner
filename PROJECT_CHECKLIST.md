@@ -158,3 +158,14 @@ Updated after each completed implementation/verification task.
 - [x] Suspended subscription database constraint applied and verified live (Supabase migration `20261001195701`)
 - [x] Subscription & entitlements live validation compile blocker fixed (stale `plans` reference in `OnboardingView.tsx`)
 - [x] V1 validation pipeline passed after Module 3 hardening (#252)
+
+## K. Quick fixes — account suspension & payment configuration
+- [x] Account suspension is separate from subscription suspension
+- [x] Suspended accounts are blocked from Toolkit access after authentication and shown an administrator contact notice
+- [x] Platform admin can configure suspension support email and phone
+- [x] Platform admin can enable/disable Mobile Money, Monime, and future Bank Transfer payment methods
+- [x] Platform admin can configure multiple Mobile Money providers with provider-specific account details and instructions
+- [x] Users can select an enabled Mobile Money provider before submitting payment
+- [x] Monime checkout respects the platform payment-method configuration
+- [x] V1 validation passed after the quick fixes (#275)
+- [x] Supabase schema verified for account suspension and payment configuration fields
