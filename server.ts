@@ -1021,14 +1021,6 @@ app.post('/api/billing/webhook', async (req, res) => {
 
 // Initialize Gemini Client
 const apiKey = process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({
-  apiKey: apiKey,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
 
 // Lightweight production health check for load balancers and deployment smoke tests
 app.get('/healthz', (_req, res) => {
