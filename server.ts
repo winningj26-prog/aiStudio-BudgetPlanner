@@ -297,13 +297,13 @@ app.post('/api/platform/users/override', async (req, res) => {
           body: JSON.stringify({
             user_id: userId,
             app_id: appId,
-            enabled,
+            enabled: enabled,
           }),
         });
       }
     }
 
-    const beforeAppAccess: Record<string, boolean> = {};
+    const beforeAppAccess = {};
     for (const row of currentEntitlements || []) {
       beforeAppAccess[row.app_id] = Boolean(row.enabled);
     }
