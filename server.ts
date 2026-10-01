@@ -1078,7 +1078,10 @@ Transactions list:
 ${expenseTransactions.slice(0, 40).map((t: any) => `- ${t.date} ${t.category}: ${t.description} (${t.amount})`).join('\\n')}
 `;
 
-    if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+    const runtimeConfig = await getPlatformConfig();
+    const runtimeApiKey = runtimeConfig.geminiApiKey || apiKey || '';
+
+    if (!runtimeApiKey || runtimeApiKey === "MY_GEMINI_API_KEY" || runtimeApiKey.trim() === "") {
       return res.json({
         insights: `- Review your highest-spend categories and identify one recurring discretionary expense to reduce this month.
 - Check subscriptions and memberships for services you have not used recently.
