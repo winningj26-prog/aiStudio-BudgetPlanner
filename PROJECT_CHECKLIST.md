@@ -101,6 +101,7 @@ Updated after each completed implementation/verification task.
 - [ ] Full production smoke/acceptance pass
 
 - [x] V1 validation TypeScript blocker fixed (duplicate auth import)
+- [x] V1 validation pipeline passed (#200)
 
 ## Current blocker / dependency
 - Real Mobile Money verification requires the user's actual provider/account details.
@@ -110,6 +111,7 @@ Updated after each completed implementation/verification task.
 - Cloud save/load still needs a real authenticated Plus/Pro session test; outbound DNS is unavailable in this execution environment, so live HTTP smoke testing could not be performed here.
 
 ## Latest verification
+- V1 validation pipeline #200: passed (user-reported).
 - Supabase project status: ACTIVE_HEALTHY
 - Postgres: 17.6.1
 - Security Advisor: intentional RLS notices plus leaked-password protection warning; no unexpected public-access finding.
