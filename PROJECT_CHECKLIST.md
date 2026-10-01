@@ -253,3 +253,15 @@ Updated after each completed implementation/verification task.
 - [ ] Live acceptance: salary credited to a selected bank account updates that account balance
 - [ ] Live acceptance: expense paid from a selected account updates only that account
 - [ ] Live acceptance: account-linked activity propagates to dashboard and net worth
+
+## Q. Debt payment accounting
+- [x] Actual debt payments have a dedicated persisted event model
+- [x] Debt payments link to a funding cash/bank account
+- [x] Principal reduces the actual debt liability
+- [x] Interest is recognized as an expense without reducing debt principal
+- [x] Debt payment cash movement propagates to the selected account balance
+- [x] Debt payoff simulator remains scenario-only and does not mutate actual debts
+- [x] Workbook validation enforces debt payment amount = principal + interest
+- [x] Net Worth and Advanced Analytics consume debt payment accounting
+- [x] Debt payment acceptance tests added
+- [ ] Live acceptance: record a real debt payment and verify account, debt, expense, and net worth changes together
