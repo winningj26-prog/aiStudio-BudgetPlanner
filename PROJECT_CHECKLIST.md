@@ -46,6 +46,7 @@ Updated after each completed implementation/verification task.
 - [x] Platform configuration schema
 - [x] Vault secret storage foundation
 - [x] Platform admin authorization
+- [x] Admin account lifecycle hardening (Auth email sync, delete, suspension preservation)
 - [x] Admin user account overrides with required reason/audit
 - [x] Platform security health dashboard
 - [ ] Actual Mobile Money provider/account configuration
@@ -94,6 +95,7 @@ Updated after each completed implementation/verification task.
 - [ ] Advanced Analytics acceptance test
 - [ ] Google Sheets create/read/write acceptance test
 - [ ] Admin/non-admin acceptance test
+- [ ] Admin account edit/suspend/delete live acceptance test
 - [ ] Auth/session acceptance test
 - [ ] Full production smoke/acceptance pass
 
@@ -101,6 +103,7 @@ Updated after each completed implementation/verification task.
 - Real Mobile Money verification requires the user's actual provider/account details.
 - Production auth email confirmation requires an owned sending domain/custom SMTP.
 - Current Supabase Security Advisor warning: leaked-password protection is disabled. Current Supabase documentation says this feature is available on Pro and above.
+- Admin lifecycle hardening is implemented; live admin edit/suspend/delete acceptance remains pending.
 - Cloud save/load still needs a real authenticated Plus/Pro session test; outbound DNS is unavailable in this execution environment, so live HTTP smoke testing could not be performed here.
 
 ## Latest verification
