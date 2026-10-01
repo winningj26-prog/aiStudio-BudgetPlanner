@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getAuthAccessToken } from '../../services/supabaseAuth';
+import { isAiInsightsUiEnabled } from '../../utils/aiInsights';
 import {
   CategoryItem,
   Debt,
@@ -217,14 +218,15 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [isAiFallback, setIsAiFallback] = useState(false);
+  const showAiInsights = isAiInsightsUiEnabled(aiInsightsEnabled);
 
   // Function to fetch AI insights from Express proxy backend
   const fetchAiInsights = async () => {
+    if (!showAiInsights) return;
     setIsAiLoading(true);
     setAiError(null);
     setIsAiFallback(false);
     try {
-      if (!aiInsightsEnabled) return;
       const accessToken = await getAuthAccessToken();
       const response = await fetch('/api/insights', {
 
@@ -276,8 +278,8 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
 
   // Fetch on mount and when transaction lists or month changes
   useEffect(() => {
-    if (aiInsightsEnabled) fetchAiInsights();
-  }, [aiInsightsEnabled, incomeTransactions.length, expenseTransactions.length, settings.month]);
+    if (showAiInsights) fetchAiInsights();
+  }, [showAiInsights, incomeTransactions.length, expenseTransactions.length, settings.month]);
 
   // Budget Alerts logic: Warning if spent is >= 90% of budget
   const budgetAlerts = useMemo(() => {
@@ -932,7 +934,9 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
           </div>
         </div>
 
-        {/* Card 2: AI-Powered Spending Insights */}
+        {showAiInsights && (
+        <>
+{/* Card 2: AI-Powered Spending Insights */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-6 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -1048,6 +1052,9 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
           </div>
         </div>
       </div>
+
+              </>
+      )}
 
       {/* Bottom Row: Recent Transactions Table (Left) + Key Insights List (Right) */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
