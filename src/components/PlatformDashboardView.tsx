@@ -1126,6 +1126,16 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
 
               <section className={`${sectionClass} lg:col-span-5`}>
                 <div className="border-b border-slate-100 p-5 sm:p-6">
+                  <SectionHeader icon={<Settings2 className="h-5 w-5" />} eyebrow="Support" title="Account suspension contact" description="These details are shown to users whose accounts are suspended." />
+                </div>
+                <div className="grid gap-5 p-5 sm:p-6">
+                  <Field label="Support email"><input className={inputClass} type="email" value={config.supportEmail} onChange={e => update('supportEmail', e.target.value)} placeholder="support@example.com" /></Field>
+                  <Field label="Support phone"><input className={inputClass} value={config.supportPhone} onChange={e => update('supportPhone', e.target.value)} placeholder="+232 ..." /></Field>
+                </div>
+              </section>
+
+              <section className={`${sectionClass} lg:col-span-5`}>
+                <div className="border-b border-slate-100 p-5 sm:p-6">
                   <SectionHeader
                     icon={<Settings2 className="h-5 w-5" />}
                     eyebrow="Integrations"
