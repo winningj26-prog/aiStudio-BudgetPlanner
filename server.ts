@@ -1022,6 +1022,8 @@ async function getPlatformBillingConfig() {
     accountName: config.mobileMoneyAccountName,
     accountNumber: config.mobileMoneyAccountNumber,
     instructions: config.mobileMoneyInstructions,
+    paymentMethods: config.paymentMethods,
+    mobileMoneyProviders: config.mobileMoneyProviders,
     plans: {
       plus: { name: 'Toolkit Plus', amount: config.plusAmount },
       pro: { name: 'Toolkit Pro', amount: config.proAmount },
