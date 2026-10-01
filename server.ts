@@ -195,6 +195,102 @@ app.get('/api/platform/audit-logs', async (req, res) => {
   }
 });
 
+app.post('/api/platform/users/override', async (req, res) => {
+  try {
+    const authUser = await verifySupabaseRequest(req);
+    if (!isPlatformAdmin(authUser)) return res.status(403).json({ error: 'Platform administration access is required.' });
+
+    const { userId, planId, onboardingCompleted, appAccess = {} } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'User ID is required.' });
+
+    const now = new Date().toISOString();
+
+    // 1. Update onboarding status in profiles
+    await supabaseRequest(`profiles?id=eq.${encodeURIComponent(userId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        onboarding_completed: onboardingCompleted,
+        onboarding_completed_at: onboardingCompleted ? now : null,
+        updated_at: now
+      })
+    });
+
+    // 2. Update subscription in subscriptions
+    if (['free', 'plus', 'pro'].includes(planId)) {
+      const periodEnd = planId === 'free' ? null : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 year override
+      const live = await supabaseRequest(`subscriptions?select=id&user_id=eq.${encodeURIComponent(userId)}&status=in.(active,trialing,past_due,incomplete)&limit=1`);
+      
+      if (live?.[0]?.id) {
+        await supabaseRequest(`subscriptions?id=eq.${live[0].id}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            plan_id: planId,
+            provider: 'none',
+            provider_subscription_id: 'admin_override',
+            status: 'active',
+            current_period_end: periodEnd,
+            updated_at: now
+          })
+        });
+      } else {
+        await supabaseRequest('subscriptions', {
+          method: 'POST',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            user_id: userId,
+            plan_id: planId,
+            provider: 'none',
+            provider_subscription_id: 'admin_override',
+            status: 'active',
+            current_period_end: periodEnd
+          })
+        });
+      }
+    }
+
+    // 3. Update app entitlements
+    for (const [appId, enabled] of Object.entries(appAccess)) {
+      const existing = await supabaseRequest(`app_entitlements?select=id&user_id=eq.${encodeURIComponent(userId)}&app_id=eq.${encodeURIComponent(appId)}&limit=1`);
+      if (existing?.[0]?.id) {
+        await supabaseRequest(`app_entitlements?id=eq.${existing[0].id}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ enabled: Boolean(enabled), updated_at: now })
+        });
+      } else {
+        await supabaseRequest('app_entitlements', {
+          method: 'POST',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            user_id: userId,
+            app_id: appId,
+            enabled: Boolean(enabled)
+          })
+        });
+      }
+    }
+
+    // 4. Log config audit
+    await supabaseRequest('platform_config_audit', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        admin_email: authUser.email || 'unknown',
+        section: 'user_override',
+        changed_fields: { userId, planId, onboardingCompleted, appAccess }
+      })
+    });
+
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error('Account override error:', error);
+    const status = (error as Error & { status?: number }).status ?? 500;
+    return res.status(status).json({ error: 'Unable to update account settings.' });
+  }
+});
+
 app.put('/api/platform/config', async (req, res) => {
   try {
     const authUser = await requirePlatformAdmin(req);

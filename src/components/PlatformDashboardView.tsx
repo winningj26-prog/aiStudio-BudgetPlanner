@@ -132,6 +132,48 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userPlanFilter, setUserPlanFilter] = useState<'all' | 'free' | 'plus' | 'pro'>('all');
 
+  // Account Override and Management States
+  const [selectedUserForManage, setSelectedUserForManage] = useState<any | null>(null);
+  const [managePlanId, setManagePlanId] = useState<'free' | 'plus' | 'pro'>('free');
+  const [manageOnboardingCompleted, setManageOnboardingCompleted] = useState(false);
+  const [manageAppAccess, setManageAppAccess] = useState<Record<string, boolean>>({
+    'budget-planner': true,
+    'app-2': false,
+    'app-3': false,
+    'app-4': false,
+  });
+  const [manageSaving, setManageSaving] = useState(false);
+
+  const handleSaveUserOverride = async () => {
+    if (!selectedUserForManage) return;
+    setManageSaving(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const token = await getAuthAccessToken();
+      const response = await fetch('/api/platform/users/override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          userId: selectedUserForManage.id,
+          planId: managePlanId,
+          onboardingCompleted: manageOnboardingCompleted,
+          appAccess: manageAppAccess,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Failed to apply overrides.');
+
+      setMessage(`Account overrides applied successfully for ${selectedUserForManage.email}`);
+      setSelectedUserForManage(null);
+      await loadLists();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to apply account overrides.');
+    } finally {
+      setManageSaving(false);
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -717,10 +759,17 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                         <td className="py-3 px-2 text-right">
                           <button
                             onClick={() => {
-                              // Pre-populate review settings or mock override
-                              alert(`Account Override options for ${u.email} can be customized directly in the DB. Use Payments Queue to approve pending Mobile Money logs.`);
+                              setSelectedUserForManage(u);
+                              setManagePlanId(plan as any);
+                              setManageOnboardingCompleted(u.onboarding_completed);
+                              setManageAppAccess({
+                                'budget-planner': true,
+                                'app-2': false,
+                                'app-3': false,
+                                'app-4': false,
+                              });
                             }}
-                            className="px-2.5 py-1 text-cyan-600 hover:bg-cyan-50 font-bold rounded"
+                            className="px-2.5 py-1 text-cyan-600 hover:bg-cyan-50 font-bold rounded cursor-pointer transition-colors"
                           >
                             Manage Account
                           </button>
@@ -1108,6 +1157,117 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Manage User Overrides Modal overlay */}
+        {selectedUserForManage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto text-slate-900">
+            <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-cyan-600" />
+                  <h3 className="font-extrabold text-slate-900 text-base">Account Override Panel</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedUserForManage(null)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 text-xs">
+                {/* User info */}
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-slate-600">
+                  <p>Display Name: <strong className="text-slate-900">{selectedUserForManage.display_name || 'No Name'}</strong></p>
+                  <p>Email Address: <strong className="text-slate-900 font-mono select-all">{selectedUserForManage.email}</strong></p>
+                  <p>Unique Profile ID: <span className="font-mono text-slate-400 select-all">{selectedUserForManage.id}</span></p>
+                </div>
+
+                {/* Onboarding completed */}
+                <div className="flex items-center justify-between p-3.5 border border-slate-200 rounded-xl bg-white shadow-2xs">
+                  <div>
+                    <h4 className="font-bold text-slate-800">Complete Onboarding</h4>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Toggle to bypass onboarding flows and activate app launcher.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={manageOnboardingCompleted}
+                      onChange={(e) => setManageOnboardingCompleted(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                  </label>
+                </div>
+
+                {/* Plan Tier Override Dropdown */}
+                <div className="space-y-1.5">
+                  <label className="block font-bold text-slate-700">Manual Plan Override</label>
+                  <select
+                    value={managePlanId}
+                    onChange={(e) => setManagePlanId(e.target.value as any)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 cursor-pointer focus:outline-hidden focus:border-cyan-500"
+                  >
+                    <option value="free">Free Tier (Local only)</option>
+                    <option value="plus">Plus Tier (Sheets & Cloud Sync)</option>
+                    <option value="pro">Pro Tier (AI Spending Insights & Advanced Analytics)</option>
+                  </select>
+                </div>
+
+                {/* App Entitlements Toggle privileges */}
+                <div className="space-y-2">
+                  <label className="block font-bold text-slate-700">Launcher Application Access</label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {[
+                      { id: 'budget-planner', name: 'BudgetPlanner' },
+                      { id: 'app-2', name: 'Toolkit App 2' },
+                      { id: 'app-3', name: 'Toolkit App 3' },
+                      { id: 'app-4', name: 'Toolkit App 4' },
+                    ].map((app) => (
+                      <div key={app.id} className="flex items-center justify-between p-2.5 border border-slate-200 bg-slate-50/50 rounded-xl">
+                        <span className="font-semibold text-slate-700 text-[11px]">{app.name}</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(manageAppAccess[app.id])}
+                            onChange={(e) => setManageAppAccess((prev) => ({ ...prev, [app.id]: e.target.checked }))}
+                            className="sr-only peer"
+                          />
+                          <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-cyan-600"></div>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 pt-3.5 mt-5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSelectedUserForManage(null)}
+                  className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={manageSaving}
+                  onClick={() => void handleSaveUserOverride()}
+                  className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {manageSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                  ) : (
+                    <Check className="h-4 w-4 shrink-0" />
+                  )}
+                  Apply Overrides
+                </button>
+              </div>
             </div>
           </div>
         )}
