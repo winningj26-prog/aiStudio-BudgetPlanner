@@ -197,5 +197,5 @@ Updated after each completed implementation/verification task.
 - [ ] Module 4 live acceptance: Plus/Pro cloud save/load round-trip
 - [ ] Module 4 live acceptance: export/download verification
 - [x] Module 4 TypeScript validation blocker fixed (`workbookValidation.ts` unknown `dayOfMonth`/`year` narrowing)
-- [ ] Module 4 production validation pipeline
+- [x] Module 4 production validation pipeline (V1 validation run #292 passed TypeScript, acceptance tests, production build, production smoke, Docker build, and Docker smoke)
 - [ ] Module 4 deployment verification
