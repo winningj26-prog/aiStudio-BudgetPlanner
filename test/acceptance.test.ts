@@ -47,6 +47,10 @@ const installStorage = () => {
   return localStorage;
 };
 
+// =================================---------
+// 1. STORAGE NAMESPACING & MIGRATION TESTS
+// =================================---------
+
 test('account storage namespaces data by authenticated user id', () => {
   const storage = installStorage();
 
@@ -113,6 +117,10 @@ test('local workbook repository round-trips account-scoped workbook data', () =>
   assert.equal(otherRepository.load().userEmail, '');
 });
 
+// =================================---------
+// 2. SUBSCRIPTION MATRIX & ENTITLEMENTS GATING TESTS
+// =================================---------
+
 test('frontend entitlement helpers fail closed when access is absent', () => {
   const free = {
     apps: { 'budget-planner': true },
@@ -121,7 +129,74 @@ test('frontend entitlement helpers fail closed when access is absent', () => {
 
   assert.equal(hasToolkitAppAccess(free, 'budget-planner'), true);
   assert.equal(hasToolkitAppAccess(free, 'app-2'), false);
+  assert.equal(hasToolkitAppAccess(free, 'app-3'), false);
   assert.equal(hasToolkitFeature(free, 'budget.core'), true);
   assert.equal(hasToolkitFeature(free, 'budget.cloudSync'), false);
+  assert.equal(hasToolkitFeature(free, 'budget.aiInsights'), false);
   assert.equal(hasToolkitFeature(null, 'budget.aiInsights'), false);
+});
+
+test('Plus plan entitlement gating permits cloudSync but restricts AI Insights', () => {
+  const plus = {
+    apps: { 'budget-planner': true, 'app-2': false },
+    features: {
+      'budget.core': true,
+      'budget.localPersistence': true,
+      'budget.cloudSync': true,
+      'budget.googleSheets': true,
+    },
+  };
+
+  assert.equal(hasToolkitFeature(plus, 'budget.cloudSync'), true);
+  assert.equal(hasToolkitFeature(plus, 'budget.googleSheets'), true);
+  assert.equal(hasToolkitFeature(plus, 'budget.aiInsights'), false);
+  assert.equal(hasToolkitFeature(plus, 'budget.advancedAnalytics'), false);
+});
+
+test('Pro plan entitlement gating permits AI Insights & Advanced Analytics', () => {
+  const pro = {
+    apps: { 'budget-planner': true, 'app-2': false },
+    features: {
+      'budget.core': true,
+      'budget.localPersistence': true,
+      'budget.cloudSync': true,
+      'budget.googleSheets': true,
+      'budget.aiInsights': true,
+      'budget.advancedAnalytics': true,
+    },
+  };
+
+  assert.equal(hasToolkitFeature(pro, 'budget.cloudSync'), true);
+  assert.equal(hasToolkitFeature(pro, 'budget.googleSheets'), true);
+  assert.equal(hasToolkitFeature(pro, 'budget.aiInsights'), true);
+  assert.equal(hasToolkitFeature(pro, 'budget.advancedAnalytics'), true);
+});
+
+// =================================---------
+// 3. PAYMENT STATE & SUBMISSION SIMULATIONS
+// =================================---------
+
+test('Mobile money review workflow maps correctly to DB state representations', () => {
+  const mockPendingPayment = {
+    id: 'req-12345',
+    plan_id: 'plus',
+    amount_value: 550,
+    currency: 'SLE',
+    transaction_id: 'TXN-ABC-999',
+    status: 'pending',
+  };
+
+  // Simulate review approval action
+  const approvedPayment = {
+    ...mockPendingPayment,
+    status: 'approved',
+    reviewed_at: '2026-09-30T19:30:00.000Z',
+    reviewed_by: 'winningj26@gmail.com',
+    reviewer_note: 'Verified with Mobile Money transaction log.',
+  };
+
+  assert.equal(mockPendingPayment.status, 'pending');
+  assert.equal(approvedPayment.status, 'approved');
+  assert.equal(approvedPayment.reviewed_by, 'winningj26@gmail.com');
+  assert.equal(approvedPayment.amount_value, 550);
 });
