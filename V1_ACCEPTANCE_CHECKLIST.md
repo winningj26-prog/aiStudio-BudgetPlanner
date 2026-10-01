@@ -11,6 +11,7 @@ Updated after each completed acceptance task.
 - [x] Google Sheets foundation
 - [x] Gemini integration foundation
 - [x] Acceptance-test CI workflow
+- [x] CI runs typecheck, acceptance tests, and production build
 - [x] Local-storage, workbook, entitlement, payment-shape, and Google Sheets parser acceptance coverage
 - [x] Onboarding input validation coverage
 - [x] Authentication input validation coverage
