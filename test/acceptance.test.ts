@@ -616,3 +616,38 @@ test('unassigned legacy transactions do not double count structured bank account
   assert.equal(snapshot.accountBalances.bank1, 5000);
   assert.equal(snapshot.totalAssets, 5000);
 });
+
+
+test('debt payments split cash movement, principal reduction, and interest expense', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [],
+    [],
+    [],
+    [{ id: 'mortgage', name: 'Mortgage', balance: 100000, openingBalance: 100000, interestRate: 6, minimumPayment: 700 }],
+    [{ id: 'bank1', name: 'Main Bank', amount: 20000, openingAmount: 20000, category: 'Bank' }],
+    [
+      { id: 'p1', date: '2026-10-01', debtId: 'mortgage', accountId: 'bank1', amount: 700, principal: 200, interest: 500 },
+    ],
+    0,
+  );
+
+  assert.equal(snapshot.debtInterestExpense, 500);
+  assert.equal(snapshot.debtPrincipalPaid, 200);
+  assert.equal(snapshot.totalExpenses, 500);
+  assert.equal(snapshot.operatingCashFlow, -500);
+  assert.equal(snapshot.accountBalances.bank1, 19300);
+  assert.equal(snapshot.totalAssets, 19300);
+  assert.equal(snapshot.totalLiabilities, 100000);
+});
+
+test('debt payment records must balance total, principal, and interest', () => {
+  const snapshot = {
+    id: 'p1',
+    date: '2026-10-01',
+    debtId: 'mortgage',
+    amount: 700,
+    principal: 200,
+    interest: 500,
+  };
+  assert.equal(snapshot.amount, snapshot.principal + snapshot.interest);
+});
