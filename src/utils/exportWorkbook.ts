@@ -61,7 +61,7 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
   ];
 
   data.expenseCategories.forEach((cat) => {
-    const planned = data.plannedExpenses[cat.id] || 0;
+    const planned = data.plannedExpenses[cat.name] || 0;
     const actual = data.expenseTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
       .reduce((acc, t) => acc + t.amount, 0);
@@ -161,7 +161,7 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
   ];
 
   data.incomeCategories.forEach((cat) => {
-    const planned = data.plannedIncome[cat.id] || 0;
+    const planned = data.plannedIncome[cat.name] || 0;
     const actual = data.incomeTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
       .reduce((acc, t) => acc + t.amount, 0);
