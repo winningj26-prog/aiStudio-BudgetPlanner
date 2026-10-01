@@ -6,6 +6,7 @@
 import type {
   CategoryItem,
   Debt,
+  FinancialAsset,
   ExpenseTransaction,
   IncomeTransaction,
   RecurringTransaction,
@@ -28,6 +29,8 @@ export interface WorkbookData {
   plannedExpenses: Record<string, number>;
   savingsGoals: SavingsGoal[];
   debts: Debt[];
+  financialAssets: FinancialAsset[];
+  openingCashBalance: number;
   recurringTransactions: RecurringTransaction[];
   userEmail: string;
   activeTab: WorksheetTab;
@@ -50,6 +53,8 @@ export interface WorkbookDefaults {
   plannedExpenses: Record<string, number>;
   savingsGoals: SavingsGoal[];
   debts: Debt[];
+  financialAssets: FinancialAsset[];
+  openingCashBalance: number;
   recurringTransactions: RecurringTransaction[];
   userEmail: string;
   activeTab: WorksheetTab;
@@ -75,6 +80,8 @@ export function createLocalWorkbookRepository(
         plannedExpenses: loadFromAccountStorage(STORAGE_KEYS.PLANNED_EXPENSES, userId, defaults.plannedExpenses),
         savingsGoals: loadFromAccountStorage(STORAGE_KEYS.SAVINGS_GOALS, userId, defaults.savingsGoals),
         debts: loadFromAccountStorage(STORAGE_KEYS.DEBTS, userId, defaults.debts),
+        financialAssets: loadFromAccountStorage(STORAGE_KEYS.FINANCIAL_ASSETS, userId, defaults.financialAssets),
+        openingCashBalance: loadFromAccountStorage(STORAGE_KEYS.OPENING_CASH_BALANCE, userId, defaults.openingCashBalance),
         recurringTransactions: loadFromAccountStorage(STORAGE_KEYS.RECURRING_TRANSACTIONS, userId, defaults.recurringTransactions),
         userEmail: loadFromAccountStorage(STORAGE_KEYS.USER_EMAIL, userId, defaults.userEmail),
         activeTab: loadFromAccountStorage(STORAGE_KEYS.ACTIVE_TAB, userId, defaults.activeTab),
@@ -94,6 +101,8 @@ export function createLocalWorkbookRepository(
       saveToAccountStorage(STORAGE_KEYS.PLANNED_EXPENSES, userId, data.plannedExpenses);
       saveToAccountStorage(STORAGE_KEYS.SAVINGS_GOALS, userId, data.savingsGoals);
       saveToAccountStorage(STORAGE_KEYS.DEBTS, userId, data.debts);
+      saveToAccountStorage(STORAGE_KEYS.FINANCIAL_ASSETS, userId, data.financialAssets);
+      saveToAccountStorage(STORAGE_KEYS.OPENING_CASH_BALANCE, userId, data.openingCashBalance);
       saveToAccountStorage(
         STORAGE_KEYS.RECURRING_TRANSACTIONS,
         userId,
