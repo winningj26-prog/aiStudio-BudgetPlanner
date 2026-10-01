@@ -42,6 +42,7 @@ const isExpense = (value: unknown): value is ExpenseTransaction =>
 const isGoal = (value: unknown): value is SavingsGoal =>
   isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string'
   && isNonNegativeNumber(value.targetAmount) && isNonNegativeNumber(value.currentAmount)
+  && (value.accountId == null || typeof value.accountId === 'string')
   && (value.categoryId == null || typeof value.categoryId === 'string')
   && (value.categoryName == null || typeof value.categoryName === 'string')
   && (value.targetDate == null || isDate(value.targetDate))
