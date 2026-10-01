@@ -65,7 +65,7 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
   // Form states for adding custom asset
   const [newAssetName, setNewAssetName] = useState('');
   const [newAssetAmount, setNewAssetAmount] = useState('');
-  const [newAssetCat, setNewAssetCategory] = useState<'Liquid' | 'Investment' | 'Real Estate' | 'Other'>('Investment');
+  const [newAssetCat, setNewAssetCategory] = useState<'Liquid' | 'Investment' | 'Real Estate' | 'Vehicle' | 'Business' | 'Retirement' | 'Receivable' | 'Other'>('Investment');
 
   // Forecast configurations
   const [forecastYears, setForecastYears] = useState<number>(3); // 1, 2, or 3 years
@@ -92,6 +92,7 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
       id: Date.now().toString(),
       name: newAssetName.trim(),
       amount,
+      openingAmount: amount,
       category: newAssetCat,
     };
     onUpdateFinancialAssets([...financialAssets, newAsset]);
@@ -269,7 +270,7 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
             <span>Net Worth & Wealth Forecasting Hub</span>
           </h2>
           <p className="text-xs text-slate-500 leading-normal">
-            Consolidate overall assets, auto-aggregate liabilities, and run stochastic simulations of long-term capital trajectory.
+            Enter what you already own and owe before recording new activity. Starting balances establish opening net worth; new transactions then update the same position.
           </p>
         </div>
         <div className="flex items-center gap-2 text-[10px] font-bold uppercase shrink-0">
@@ -328,7 +329,7 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
               <h3 className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
                 <Coins className="h-4 w-4 text-emerald-600" />
-                <span>Custom Asset Inventory Ledger</span>
+                <span>Starting Financial Position — Asset Ledger</span>
               </h3>
               <span className="rounded bg-slate-100 px-2 py-0.5 text-[9px] font-black text-slate-500 border border-slate-200 uppercase font-mono">
                 Asset list
@@ -352,7 +353,7 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
                 className="mt-1 w-full rounded border border-blue-200 bg-white px-2 py-1.5 text-xs font-mono font-bold text-slate-800 focus:border-blue-500 focus:outline-hidden"
               />
               <p className="mt-1 text-[9px] text-blue-700">
-                Current cash is recalculated from this opening balance plus income minus expenses and goal allocations.
+                Enter cash already held before you started using BudgetPlanner. It is a starting balance, not income.
               </p>
             </div>
 
@@ -431,6 +432,10 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
                   <option value="Liquid">Liquid</option>
                   <option value="Investment">Investment</option>
                   <option value="Real Estate">Real Estate</option>
+                  <option value="Vehicle">Vehicle</option>
+                  <option value="Business">Business</option>
+                  <option value="Retirement">Retirement</option>
+                  <option value="Receivable">Receivable</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
