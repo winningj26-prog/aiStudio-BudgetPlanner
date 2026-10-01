@@ -896,6 +896,7 @@ export default function App() {
           <DebtPayoffSheet
             debts={debts}
             debtPayments={debtPayments}
+            financialAssets={financialAssets}
             onUpdateDebts={setDebts}
             onUpdateDebtPayments={setDebtPayments}
             settings={settings}
