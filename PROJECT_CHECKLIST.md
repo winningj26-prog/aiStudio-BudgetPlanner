@@ -129,3 +129,13 @@ Updated after each completed implementation/verification task.
 - Postgres: 17.6.1
 - Security Advisor: intentional RLS notices plus leaked-password protection warning; no unexpected public-access finding.
 - Cloud API path reviewed: authenticated request → Supabase identity → account profile → cloudSync entitlement → account-scoped workbook snapshot.
+
+## I. Module review
+- [x] Accounts & onboarding implementation review completed
+- [x] Accounts & onboarding server input hardening (display-name validation and exact email identity matching)
+- [x] Accounts & onboarding session-refresh failure handling
+- [ ] Accounts & onboarding live acceptance: new Free account
+- [ ] Accounts & onboarding live acceptance: paid onboarding through payment approval
+- [ ] Accounts & onboarding live acceptance: returning account/session restoration
+- [ ] Accounts & onboarding live acceptance: account suspension/deletion boundaries
+
