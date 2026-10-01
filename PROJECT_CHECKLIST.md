@@ -1,0 +1,100 @@
+# BudgetPlanner V1 Checklist
+
+Updated after each completed implementation/verification task.
+
+## A. Core V1 / stability
+- [x] Authentication/session persistence
+- [x] Account-scoped local storage
+- [x] Workbook repository abstraction
+- [x] Cloud persistence foundation
+- [x] Render deployment
+- [x] Google Sheets foundation
+- [x] Gemini integration foundation
+- [ ] Final edge-case/error handling pass
+- [ ] Final production acceptance testing
+
+## B. Entitlements
+- [x] cloudSync Plus/Pro
+- [x] Free local-only
+- [x] Server-side enforcement
+- [ ] Actual cloud save/load test
+- [ ] Entitlement change testing
+- [ ] Paid → Free downgrade testing
+- [x] Entitlement matrix documented
+
+## C. Paid features
+- [x] AI Insights foundation/enforcement/usage tracking
+- [ ] AI UI acceptance testing
+- [x] Advanced Analytics + gating
+- [ ] Free/Plus/Pro acceptance testing
+
+## D. Toolkit/account
+- [x] Shared account schema
+- [x] Supabase identity bridge
+- [x] Subscription/entitlement foundation
+- [x] Account-scoped storage
+- [x] Workbook repository
+- [x] Toolkit homepage/app launcher
+- [x] App access entitlement model
+- [x] Architecture for Apps 2–4
+- [x] User onboarding foundation
+- [x] Paid onboarding completion hardened
+- [x] Subscription management/upgrade UI
+- [x] Manual Mobile Money billing workflow
+- [x] Platform configuration dashboard
+- [x] Platform configuration schema
+- [x] Vault secret storage foundation
+- [x] Platform admin authorization
+- [x] Admin user account overrides with required reason/audit
+- [x] Platform security health dashboard
+- [ ] Actual Mobile Money provider/account configuration
+
+## E. Authentication
+- [x] Email/password sign-in
+- [x] Email/password sign-up
+- [x] Google OAuth
+- [x] Password reset
+- [x] Password recovery UI
+- [x] Email confirmation flow protected from link prefetch
+- [ ] Production email domain/SMTP
+- [ ] Re-enable/test email confirmation after domain setup
+- [ ] Production auth acceptance pass
+
+## F. Billing
+- [x] Plus/Pro subscription model
+- [x] Decimal currency pricing support (up to 2 decimals)
+- [x] Mobile Money submit/review/approval state machine
+- [x] Paid onboarding activation after confirmed payment
+- [ ] End-to-end real Mobile Money payment test
+- [ ] Paid → Free downgrade test
+- [ ] Billing edge-case/error pass
+- [x] Monime integration explicitly deferred
+
+## G. Production security
+- [x] Protected tables use RLS
+- [x] Browser uses Supabase publishable key
+- [x] Server-only privileged Supabase access
+- [x] Platform secrets kept out of browser responses
+- [ ] Enable leaked-password protection if available on current Supabase plan
+- [ ] Final admin authorization/audit review
+- [ ] Rotate/remove temporary test credentials
+- [ ] Production auth/email security review
+
+## H. Acceptance coverage
+- [x] Storage namespacing tests
+- [x] Legacy storage migration tests
+- [x] Local workbook repository round-trip test
+- [x] Free/Plus/Pro entitlement helper tests
+- [x] Mobile Money state transition test
+- [x] Decimal billing acceptance tests
+- [ ] Cloud save/load acceptance test
+- [ ] AI Insights acceptance test
+- [ ] Advanced Analytics acceptance test
+- [ ] Google Sheets create/read/write acceptance test
+- [ ] Admin/non-admin acceptance test
+- [ ] Auth/session acceptance test
+- [ ] Full production smoke/acceptance pass
+
+## Current blocker / dependency
+- Real Mobile Money verification requires the user's actual provider/account details.
+- Production auth email confirmation requires an owned sending domain/custom SMTP.
