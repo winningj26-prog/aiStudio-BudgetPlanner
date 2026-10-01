@@ -151,8 +151,8 @@ app.post('/api/account/onboarding', async (req, res) => {
       headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({
         display_name: displayName,
-        onboarding_completed: true,
-        onboarding_completed_at: new Date().toISOString(),
+        onboarding_completed: planId === 'free',
+        onboarding_completed_at: planId === 'free' ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       }),
     });
@@ -584,6 +584,18 @@ app.post('/api/billing/webhook', async (req, res) => {
       method: 'PATCH',
       headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({ status: 'completed', updated_at: new Date().toISOString() }),
+    });
+
+    // A paid onboarding choice is not complete until the provider confirms payment.
+    // This keeps users on onboarding if checkout is cancelled or unavailable.
+    await supabaseRequest(`profiles?id=eq.${encodeURIComponent(checkout.user_id)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        onboarding_completed: true,
+        onboarding_completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
     });
 
     return res.status(200).json({ received: true });
