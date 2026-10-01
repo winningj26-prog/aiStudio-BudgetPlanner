@@ -23,6 +23,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
   const [paymentPlan, setPaymentPlan] = useState<'plus' | 'pro' | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<string[]>(['mobile_money']);
   const [billingError, setBillingError] = useState<string | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('mobile_money');
   const [planPrices, setPlanPrices] = useState<Record<'plus' | 'pro', string>>({ plus: 'Loading…', pro: 'Loading…' });
   const [downgrading, setDowngrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -128,8 +129,9 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
                   <ul className="mt-5 space-y-2">
                     {plan.features.map((feature) => <li key={feature} className="flex gap-2 text-xs text-slate-300"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />{feature}</li>)}
                   </ul>
-                  <button type="button" disabled={!canPay && !canDowngrade || downgrading} onClick={canDowngrade ? handleDowngrade : canPay ? () => void handlePayment(plan.id as 'plus' | 'pro', paymentMethods[0] ?? 'mobile_money') : undefined} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">
-                    {current ? 'Current plan' : canDowngrade ? (downgrading ? 'Switching…' : 'Switch to Free') : plan.id === 'free' ? 'Included' : <><Smartphone className="h-4 w-4" />Pay with {paymentMethods[0] === 'monime' ? 'Monime' : 'Mobile Money'}</>}
+                  {canPay && paymentMethods.length > 0 && <select value={selectedPaymentMethod} onChange={(e) => setSelectedPaymentMethod(e.target.value)} className="mt-5 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-xs font-semibold text-slate-200"><option value="mobile_money">Mobile Money</option><option value="monime" disabled={!paymentMethods.includes('monime')}>Monime</option><option value="bank_transfer" disabled={!paymentMethods.includes('bank_transfer')}>Bank transfer</option></select>}
+                  <button type="button" disabled={!canPay && !canDowngrade || downgrading} onClick={canDowngrade ? handleDowngrade : canPay ? () => void handlePayment(plan.id as 'plus' | 'pro', selectedPaymentMethod) : undefined} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">
+                    {current ? 'Current plan' : canDowngrade ? (downgrading ? 'Switching…' : 'Switch to Free') : plan.id === 'free' ? 'Included' : <><Smartphone className="h-4 w-4" />Pay with {selectedPaymentMethod === 'monime' ? 'Monime' : selectedPaymentMethod === 'bank_transfer' ? 'Bank transfer' : 'Mobile Money'}</>}
                   </button>
                 </article>
               );
