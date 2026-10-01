@@ -13,7 +13,7 @@ interface SubscriptionViewProps {
 
 const plans: Array<{ id: ToolkitPlanId; name: string; price: string; description: string; features: string[]; configured: boolean }> = [
   { id: 'free', name: 'Free', price: 'Free', description: 'Core budgeting with local persistence and export.', features: ['Core budgeting', 'Local persistence', 'Workbook export'], configured: true },
-  { id: 'plus', name: 'Plus', price: 'Coming soon', description: 'Cloud sync and Google Sheets. Billing setup is still pending.', features: ['Everything in Free', 'Cloud sync', 'Google Sheets'], configured: false },
+  { id: 'plus', name: 'Plus', price: 'Le 550', description: 'Cloud sync and Google Sheets.', features: ['Everything in Free', 'Cloud sync', 'Google Sheets'], configured: true },
   { id: 'pro', name: 'Pro', price: 'Paid plan', description: 'AI, advanced analytics, automation, cloud sync, and Google Sheets.', features: ['Everything in Plus', 'AI Insights', 'Advanced Analytics', 'Automation'], configured: true },
 ];
 
@@ -104,7 +104,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
                     {plan.features.map((feature) => <li key={feature} className="flex gap-2 text-xs text-slate-300"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />{feature}</li>)}
                   </ul>
                   <button type="button" disabled={current || !canUpgrade || loading || pendingReturn} onClick={canUpgrade ? () => void handleUpgrade(plan.id as 'plus' | 'pro') : undefined} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">
-                    {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Opening checkout…</> : current ? 'Current plan' : plan.id === 'plus' ? 'Not configured yet' : <><CreditCard className="h-4 w-4" />Upgrade to Pro</>}
+                    {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Opening checkout…</> : current ? 'Current plan' : plan.id === 'plus' ? 'Upgrade to Plus' : <><CreditCard className="h-4 w-4" />Upgrade to Pro</>}
                   </button>
                 </article>
               );
@@ -112,7 +112,6 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
           </div>
           {pendingReturn && <p className="mt-6 text-center text-sm font-medium text-amber-300">We’re confirming your payment and updating your subscription…</p>}
           {errorMessage && <p className="mt-6 text-center text-sm font-medium text-rose-300">{errorMessage}</p>}
-          <p className="mt-8 text-center text-xs text-slate-500">Plus is intentionally shown as unavailable until its billing configuration is supplied.</p>
         </main>
       </div>
     </div>
