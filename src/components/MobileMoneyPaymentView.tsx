@@ -12,7 +12,8 @@ interface MobileMoneyPaymentViewProps {
 }
 
 export const MobileMoneyPaymentView: React.FC<MobileMoneyPaymentViewProps> = ({ user, planId, onBack, onApproved }) => {
-  const [info, setInfo] = useState<{ provider: string; accountName: string; accountNumber: string; instructions: string; amount: number; currency: string } | null>(null);
+  const [info, setInfo] = useState<{ provider: string; accountName: string; accountNumber: string; instructions: string; amount: number; currency: string; mobileMoneyProviders?: Array<{ id: string; name: string; accountName: string; accountNumber: string; instructions: string; enabled: boolean }> } | null>(null);
+  const [providerId, setProviderId] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [payerName, setPayerName] = useState('');
   const [status, setStatus] = useState<'idle' | 'pending' | 'approved' | 'rejected'>('idle');
@@ -30,6 +31,8 @@ export const MobileMoneyPaymentView: React.FC<MobileMoneyPaymentViewProps> = ({ 
         ]);
         if (cancelled) return;
         setInfo(paymentInfo);
+        const providers = (paymentInfo.mobileMoneyProviders ?? []).filter((provider: any) => provider.enabled !== false);
+        setProviderId(providers[0]?.id ?? '');
         if (paymentStatus) {
           setStatus(paymentStatus.status);
           setTransactionId(paymentStatus.transactionId ?? '');
@@ -54,7 +57,7 @@ export const MobileMoneyPaymentView: React.FC<MobileMoneyPaymentViewProps> = ({ 
     setSubmitting(true);
     setErrorMessage(null);
     try {
-      const result = await createManualPaymentRequest(user, planId, transactionId.trim(), payerName.trim());
+      const result = await createManualPaymentRequest(user, planId, transactionId.trim(), payerName.trim(), providerId || undefined);
       setStatus(result.status);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to submit the payment transaction.');
@@ -63,8 +66,11 @@ export const MobileMoneyPaymentView: React.FC<MobileMoneyPaymentViewProps> = ({ 
     }
   };
 
+  const selectedProvider = info?.mobileMoneyProviders?.find((provider) => provider.id === providerId);
+  const displayInfo = selectedProvider ?? info;
+
   const copyAccount = async () => {
-    if (info?.accountNumber) await navigator.clipboard?.writeText(info.accountNumber);
+    if (displayInfo?.accountNumber) await navigator.clipboard?.writeText(displayInfo.accountNumber);
   };
 
   if (loading) {
@@ -81,13 +87,14 @@ export const MobileMoneyPaymentView: React.FC<MobileMoneyPaymentViewProps> = ({ 
 
           {info && (
             <div className="mt-6 rounded-xl border border-white/10 bg-slate-900 p-5">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div><p className="text-xs uppercase tracking-wide text-slate-500">Provider</p><p className="mt-1 font-semibold text-white">{info.provider || 'Mobile Money'}</p></div>
+              {info.mobileMoneyProviders && info.mobileMoneyProviders.length > 0 && <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Mobile Money provider<select value={providerId} onChange={(e) => setProviderId(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400">{info.mobileMoneyProviders.filter((provider) => provider.enabled !== false).map((provider) => <option key={provider.id} value={provider.id}>{provider.name}</option>)}</select></label>}
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div><p className="text-xs uppercase tracking-wide text-slate-500">Provider</p><p className="mt-1 font-semibold text-white">{displayInfo?.name || displayInfo?.provider || 'Mobile Money'}</p></div>
                 <div><p className="text-xs uppercase tracking-wide text-slate-500">Amount</p><p className="mt-1 font-semibold text-emerald-300">{info.currency} {info.amount.toLocaleString()}</p></div>
-                <div><p className="text-xs uppercase tracking-wide text-slate-500">Account name</p><p className="mt-1 font-semibold text-white">{info.accountName || 'Payment account'}</p></div>
-                <div><p className="text-xs uppercase tracking-wide text-slate-500">Account / phone number</p><div className="mt-1 flex items-center gap-2"><p className="font-semibold text-white">{info.accountNumber || 'Not configured yet'}</p>{info.accountNumber && <button type="button" onClick={() => void copyAccount()} className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Copy payment number"><Copy className="h-4 w-4" /></button>}</div></div>
+                <div><p className="text-xs uppercase tracking-wide text-slate-500">Account name</p><p className="mt-1 font-semibold text-white">{displayInfo?.accountName || 'Payment account'}</p></div>
+                <div><p className="text-xs uppercase tracking-wide text-slate-500">Account / phone number</p><div className="mt-1 flex items-center gap-2"><p className="font-semibold text-white">{displayInfo?.accountNumber || 'Not configured yet'}</p>{displayInfo?.accountNumber && <button type="button" onClick={() => void copyAccount()} className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Copy payment number"><Copy className="h-4 w-4" /></button>}</div></div>
               </div>
-              {info.instructions && <p className="mt-4 border-t border-white/10 pt-4 text-sm leading-relaxed text-slate-300">{info.instructions}</p>}
+              {(displayInfo?.instructions || info.instructions) && <p className="mt-4 border-t border-white/10 pt-4 text-sm leading-relaxed text-slate-300">{displayInfo?.instructions || info.instructions}</p>}
             </div>
           )}
 
