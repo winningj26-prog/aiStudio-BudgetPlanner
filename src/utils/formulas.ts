@@ -75,7 +75,7 @@ export function calculateBudgetItem(
   actual: number
 ): BudgetItem {
   const diff = type === 'expense' ? planned - actual : actual - planned;
-  const percentUsed = planned > 0 ? (actual / planned) * 100 : actual > 0 ? 100 : 0;
+  const percentUsed = planned > 0 ? Number(((actual / planned) * 100).toFixed(2)) : actual > 0 ? 100 : 0;
 
   let status: BudgetStatus = 'On Track';
   if (type === 'expense') {
