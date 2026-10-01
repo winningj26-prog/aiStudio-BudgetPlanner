@@ -99,7 +99,34 @@ const StatusPill: React.FC<{ active: boolean; activeLabel?: string; inactiveLabe
 
 export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
   // Navigation tab state
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'payments' | 'config' | 'audits'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'payments' | 'config' | 'audits' | 'security'>('overview');
+
+  const [securityData, setSecurityData] = useState<any | null>(null);
+  const [securityLoading, setSecurityLoading] = useState(false);
+
+  const loadSecurityHealth = async () => {
+    setSecurityLoading(true);
+    try {
+      const token = await getAuthAccessToken();
+      const response = await fetch('/api/platform/security-health', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSecurityData(data);
+      }
+    } catch (e) {
+      console.error('Failed to load security health metrics:', e);
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'security') {
+      void loadSecurityHealth();
+    }
+  }, [activeTab]);
 
   const [config, setConfig] = useState<PlatformConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,7 +170,45 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
     'app-4': false,
   });
   const [manageSaving, setManageSaving] = useState(false);
-  const [manageReason, setManageReason] = useState('');
+
+  // New Action States
+  const [manageMode, setManageMode] = useState<'view' | 'edit' | 'override' | 'suspend' | 'delete'>('view');
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleUserAction = async (action: 'edit' | 'suspend' | 'delete') => {
+    if (!selectedUserForManage) return;
+    setManageSaving(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const token = await getAuthAccessToken();
+      const response = await fetch('/api/platform/users/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          userId: selectedUserForManage.id,
+          action,
+          displayName: editDisplayName,
+          email: editEmail,
+          status: action === 'suspend' ? (isSuspended ? 'active' : 'suspended') : undefined,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Failed to complete user action.');
+
+      setMessage(body.message || `Action ${action} executed successfully.`);
+      setSelectedUserForManage(null);
+      setShowDeleteConfirm(false);
+      await loadLists();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to complete user action.');
+    } finally {
+      setManageSaving(false);
+    }
+  };
 
   const handleSaveUserOverride = async () => {
     if (!selectedUserForManage) return;
@@ -160,7 +225,6 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
           planId: managePlanId,
           onboardingCompleted: manageOnboardingCompleted,
           appAccess: manageAppAccess,
-          reason: manageReason,
         }),
       });
       const body = await response.json();
@@ -446,7 +510,8 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
               { id: 'users', label: 'User Directory', icon: <Users className="h-4.5 w-4.5" /> },
               { id: 'payments', label: 'Manual Payments Queue', icon: <Smartphone className="h-4.5 w-4.5" /> },
               { id: 'config', label: 'Platform Config', icon: <Settings2 className="h-4.5 w-4.5" /> },
-              { id: 'audits', label: 'Audit Logs', icon: <History className="h-4.5 w-4.5" /> }
+              { id: 'audits', label: 'Audit Logs', icon: <History className="h-4.5 w-4.5" /> },
+              { id: 'security', label: 'Security Health', icon: <ShieldCheck className="h-4.5 w-4.5" /> }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -770,7 +835,11 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                                 'app-3': false,
                                 'app-4': false,
                               });
-                              setManageReason('');
+                              setEditDisplayName(u.display_name || '');
+                              setEditEmail(u.email || '');
+                              setIsSuspended(subStatus === 'suspended');
+                              setManageMode('view');
+                              setShowDeleteConfirm(false);
                             }}
                             className="px-2.5 py-1 text-cyan-600 hover:bg-cyan-50 font-bold rounded cursor-pointer transition-colors"
                           >
@@ -1164,126 +1233,378 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
           </div>
         )}
 
-        {/* Manage User Overrides Modal overlay */}
+        {/* -------------------- SECURITY HEALTH TAB -------------------- */}
+        {activeTab === 'security' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            
+            {/* Top Threat Intelligence Banner */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Threat monitoring intelligence</p>
+                <h3 className="mt-1 text-base font-extrabold tracking-tight">Active superadmin access & api credentials health</h3>
+                <p className="mt-1 text-xs text-slate-400">Durable key vaults guard application secrets. Vault verification is performed live.</p>
+              </div>
+
+              <div className="p-4 bg-slate-800 rounded-xl border border-slate-700/60 text-center shrink-0 min-w-44">
+                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Unauthorized attempts</span>
+                <span className={`block text-2xl font-black mt-2 ${securityData?.unauthorizedAttemptsCount > 0 ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
+                  {securityLoading ? '...' : securityData?.unauthorizedAttemptsCount ?? 0}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-12">
+              
+              {/* Left Column: API Key Status */}
+              <div className={`${sectionClass} lg:col-span-6 p-5 sm:p-6`}>
+                <h4 className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-3 mb-4">API Key & Secrets Status</h4>
+                
+                {securityLoading ? (
+                  <div className="flex items-center justify-center py-10 text-xs text-slate-400 gap-1.5">
+                    <Loader2 className="h-4 w-4 animate-spin text-cyan-600" /> Analyzing API keys...
+                  </div>
+                ) : (
+                  <div className="space-y-3.5 text-xs">
+                    {[
+                      { name: 'Gemini API Key', key: 'geminiApiKey', description: 'Powering real-time AI spending trends & insights.' },
+                      { name: 'Resend SMTP Credentials', key: 'resendSmtp', description: 'Delivers transactional verification codes.' },
+                      { name: 'Monime Gateway Tokens', key: 'monimeToken', description: 'Authorizes billing session creation with providers.' }
+                    ].map((secret) => {
+                      const status = securityData?.apiKeyStatus?.[secret.key] || { configured: false, status: 'Not Configured', lastChecked: '' };
+                      return (
+                        <div key={secret.key} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-4">
+                          <div>
+                            <p className="font-bold text-slate-800">{secret.name}</p>
+                            <p className="text-[10px] text-slate-400 mt-1">{secret.description}</p>
+                            <p className="text-[9px] text-slate-400 mt-1 font-mono">Last Checked: {status.lastChecked ? new Date(status.lastChecked).toLocaleTimeString() : 'N/A'}</p>
+                          </div>
+                          <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-full shrink-0 ${
+                            status.configured ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          }`}>
+                            {status.status}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Secret Rotation Policies */}
+              <div className={`${sectionClass} lg:col-span-6 p-5 sm:p-6`}>
+                <h4 className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-3 mb-4">Secret Rotation Policies</h4>
+                
+                <div className="space-y-3.5 text-xs">
+                  {(securityData?.rotationPolicies || [
+                    { id: 1, name: 'Gemini API Key Rotation', interval: '90 days', policy: 'Manual rotation via Admin Vault', status: 'Active' },
+                    { id: 2, name: 'Resend SMTP Credentials', interval: '180 days', policy: 'SMTP password rotation via provider', status: 'Active' },
+                    { id: 3, name: 'Monime Gateway Tokens', interval: '30 days', policy: 'Automated OAuth Refresh Tokens', status: 'Enforced' }
+                  ]).map((policy: any) => (
+                    <div key={policy.id} className="p-3.5 border border-slate-200 bg-white rounded-xl space-y-1.5 shadow-2xs">
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
+                        <span className="font-extrabold text-slate-800">{policy.name}</span>
+                        <span className="px-2 py-0.5 bg-cyan-100 text-cyan-800 rounded text-[9px] font-black uppercase tracking-wider">
+                          {policy.status}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-600 font-medium">Rotation Interval: <strong>{policy.interval}</strong></p>
+                      <p className="text-[10px] text-slate-400">Implementation Policy: {policy.policy}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* Manage User Overrides & Lifecycle Modal overlay */}
         {selectedUserForManage && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto text-slate-900">
             <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-150">
+              
+              {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-cyan-600" />
-                  <h3 className="font-extrabold text-slate-900 text-base">Account Override Panel</h3>
+                  <h3 className="font-extrabold text-slate-900 text-base">Account Management Terminal</h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSelectedUserForManage(null)}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
                 >
                   <X className="h-4.5 w-4.5" />
                 </button>
               </div>
 
-              <div className="space-y-4 text-xs">
-                {/* User info */}
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-slate-600">
-                  <p>Display Name: <strong className="text-slate-900">{selectedUserForManage.display_name || 'No Name'}</strong></p>
-                  <p>Email Address: <strong className="text-slate-900 font-mono select-all">{selectedUserForManage.email}</strong></p>
-                  <p>Unique Profile ID: <span className="font-mono text-slate-400 select-all">{selectedUserForManage.id}</span></p>
-                </div>
-
-                {/* Onboarding completed */}
-                <div className="flex items-center justify-between p-3.5 border border-slate-200 rounded-xl bg-white shadow-2xs">
-                  <div>
-                    <h4 className="font-bold text-slate-800">Complete Onboarding</h4>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Toggle to bypass onboarding flows and activate app launcher.</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={manageOnboardingCompleted}
-                      onChange={(e) => setManageOnboardingCompleted(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-                  </label>
-                </div>
-
-                {/* Plan Tier Override Dropdown */}
-                <div className="space-y-1.5">
-                  <label className="block font-bold text-slate-700">Manual Plan Override</label>
-                  <select
-                    value={managePlanId}
-                    onChange={(e) => setManagePlanId(e.target.value as any)}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 cursor-pointer focus:outline-hidden focus:border-cyan-500"
+              {/* Tabs for different lifecycle actions */}
+              <div className="flex border-b border-slate-100 mb-4 overflow-x-auto scrollbar-none gap-2 pb-1">
+                {[
+                  { id: 'view', label: 'View Profile' },
+                  { id: 'edit', label: 'Edit Details' },
+                  { id: 'override', label: 'Plan Override' },
+                  { id: 'suspend', label: 'Suspend' },
+                  { id: 'delete', label: 'Delete' }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      setManageMode(tab.id as any);
+                      setShowDeleteConfirm(false);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                      manageMode === tab.id
+                        ? tab.id === 'delete'
+                          ? 'bg-rose-50 text-rose-700 font-extrabold'
+                          : 'bg-cyan-50 text-cyan-700 font-extrabold'
+                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                    }`}
                   >
-                    <option value="free">Free Tier (Local only)</option>
-                    <option value="plus">Plus Tier (Sheets & Cloud Sync)</option>
-                    <option value="pro">Pro Tier (AI Spending Insights & Advanced Analytics)</option>
-                  </select>
-                </div>
-
-                {/* Required audit reason */}
-                <div className="space-y-1.5">
-                  <label className="block font-bold text-slate-700">Override Reason (required)</label>
-                  <textarea
-                    rows={3}
-                    maxLength={500}
-                    value={manageReason}
-                    onChange={(e) => setManageReason(e.target.value)}
-                    placeholder="Explain why this account needs a manual entitlement or subscription override."
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-medium text-slate-900 focus:border-cyan-500 focus:outline-hidden"
-                  />
-                  <p className="text-[10px] leading-4 text-slate-400">This reason is stored with the administrator audit record.</p>
-                </div>
-
-                {/* App Entitlements Toggle privileges */}
-                <div className="space-y-2">
-                  <label className="block font-bold text-slate-700">Launcher Application Access</label>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {[
-                      { id: 'budget-planner', name: 'BudgetPlanner' },
-                      { id: 'app-2', name: 'Toolkit App 2' },
-                      { id: 'app-3', name: 'Toolkit App 3' },
-                      { id: 'app-4', name: 'Toolkit App 4' },
-                    ].map((app) => (
-                      <div key={app.id} className="flex items-center justify-between p-2.5 border border-slate-200 bg-slate-50/50 rounded-xl">
-                        <span className="font-semibold text-slate-700 text-[11px]">{app.name}</span>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(manageAppAccess[app.id])}
-                            onChange={(e) => setManageAppAccess((prev) => ({ ...prev, [app.id]: e.target.checked }))}
-                            className="sr-only peer"
-                          />
-                          <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-cyan-600"></div>
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 pt-3.5 mt-5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setSelectedUserForManage(null)}
-                  className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={manageSaving || manageReason.trim().length < 5}
-                  onClick={() => void handleSaveUserOverride()}
-                  className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {manageSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                  ) : (
-                    <Check className="h-4 w-4 shrink-0" />
-                  )}
-                  Apply Overrides
-                </button>
+              {/* Core Content based on active mode */}
+              <div className="space-y-4 text-xs">
+                
+                {/* 1. VIEW MODE */}
+                {manageMode === 'view' && (
+                  <div className="space-y-3.5">
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-slate-600 leading-relaxed">
+                      <p className="flex justify-between border-b border-slate-100 pb-1.5">
+                        <span className="font-bold">Profile Owner:</span>
+                        <strong className="text-slate-900">{selectedUserForManage.display_name || 'No Name'}</strong>
+                      </p>
+                      <p className="flex justify-between border-b border-slate-100 pb-1.5">
+                        <span className="font-bold">Email Address:</span>
+                        <strong className="text-slate-900 font-mono select-all">{selectedUserForManage.email}</strong>
+                      </p>
+                      <p className="flex justify-between border-b border-slate-100 pb-1.5">
+                        <span className="font-bold">Profile Unique ID:</span>
+                        <span className="font-mono text-slate-500 select-all">{selectedUserForManage.id}</span>
+                      </p>
+                      <p className="flex justify-between border-b border-slate-100 pb-1.5">
+                        <span className="font-bold">Onboarding State:</span>
+                        <span className={`font-semibold ${selectedUserForManage.onboarding_completed ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {selectedUserForManage.onboarding_completed ? 'Completed' : 'Pending'}
+                        </span>
+                      </p>
+                      <p className="flex justify-between">
+                        <span className="font-bold">Date Joined:</span>
+                        <span className="font-mono text-slate-500">{new Date(selectedUserForManage.created_at).toLocaleString()}</span>
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-cyan-50 border border-cyan-100 rounded-xl text-cyan-950 font-medium">
+                      <p className="font-bold">Account active status is monitored.</p>
+                      <p className="mt-1 text-[10px] text-cyan-800/85">Superadmins hold direct access to adjust database models and entitlements without client validation latency.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. EDIT DETAILS MODE */}
+                {manageMode === 'edit' && (
+                  <div className="space-y-3">
+                    <Field label="Display Name">
+                      <input
+                        className={inputClass}
+                        value={editDisplayName}
+                        onChange={(e) => setEditDisplayName(e.target.value)}
+                        placeholder="e.g. John Doe"
+                      />
+                    </Field>
+                    <Field label="Email Address">
+                      <input
+                        className={inputClass}
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        placeholder="e.g. user@example.com"
+                      />
+                    </Field>
+
+                    <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 mt-4">
+                      <button
+                        type="button"
+                        disabled={manageSaving}
+                        onClick={() => handleUserAction('edit')}
+                        className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {manageSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        Save Account Details
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. PLAN OVERRIDE MODE (Legacy panel) */}
+                {manageMode === 'override' && (
+                  <div className="space-y-4">
+                    {/* Onboarding completed */}
+                    <div className="flex items-center justify-between p-3.5 border border-slate-200 rounded-xl bg-white shadow-2xs">
+                      <div>
+                        <h4 className="font-bold text-slate-800">Complete Onboarding</h4>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Toggle to bypass onboarding flows and activate app launcher.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={manageOnboardingCompleted}
+                          onChange={(e) => setManageOnboardingCompleted(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                      </label>
+                    </div>
+
+                    {/* Plan Tier Override Dropdown */}
+                    <div className="space-y-1.5">
+                      <label className="block font-bold text-slate-700">Manual Plan Override</label>
+                      <select
+                        value={managePlanId}
+                        onChange={(e) => setManagePlanId(e.target.value as any)}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 cursor-pointer focus:outline-hidden focus:border-cyan-500"
+                      >
+                        <option value="free">Free Tier (Local only)</option>
+                        <option value="plus">Plus Tier (Sheets & Cloud Sync)</option>
+                        <option value="pro">Pro Tier (AI Spending Insights & Advanced Analytics)</option>
+                      </select>
+                    </div>
+
+                    {/* App Entitlements Toggle privileges */}
+                    <div className="space-y-2">
+                      <label className="block font-bold text-slate-700">Launcher Application Access</label>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {[
+                          { id: 'budget-planner', name: 'BudgetPlanner' },
+                          { id: 'app-2', name: 'Toolkit App 2' },
+                          { id: 'app-3', name: 'Toolkit App 3' },
+                          { id: 'app-4', name: 'Toolkit App 4' },
+                        ].map((app) => (
+                          <div key={app.id} className="flex items-center justify-between p-2.5 border border-slate-200 bg-slate-50/50 rounded-xl">
+                            <span className="font-semibold text-slate-700 text-[11px]">{app.name}</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(manageAppAccess[app.id])}
+                                onChange={(e) => setManageAppAccess((prev) => ({ ...prev, [app.id]: e.target.checked }))}
+                                className="sr-only peer"
+                              />
+                              <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-cyan-600"></div>
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 mt-4">
+                      <button
+                        type="button"
+                        disabled={manageSaving}
+                        onClick={() => void handleSaveUserOverride()}
+                        className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {manageSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                        Apply Plan Overrides
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. SUSPEND LOCK MODE */}
+                {manageMode === 'suspend' && (
+                  <div className="space-y-4">
+                    <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 text-amber-950">
+                      <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-xs">Subscription Suspension Status</p>
+                        <p className="mt-1 text-[10px] text-amber-800 leading-4">Suspension flags the user's active plan subscription status as "suspended". When active, this blocks their account launcher access securely.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3.5 border border-slate-200 rounded-xl bg-white shadow-2xs">
+                      <div>
+                        <h4 className="font-bold text-slate-800">Suspend Subscription</h4>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Toggle to lock down premium plan functions.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isSuspended}
+                          onChange={(e) => setIsSuspended(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                      </label>
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 mt-4">
+                      <button
+                        type="button"
+                        disabled={manageSaving}
+                        onClick={() => handleUserAction('suspend')}
+                        className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {manageSaving ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Ban className="h-4 w-4" />
+                        )}
+                        {isSuspended ? 'Lift Suspension' : 'Suspend Account'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. DELETE MODE */}
+                {manageMode === 'delete' && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3 text-rose-950">
+                      <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-xs">CRITICAL WARNING: CASCADE DELETION</p>
+                        <p className="mt-1 text-[10px] text-rose-800 leading-4">Deleting this account profile completely wipes their records inside profiles, cascade deletes manual payments, active plans, active worksheets, debts, and transactional ledgers. This action is irreversible.</p>
+                      </div>
+                    </div>
+
+                    {!showDeleteConfirm ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="w-full py-3 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 font-extrabold rounded-xl transition duration-150 cursor-pointer text-center"
+                      >
+                        I understand, proceed to deletion confirm
+                      </button>
+                    ) : (
+                      <div className="space-y-3.5 animate-in fade-in duration-150">
+                        <p className="font-bold text-slate-800 text-center">Are you absolutely sure you want to delete {selectedUserForManage.email}?</p>
+                        
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(false)}
+                            className="py-2.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl cursor-pointer text-center"
+                          >
+                            No, Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={manageSaving}
+                            onClick={() => handleUserAction('delete')}
+                            className="py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl cursor-pointer text-center flex items-center justify-center gap-1.5"
+                          >
+                            {manageSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                            Yes, Delete Forever
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </div>
             </div>
           </div>

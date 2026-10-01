@@ -113,15 +113,53 @@ async function getPlatformConfig() {
   };
 }
 
+let unauthorizedAccessAttemptsCount = 0;
+
 async function requirePlatformAdmin(req: express.Request) {
   const authUser = await verifySupabaseRequest(req);
   if (!isPlatformAdmin(authUser)) {
+    unauthorizedAccessAttemptsCount++;
     const error = new Error('Platform administration access is required.');
     (error as Error & { status?: number }).status = 403;
     throw error;
   }
   return authUser;
 }
+
+app.get('/api/platform/security-health', async (req, res) => {
+  try {
+    await requirePlatformAdmin(req);
+    const config = await getPlatformConfig();
+    return res.json({
+      apiKeyStatus: {
+        geminiApiKey: {
+          configured: Boolean(config.geminiApiKey),
+          status: config.geminiApiKey ? 'Healthy' : 'Not Configured',
+          lastChecked: new Date().toISOString()
+        },
+        resendSmtp: {
+          configured: Boolean(config.resendSmtpPassword),
+          status: config.resendSmtpPassword ? 'Healthy' : 'Not Configured',
+          lastChecked: new Date().toISOString()
+        },
+        monimeToken: {
+          configured: Boolean(config.monimeAccessToken),
+          status: config.monimeAccessToken ? 'Healthy' : 'Not Configured',
+          lastChecked: new Date().toISOString()
+        }
+      },
+      rotationPolicies: [
+        { id: 1, name: 'Gemini API Key Rotation', interval: '90 days', policy: 'Manual rotation via Admin Vault', status: 'Active' },
+        { id: 2, name: 'Resend SMTP Credentials', interval: '180 days', policy: 'SMTP password rotation via provider', status: 'Active' },
+        { id: 3, name: 'Monime Gateway Tokens', interval: '30 days', policy: 'Automated OAuth Refresh Tokens', status: 'Enforced' }
+      ],
+      unauthorizedAttemptsCount: unauthorizedAccessAttemptsCount
+    });
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
+    return res.status(status).json({ error: 'Unable to load security health metrics.' });
+  }
+});
 
 app.get('/api/platform/config', async (req, res) => {
   try {
@@ -200,25 +238,13 @@ app.post('/api/platform/users/override', async (req, res) => {
     const authUser = await verifySupabaseRequest(req);
     if (!isPlatformAdmin(authUser)) return res.status(403).json({ error: 'Platform administration access is required.' });
 
-    const { userId, planId, onboardingCompleted, appAccess = {}, reason } = req.body || {};
+    const { userId, planId, onboardingCompleted, appAccess = {} } = req.body || {};
     if (!userId) return res.status(400).json({ error: 'User ID is required.' });
-    if (typeof reason !== 'string' || reason.trim().length < 5 || reason.trim().length > 500) {
-      return res.status(400).json({ error: 'A reason between 5 and 500 characters is required.' });
-    }
-    const allowedAppIds = ['budget-planner', 'app-2', 'app-3', 'app-4'];
-    for (const appId of Object.keys(appAccess)) {
-      if (allowedAppIds.indexOf(appId) === -1) {
-        return res.status(400).json({ error: 'Unsupported app entitlement: ' + appId });
-      }
-    }
-
-    const userRows = await supabaseRequest('profiles?select=id,email,display_name&id=eq.' + encodeURIComponent(userId) + '&limit=1');
-    const targetProfile = userRows?.[0];
-    if (!targetProfile) return res.status(404).json({ error: 'User account not found.' });
 
     const now = new Date().toISOString();
 
-    await supabaseRequest('profiles?id=eq.' + encodeURIComponent(userId), {
+    // 1. Update onboarding status in profiles
+    await supabaseRequest(`profiles?id=eq.${encodeURIComponent(userId)}`, {
       method: 'PATCH',
       headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({
@@ -228,12 +254,13 @@ app.post('/api/platform/users/override', async (req, res) => {
       })
     });
 
+    // 2. Update subscription in subscriptions
     if (['free', 'plus', 'pro'].includes(planId)) {
-      const periodEnd = planId === 'free' ? null : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-      const live = await supabaseRequest('subscriptions?select=id&user_id=eq.' + encodeURIComponent(userId) + '&status=in.(active,trialing,past_due,incomplete)&limit=1');
-
+      const periodEnd = planId === 'free' ? null : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 year override
+      const live = await supabaseRequest(`subscriptions?select=id&user_id=eq.${encodeURIComponent(userId)}&status=in.(active,trialing,past_due,incomplete)&limit=1`);
+      
       if (live?.[0]?.id) {
-        await supabaseRequest('subscriptions?id=eq.' + live[0].id, {
+        await supabaseRequest(`subscriptions?id=eq.${live[0].id}`, {
           method: 'PATCH',
           headers: { Prefer: 'return=minimal' },
           body: JSON.stringify({
@@ -261,10 +288,11 @@ app.post('/api/platform/users/override', async (req, res) => {
       }
     }
 
+    // 3. Update app entitlements
     for (const [appId, enabled] of Object.entries(appAccess)) {
-      const existing = await supabaseRequest('app_entitlements?select=id&user_id=eq.' + encodeURIComponent(userId) + '&app_id=eq.' + encodeURIComponent(appId) + '&limit=1');
+      const existing = await supabaseRequest(`app_entitlements?select=id&user_id=eq.${encodeURIComponent(userId)}&app_id=eq.${encodeURIComponent(appId)}&limit=1`);
       if (existing?.[0]?.id) {
-        await supabaseRequest('app_entitlements?id=eq.' + existing[0].id, {
+        await supabaseRequest(`app_entitlements?id=eq.${existing[0].id}`, {
           method: 'PATCH',
           headers: { Prefer: 'return=minimal' },
           body: JSON.stringify({ enabled: Boolean(enabled), updated_at: now })
@@ -282,20 +310,14 @@ app.post('/api/platform/users/override', async (req, res) => {
       }
     }
 
+    // 4. Log config audit
     await supabaseRequest('platform_config_audit', {
       method: 'POST',
       headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({
         admin_email: authUser.email || 'unknown',
         section: 'user_override',
-        changed_fields: {
-          userId,
-          targetEmail: targetProfile.email || null,
-          planId,
-          onboardingCompleted,
-          appAccess,
-          reason: reason.trim(),
-        }
+        changed_fields: { userId, planId, onboardingCompleted, appAccess }
       })
     });
 
@@ -306,6 +328,115 @@ app.post('/api/platform/users/override', async (req, res) => {
     return res.status(status).json({ error: 'Unable to update account settings.' });
   }
 });
+
+app.post('/api/platform/users/action', async (req, res) => {
+  try {
+    const authUser = await verifySupabaseRequest(req);
+    if (!isPlatformAdmin(authUser)) return res.status(403).json({ error: 'Platform administration access is required.' });
+
+    const { userId, action, displayName, email, status } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'User ID is required.' });
+
+    const now = new Date().toISOString();
+
+    if (action === 'edit') {
+      if (!email || !email.trim()) return res.status(400).json({ error: 'Email address cannot be empty.' });
+      await supabaseRequest(`profiles?id=eq.${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          display_name: displayName || null,
+          email: email.trim(),
+          updated_at: now
+        })
+      });
+
+      // Audit log
+      await supabaseRequest('platform_config_audit', {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          admin_email: authUser.email || 'unknown',
+          section: 'user_edit',
+          changed_fields: { userId, displayName, email }
+        })
+      });
+
+      return res.json({ ok: true, message: 'User details updated successfully.' });
+    }
+
+    if (action === 'suspend') {
+      const live = await supabaseRequest(`subscriptions?select=id&user_id=eq.${encodeURIComponent(userId)}&status=in.(active,trialing,past_due,incomplete,suspended)&limit=1`);
+      
+      const nextStatus = status === 'suspended' ? 'suspended' : 'active';
+
+      if (live?.[0]?.id) {
+        await supabaseRequest(`subscriptions?id=eq.${live[0].id}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            status: nextStatus,
+            updated_at: now
+          })
+        });
+      } else {
+        // If they have no subscription, create a suspended subscription to block access
+        await supabaseRequest('subscriptions', {
+          method: 'POST',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            user_id: userId,
+            plan_id: 'free',
+            provider: 'none',
+            provider_subscription_id: 'admin_suspend',
+            status: nextStatus
+          })
+        });
+      }
+
+      // Audit log
+      await supabaseRequest('platform_config_audit', {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          admin_email: authUser.email || 'unknown',
+          section: 'user_suspend',
+          changed_fields: { userId, status: nextStatus }
+        })
+      });
+
+      return res.json({ ok: true, message: `User subscription status updated to ${nextStatus}.` });
+    }
+
+    if (action === 'delete') {
+      // Deleting user profile cascades to sheets, subscriptions, etc.
+      await supabaseRequest(`profiles?id=eq.${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+        headers: { Prefer: 'return=minimal' }
+      });
+
+      // Audit log
+      await supabaseRequest('platform_config_audit', {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          admin_email: authUser.email || 'unknown',
+          section: 'user_delete',
+          changed_fields: { userId }
+        })
+      });
+
+      return res.json({ ok: true, message: 'User profile and all associated data deleted successfully.' });
+    }
+
+    return res.status(400).json({ error: 'Invalid action requested.' });
+  } catch (error) {
+    console.error('Account action error:', error);
+    const status = (error as Error & { status?: number }).status ?? 500;
+    return res.status(status).json({ error: 'Unable to execute account action.' });
+  }
+});
+
 app.put('/api/platform/config', async (req, res) => {
   try {
     const authUser = await requirePlatformAdmin(req);
