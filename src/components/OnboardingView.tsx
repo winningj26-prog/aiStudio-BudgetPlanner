@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, ShieldCheck, ArrowRight } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ToolkitPlanId, ToolkitEntitlementResponse } from '../types/toolkit';
@@ -26,6 +26,22 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
   });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [planPrices, setPlanPrices] = useState<Record<'plus' | 'pro', string>>({ plus: 'Loading…', pro: 'Loading…' });
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([getMobileMoneyPaymentInfo('plus'), getMobileMoneyPaymentInfo('pro')])
+      .then(([plus, pro]) => {
+        if (!cancelled) setPlanPrices({
+          plus: `${plus.currency} ${plus.amount.toLocaleString()}`,
+          pro: `${pro.currency} ${pro.amount.toLocaleString()}`,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setPlanPrices({ plus: 'Price unavailable', pro: 'Price unavailable' });
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const finishWithFreshSession = async () => {
     const session = await loadToolkitAccountSession(user);
@@ -99,7 +115,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
           <section>
             <h2 className="mb-3 text-lg font-bold text-white">Choose your subscription</h2>
             <div className="grid gap-3 md:grid-cols-3">
-              {plans.map((plan) => {
+              {(Object.keys(planDetails) as ToolkitPlanId[]).map((id) => {
+                const details = planDetails[id];
+                const plan = { id, ...details, price: id === 'free' ? 'Free' : planPrices[id] };
                 const selected = plan.id === planId;
                 return (
                   <button key={plan.id} type="button" onClick={() => setPlanId(plan.id)} className={`rounded-2xl border p-4 text-left transition ${selected ? 'border-emerald-400 bg-emerald-400/10' : 'border-white/10 bg-white/5 hover:border-white/20'}`}>
