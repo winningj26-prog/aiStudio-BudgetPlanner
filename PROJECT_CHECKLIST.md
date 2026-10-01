@@ -102,6 +102,8 @@ Updated after each completed implementation/verification task.
 
 - [x] V1 validation TypeScript blocker fixed (duplicate auth import)
 - [x] V1 validation pipeline passed (#200)
+- [x] AI production hardening merged to main
+- [ ] AI production hardening deployed and verified live
 
 ## Current blocker / dependency
 - Real Mobile Money verification requires the user's actual provider/account details.
@@ -112,6 +114,8 @@ Updated after each completed implementation/verification task.
 
 ## Latest verification
 - V1 validation pipeline #200: passed (user-reported).
+- AI production hardening merged to main as `5ff118ac6389a88fb93a09af21b2e350a2dfec21`.
+- Render deploy `dep-dav7nvfpn0mc73aitk00` is building the merged main commit; live verification pending.
 - Supabase project status: ACTIVE_HEALTHY
 - Postgres: 17.6.1
 - Security Advisor: intentional RLS notices plus leaked-password protection warning; no unexpected public-access finding.
