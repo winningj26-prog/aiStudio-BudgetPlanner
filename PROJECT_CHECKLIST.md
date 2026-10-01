@@ -97,7 +97,7 @@ Updated after each completed implementation/verification task.
 - [x] Google Sheets create/read/write acceptance test
 - [ ] Admin/non-admin acceptance test
 - [ ] Admin account edit/suspend/delete live acceptance test
-- [ ] Auth/session acceptance test
+- [x] Auth/session acceptance test (signed-in/signed-out session-state contract; V1 validation #207 acceptance step passed)
 - [ ] Full production smoke/acceptance pass
 
 - [x] V1 validation TypeScript blocker fixed (duplicate auth import)
