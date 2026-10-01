@@ -75,7 +75,7 @@ Updated after each completed acceptance task.
 - [ ] Missing/invalid API key acceptance
 - [ ] Rate-limit handling
 - [ ] AI UI error handling
-- [ ] Entitlement restrictions
+- [x] Entitlement restrictions
 - [ ] Production Gemini smoke test
 
 ## H. Production acceptance
