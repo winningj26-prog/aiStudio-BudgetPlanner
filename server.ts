@@ -1234,7 +1234,10 @@ app.post('/api/suggest-category', async (req, res) => {
       return res.json({ category: matched });
     }
 
-    const response = await new GoogleGenAI({\n      apiKey: runtimeApiKey,\n      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },\n    }).models.generateContent({
+    const response = await new GoogleGenAI({
+      apiKey: runtimeApiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+    }).models.generateContent({
       model: 'gemini-3.8-flash',
       contents: `
 You are a highly efficient financial transaction classification assistant.
