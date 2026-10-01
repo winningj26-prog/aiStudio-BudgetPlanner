@@ -200,8 +200,21 @@ app.post('/api/platform/users/override', async (req, res) => {
     const authUser = await verifySupabaseRequest(req);
     if (!isPlatformAdmin(authUser)) return res.status(403).json({ error: 'Platform administration access is required.' });
 
-    const { userId, planId, onboardingCompleted, appAccess = {} } = req.body || {};
+    const { userId, planId, onboardingCompleted, appAccess = {}, reason } = req.body || {};
     if (!userId) return res.status(400).json({ error: 'User ID is required.' });
+    if (typeof reason !== 'string' || reason.trim().length < 5 || reason.trim().length > 500) {
+      return res.status(400).json({ error: 'A reason between 5 and 500 characters is required.' });
+    }
+    const allowedAppIds = ['budget-planner', 'app-2', 'app-3', 'app-4'];
+    for (const appId of Object.keys(appAccess)) {
+      if (allowedAppIds.indexOf(appId) === -1) {
+        return res.status(400).json({ error: 'Unsupported app entitlement: ' + appId });
+      }
+    }
+
+    const userRows = await supabaseRequest('profiles?select=id,email,display_name&id=eq.' + encodeURIComponent(userId) + '&limit=1');
+    const targetProfile = userRows?.[0];
+    if (!targetProfile) return res.status(404).json({ error: 'User account not found.' });
 
     const now = new Date().toISOString();
 
@@ -275,7 +288,14 @@ app.post('/api/platform/users/override', async (req, res) => {
       body: JSON.stringify({
         admin_email: authUser.email || 'unknown',
         section: 'user_override',
-        changed_fields: { userId, planId, onboardingCompleted, appAccess }
+        changed_fields: {
+          userId,
+          targetEmail: targetProfile.email || null,
+          planId,
+          onboardingCompleted,
+          appAccess,
+          reason: reason.trim(),
+        }
       })
     });
 
