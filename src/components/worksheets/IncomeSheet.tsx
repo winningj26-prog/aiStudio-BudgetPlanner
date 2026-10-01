@@ -4,6 +4,7 @@ import {
   CurrencyCode,
   IncomeTransaction,
   RecurringTransaction,
+  FinancialAsset,
   SettingsState,
 } from '../../types/budget';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -37,6 +38,7 @@ interface IncomeSheetProps {
   highlightInputs: boolean;
   onSelectCell: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
   recurringTransactions?: RecurringTransaction[];
+  financialAssets?: FinancialAsset[];
   onUpdateRecurringTransactions?: (rules: RecurringTransaction[]) => void;
 }
 
@@ -48,6 +50,7 @@ export const IncomeSheet: React.FC<IncomeSheetProps> = ({
   highlightInputs,
   onSelectCell,
   recurringTransactions = [],
+  financialAssets = [],
   onUpdateRecurringTransactions,
 }) => {
   const monthNumber = ['January','February','March','April','May','June','July','August','September','October','November','December'].indexOf(settings.month) + 1;
@@ -56,6 +59,7 @@ export const IncomeSheet: React.FC<IncomeSheetProps> = ({
   const [newCategory, setNewCategory] = useState(categories[0]?.name || 'Salary');
   const [newDescription, setNewDescription] = useState('');
   const [newAmount, setNewAmount] = useState('');
+  const [newAccountId, setNewAccountId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
@@ -124,7 +128,7 @@ export const IncomeSheet: React.FC<IncomeSheetProps> = ({
     if (editingId) {
       onUpdateTransactions(transactions.map((tx) =>
         tx.id === editingId
-          ? { ...tx, date: newDate, category: newCategory, description: newDescription.trim() || 'Income', amount: amountNum }
+          ? { ...tx, date: newDate, category: newCategory, description: newDescription.trim() || 'Income', amount: amountNum, accountId: newAccountId || undefined }
           : tx
       ));
       setEditingId(null);
@@ -139,11 +143,13 @@ export const IncomeSheet: React.FC<IncomeSheetProps> = ({
       category: newCategory,
       description: newDescription.trim() || 'Income',
       amount: amountNum,
+      accountId: newAccountId || undefined,
     };
 
     onUpdateTransactions([...transactions, newTx]);
     setNewDescription('');
     setNewAmount('');
+    setNewAccountId('');
   };
 
   const handleEditTransaction = (tx: IncomeTransaction) => {
@@ -152,6 +158,7 @@ export const IncomeSheet: React.FC<IncomeSheetProps> = ({
     setNewCategory(tx.category);
     setNewDescription(tx.description);
     setNewAmount(String(tx.amount));
+    setNewAccountId(tx.accountId || '');
   };
 
   const handleDeleteTransaction = (id: string) => {
@@ -175,6 +182,12 @@ export const IncomeSheet: React.FC<IncomeSheetProps> = ({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+      {financialAssets.length > 0 && (
+        <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+          Select the cash or bank account that receives this income so its balance updates from its opening balance.
+        </div>
+      )}
+
       {/* ---------------------------------------------------- */}
       {/* Header Banner */}
       {/* ---------------------------------------------------- */}
