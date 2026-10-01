@@ -135,8 +135,22 @@ Updated after each completed implementation/verification task.
 - [x] Onboarding subscription prices now load from server billing configuration
 - [x] Accounts & onboarding server input hardening (display-name validation and exact email identity matching)
 - [x] Accounts & onboarding session-refresh failure handling
-- [ ] Accounts & onboarding live acceptance: new Free account
-- [ ] Accounts & onboarding live acceptance: paid onboarding through payment approval
-- [ ] Accounts & onboarding live acceptance: returning account/session restoration
-- [ ] Accounts & onboarding live acceptance: account suspension/deletion boundaries
+- [x] Accounts & onboarding live acceptance: new Free account
+- [x] Accounts & onboarding live acceptance: paid onboarding through payment approval
+- [x] Accounts & onboarding live acceptance: returning account/session restoration
+- [x] Accounts & onboarding live acceptance: account suspension/deletion boundaries
 
+
+## J. Module 3 — Subscription & Entitlements
+- [x] Free / Plus / Pro entitlement matrix reviewed against live Supabase plan_entitlements
+- [x] Server-side paid-feature enforcement reviewed for cloud sync and AI Insights
+- [x] Expired subscriptions fail closed to Free entitlement behavior
+- [x] Suspended subscription state aligned across application type, server session, and database constraint
+- [x] Suspended accounts fail closed for app and feature entitlements
+- [x] Free downgrade server action implemented
+- [x] Subscription UI loads Plus/Pro prices from server billing configuration
+- [x] Subscription entitlement acceptance contract extended for suspended accounts
+- [ ] Subscription & entitlements live acceptance: Plus → Free downgrade
+- [ ] Subscription & entitlements live acceptance: expired paid subscription → Free behavior
+- [ ] Subscription & entitlements live acceptance: suspended account access boundary
+- [ ] Subscription & entitlements live acceptance: Plus/Pro feature access matrix with real accounts
