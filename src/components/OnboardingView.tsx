@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Check, ShieldCheck, ArrowRight } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ToolkitPlanId, ToolkitEntitlementResponse } from '../types/toolkit';
-import { completeToolkitOnboarding, loadToolkitAccountSession } from '../services/toolkitAccount';
+import { completeToolkitOnboarding, getMobileMoneyPaymentInfo, loadToolkitAccountSession } from '../services/toolkitAccount';
 import { MobileMoneyPaymentView } from './MobileMoneyPaymentView';
 
 interface OnboardingViewProps {
@@ -11,11 +11,11 @@ interface OnboardingViewProps {
   onComplete: (session: ToolkitEntitlementResponse | null) => void;
 }
 
-const plans: Array<{ id: ToolkitPlanId; name: string; price: string; description: string; features: string[] }> = [
-  { id: 'free', name: 'Free', price: 'Free', description: 'Start budgeting with the essentials.', features: ['Core budgeting', 'Local persistence', 'Workbook export'] },
-  { id: 'plus', name: 'Plus', price: 'Le 550', description: 'Add cloud sync and Google Sheets.', features: ['Everything in Free', 'Cloud sync', 'Google Sheets'] },
-  { id: 'pro', name: 'Pro', price: 'Le 1,000', description: 'Add AI and advanced budgeting tools.', features: ['Everything in Plus', 'AI Insights', 'Advanced Analytics', 'Automation'] },
-];
+const planDetails: Record<ToolkitPlanId, { name: string; description: string; features: string[] }> = {
+  free: { name: 'Free', description: 'Start budgeting with the essentials.', features: ['Core budgeting', 'Local persistence', 'Workbook export'] },
+  plus: { name: 'Plus', description: 'Add cloud sync and Google Sheets.', features: ['Everything in Free', 'Cloud sync', 'Google Sheets'] },
+  pro: { name: 'Pro', description: 'Add AI and advanced budgeting tools.', features: ['Everything in Plus', 'AI Insights', 'Advanced Analytics', 'Automation'] },
+};
 
 export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete }) => {
   const [displayName, setDisplayName] = useState((user.user_metadata?.full_name as string | undefined) ?? '');
