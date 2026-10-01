@@ -105,6 +105,7 @@ Updated after each completed implementation/verification task.
 - [x] Auth/session acceptance coverage verified in V1 validation #209
 - [x] AI production hardening merged to main
 - [x] AI production hardening deployed and verified live
+- [x] Latest main acceptance changes deployed to Render and reached live (`dep-dav81ibtqb8s739jrjlg`)
 
 ## Current blocker / dependency
 - Real Mobile Money verification requires the user's actual provider/account details.
