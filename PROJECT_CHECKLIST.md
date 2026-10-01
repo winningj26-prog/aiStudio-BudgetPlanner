@@ -215,6 +215,8 @@ Updated after each completed implementation/verification task.
 - [x] Savings goal allocations are treated as internal cash earmarks rather than duplicated expenses
 - [x] Advanced Analytics now consumes the same shared financial snapshot as Net Worth
 - [x] Cross-module financial propagation acceptance tests added
+- [x] V1 validation run #317 passed TypeScript, acceptance tests, production build, production smoke, Docker build, and Docker smoke
+- [x] Cross-module financial model deployed to Render and reached live (`dep-davdviqdails738n7ueg`)
 - [ ] Live acceptance: change income/expense and verify budget, dashboard, analytics, and net worth update together
 - [ ] Live acceptance: change debt balance/payoff data and verify liabilities and net worth update together
 - [ ] Live acceptance: change savings goal allocation and verify available cash/goal totals remain consistent
