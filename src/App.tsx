@@ -211,6 +211,8 @@ export default function App() {
       plannedExpenses,
       savingsGoals,
       debts,
+      financialAssets,
+      openingCashBalance,
       recurringTransactions,
       userEmail,
       activeTab,
