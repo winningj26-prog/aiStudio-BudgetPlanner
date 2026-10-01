@@ -575,3 +575,44 @@ test('legacy financial assets and debts remain valid when opening balances are o
   assert.equal(snapshot.openingNetWorth, 4000);
   assert.equal(snapshot.netWorth, 4000);
 });
+
+
+test('account-linked transactions update the matching cash or bank account only', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [
+      { id: 'i1', date: '2026-10-01', category: 'Salary', description: 'Pay', amount: 5000, accountId: 'bank1' },
+    ],
+    [
+      { id: 'e1', date: '2026-10-02', category: 'Food', description: 'Groceries', paymentMethod: 'Bank', amount: 700, accountId: 'bank1' },
+      { id: 'e2', date: '2026-10-03', category: 'Fuel', description: 'Fuel', paymentMethod: 'Cash', amount: 100, accountId: 'cash1' },
+    ],
+    [],
+    [],
+    [
+      { id: 'bank1', name: 'Main Bank', amount: 15000, openingAmount: 15000, category: 'Bank' },
+      { id: 'cash1', name: 'Wallet', amount: 2000, openingAmount: 2000, category: 'Cash' },
+    ],
+    0,
+  );
+
+  assert.equal(snapshot.accountBalances.bank1, 19300);
+  assert.equal(snapshot.accountBalances.cash1, 1900);
+  assert.equal(snapshot.totalAssets, 21200);
+  assert.equal(snapshot.totalIncome, 5000);
+  assert.equal(snapshot.totalExpenses, 800);
+  assert.equal(snapshot.netWorth, 21200);
+});
+
+test('unassigned legacy transactions do not double count structured bank accounts', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [{ id: 'i1', date: '2026-10-01', category: 'Salary', description: 'Pay', amount: 1000 }],
+    [],
+    [],
+    [],
+    [{ id: 'bank1', name: 'Main Bank', amount: 5000, openingAmount: 5000, category: 'Bank' }],
+    0,
+  );
+
+  assert.equal(snapshot.accountBalances.bank1, 5000);
+  assert.equal(snapshot.totalAssets, 5000);
+});
