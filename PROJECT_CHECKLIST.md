@@ -206,3 +206,16 @@ Updated after each completed implementation/verification task.
 - [x] Module 4 TypeScript validation blocker fixed (`workbookValidation.ts` unknown `dayOfMonth`/`year` narrowing)
 - [x] Module 4 production validation pipeline (V1 validation run #292 passed TypeScript, acceptance tests, production build, production smoke, Docker build, and Docker smoke)
 - [ ] Module 4 deployment verification
+
+## M. Cross-module financial model
+- [x] Income and expense transactions remain the source of actual cash-flow data used by budget and analytics
+- [x] Shared financial snapshot now connects income, expenses, savings goals, debts, assets, cash, and net worth
+- [x] Net Worth now recalculates from shared cash flow and debt state instead of isolated/hardcoded balances
+- [x] Financial assets and opening cash balance are account-scoped and included in local/cloud workbook persistence
+- [x] Savings goal allocations are treated as internal cash earmarks rather than duplicated expenses
+- [x] Advanced Analytics now consumes the same shared financial snapshot as Net Worth
+- [x] Cross-module financial propagation acceptance tests added
+- [ ] Live acceptance: change income/expense and verify budget, dashboard, analytics, and net worth update together
+- [ ] Live acceptance: change debt balance/payoff data and verify liabilities and net worth update together
+- [ ] Live acceptance: change savings goal allocation and verify available cash/goal totals remain consistent
+- [ ] Live acceptance: edit assets/opening cash and verify net worth and persistence update together
