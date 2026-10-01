@@ -202,46 +202,49 @@ app.post('/api/platform/users/override', async (req, res) => {
     const userId = typeof body.userId === 'string' ? body.userId.trim() : '';
     const planId = body.planId;
     const onboardingCompleted = body.onboardingCompleted;
-    const appAccess = body.appAccess;
+    const appAccess = body.appAccess || {};
     const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
 
     if (!userId) return res.status(400).json({ error: 'User ID is required.' });
-    if (!['free', 'plus', 'pro'].includes(planId)) return res.status(400).json({ error: 'A valid subscription plan is required.' });
+    if (['free', 'plus', 'pro'].indexOf(planId) === -1) return res.status(400).json({ error: 'A valid subscription plan is required.' });
     if (typeof onboardingCompleted !== 'boolean') return res.status(400).json({ error: 'Onboarding status must be a boolean.' });
     if (!reason || reason.length < 5 || reason.length > 500) {
       return res.status(400).json({ error: 'A reason between 5 and 500 characters is required.' });
     }
-    if (appAccess !== undefined && (typeof appAccess !== 'object' || appAccess === null || Array.isArray(appAccess))) {
+    if (typeof appAccess !== 'object' || appAccess === null || Array.isArray(appAccess)) {
       return res.status(400).json({ error: 'App access must be an object.' });
     }
 
-    const allowedAppIds = new Set(['budget-planner', 'app-2', 'app-3', 'app-4']);
-    const requestedAppAccess = appAccess || {};
-    const invalidAppIds = Object.keys(requestedAppAccess).filter((appId) => !allowedAppIds.has(appId));
-    if (invalidAppIds.length) return res.status(400).json({ error: 'Unsupported app entitlement: ' + invalidAppIds[0] });
+    const allowedAppIds = ['budget-planner', 'app-2', 'app-3', 'app-4'];
+    const requestedAppIds = Object.keys(appAccess);
+    for (const appId of requestedAppIds) {
+      if (allowedAppIds.indexOf(appId) === -1) {
+        return res.status(400).json({ error: 'Unsupported app entitlement: ' + appId });
+      }
+    }
 
+    const encodedUserId = encodeURIComponent(userId);
     const userRows = await supabaseRequest(
-      `profiles?select=id,email,display_name,onboarding_completed&id=eq.${encodeURIComponent(userId)}&limit=1`,
+      'profiles?select=id,email,display_name,onboarding_completed&id=eq.' + encodedUserId + '&limit=1',
     );
-    const profile = userRows?.[0];
+    const profile = userRows && userRows[0];
     if (!profile) return res.status(404).json({ error: 'User account not found.' });
 
     const currentSubscriptions = await supabaseRequest(
-      `subscriptions?select=id,plan_id,provider,status,current_period_end&user_id=eq.${encodeURIComponent(userId)}&status=in.(active,trialing,past_due,incomplete)&order=created_at.desc&limit=1`,
+      'subscriptions?select=id,plan_id,provider,status,current_period_end&user_id=eq.' + encodedUserId + '&status=in.(active,trialing,past_due,incomplete)&order=created_at.desc&limit=1',
     );
-    const currentSubscription = currentSubscriptions?.[0] || null;
+    const currentSubscription = currentSubscriptions && currentSubscriptions[0];
     const currentEntitlements = await supabaseRequest(
-      `app_entitlements?select=id,app_id,enabled&user_id=eq.${encodeURIComponent(userId)}`,
+      'app_entitlements?select=id,app_id,enabled&user_id=eq.' + encodedUserId,
     );
 
     const now = new Date().toISOString();
+    const periodEnd = planId === 'free'
+      ? null
+      : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Admin overrides are intentionally separate from payment verification.
-    if (currentSubscription?.id) {
-      const periodEnd = planId === 'free'
-        ? null
-        : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-      await supabaseRequest(`subscriptions?id=eq.${encodeURIComponent(currentSubscription.id)}`, {
+    if (currentSubscription && currentSubscription.id) {
+      await supabaseRequest('subscriptions?id=eq.' + encodeURIComponent(currentSubscription.id), {
         method: 'PATCH',
         headers: { Prefer: 'return=minimal' },
         body: JSON.stringify({
@@ -263,14 +266,12 @@ app.post('/api/platform/users/override', async (req, res) => {
           provider: 'none',
           provider_subscription_id: 'admin_override',
           status: 'active',
-          current_period_end: planId === 'free'
-            ? null
-            : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          current_period_end: periodEnd,
         }),
       });
     }
 
-    await supabaseRequest(`profiles?id=eq.${encodeURIComponent(userId)}`, {
+    await supabaseRequest('profiles?id=eq.' + encodedUserId, {
       method: 'PATCH',
       headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({
@@ -280,13 +281,14 @@ app.post('/api/platform/users/override', async (req, res) => {
       }),
     });
 
-    for (const [appId, enabled] of Object.entries(requestedAppAccess)) {
-      const existing = currentEntitlements?.find((row: any) => row.app_id === appId);
-      if (existing?.id) {
-        await supabaseRequest(`app_entitlements?id=eq.${encodeURIComponent(existing.id)}`, {
+    for (const appId of requestedAppIds) {
+      const enabled = Boolean(appAccess[appId]);
+      const existing = (currentEntitlements || []).find((row: any) => row.app_id === appId);
+      if (existing && existing.id) {
+        await supabaseRequest('app_entitlements?id=eq.' + encodeURIComponent(existing.id), {
           method: 'PATCH',
           headers: { Prefer: 'return=minimal' },
-          body: JSON.stringify({ enabled: Boolean(enabled), updated_at: now }),
+          body: JSON.stringify({ enabled, updated_at: now }),
         });
       } else {
         await supabaseRequest('app_entitlements', {
@@ -295,10 +297,15 @@ app.post('/api/platform/users/override', async (req, res) => {
           body: JSON.stringify({
             user_id: userId,
             app_id: appId,
-            enabled: Boolean(enabled),
+            enabled,
           }),
         });
       }
+    }
+
+    const beforeAppAccess: Record<string, boolean> = {};
+    for (const row of currentEntitlements || []) {
+      beforeAppAccess[row.app_id] = Boolean(row.enabled);
     }
 
     await supabaseRequest('platform_config_audit', {
@@ -313,15 +320,15 @@ app.post('/api/platform/users/override', async (req, res) => {
           targetDisplayName: profile.display_name || null,
           reason,
           before: {
-            planId: currentSubscription?.plan_id || 'none',
-            subscriptionProvider: currentSubscription?.provider || null,
+            planId: (currentSubscription && currentSubscription.plan_id) || 'none',
+            subscriptionProvider: (currentSubscription && currentSubscription.provider) || null,
             onboardingCompleted: Boolean(profile.onboarding_completed),
-            appAccess: Object.fromEntries((currentEntitlements || []).map((row: any) => [row.app_id, Boolean(row.enabled)])),
+            appAccess: beforeAppAccess,
           },
           after: {
             planId,
             onboardingCompleted,
-            appAccess: requestedAppAccess,
+            appAccess,
           },
         },
       }),
@@ -330,7 +337,7 @@ app.post('/api/platform/users/override', async (req, res) => {
     return res.json({ ok: true });
   } catch (error) {
     console.error('Account override error:', error);
-    const status = (error as Error & { status?: number }).status ?? 500;
+    const status = (error as Error & { status?: number }).status || 500;
     return res.status(status).json({ error: 'Unable to update account settings.' });
   }
 });
