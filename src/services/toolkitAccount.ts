@@ -126,7 +126,7 @@ export async function createManualPaymentRequest(
   const response = await fetch('/api/billing/mobile-money/submit', {
     method: 'POST',
     headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ planId, transactionId, payerName }),
+    body: JSON.stringify({ planId, transactionId, payerName, providerId }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error || 'Unable to submit the payment transaction.');
