@@ -15,6 +15,7 @@ import {
 import { createLocalWorkbookRepository } from '../src/services/workbookRepository.ts';
 import { getAuthSessionState } from '../src/services/supabaseAuth.ts';
 import { isPlatformAdminEmail, normalizePlatformAdminEmails } from '../src/utils/platformAdmin.ts';
+import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
 
 class MemoryStorage {
   private values = new Map<string, string>();
