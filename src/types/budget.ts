@@ -60,6 +60,17 @@ export interface FinancialAsset {
   openingAmount?: number;
 }
 
+export interface DebtPayment {
+  id: string;
+  date: string; // YYYY-MM-DD
+  debtId: string;
+  accountId?: string;
+  amount: number;
+  principal: number;
+  interest: number;
+  notes?: string;
+}
+
 export interface Debt {
   id: string;
   name: string;
