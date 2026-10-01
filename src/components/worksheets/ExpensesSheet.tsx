@@ -4,6 +4,7 @@ import {
   ExpenseTransaction,
   IncomeTransaction,
   RecurringTransaction,
+  FinancialAsset,
   SettingsState,
 } from '../../types/budget';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -38,6 +39,7 @@ interface ExpensesSheetProps {
   highlightInputs: boolean;
   onSelectCell: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
   recurringTransactions?: RecurringTransaction[];
+  financialAssets?: FinancialAsset[];
   onUpdateRecurringTransactions?: (rules: RecurringTransaction[]) => void;
 }
 
@@ -50,6 +52,7 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
   highlightInputs,
   onSelectCell,
   recurringTransactions = [],
+  financialAssets = [],
   onUpdateRecurringTransactions,
 }) => {
   const monthNumber = ['January','February','March','April','May','June','July','August','September','October','November','December'].indexOf(settings.month) + 1;
@@ -59,6 +62,7 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
   const [newDescription, setNewDescription] = useState('');
   const [newPaymentMethod, setNewPaymentMethod] = useState(paymentMethods[0] || 'Credit Card');
   const [newAmount, setNewAmount] = useState('');
+  const [newAccountId, setNewAccountId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
@@ -134,12 +138,13 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
     if (editingId) {
       onUpdateTransactions(transactions.map((tx) =>
         tx.id === editingId
-          ? { ...tx, date: newDate, category: newCategory, description: newDescription.trim() || 'Expense', paymentMethod: newPaymentMethod, amount: amountNum }
+          ? { ...tx, date: newDate, category: newCategory, description: newDescription.trim() || 'Expense', paymentMethod: newPaymentMethod, amount: amountNum, accountId: newAccountId || undefined }
           : tx
       ));
       setEditingId(null);
       setNewDescription('');
       setNewAmount('');
+      setNewAccountId('');
       return;
     }
 
@@ -150,11 +155,13 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
       description: newDescription.trim() || 'Expense',
       paymentMethod: newPaymentMethod,
       amount: amountNum,
+      accountId: newAccountId || undefined,
     };
 
     onUpdateTransactions([...transactions, newTx]);
     setNewDescription('');
     setNewAmount('');
+    setNewAccountId('');
   };
 
   const handleEditTransaction = (tx: ExpenseTransaction) => {
@@ -164,6 +171,7 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
     setNewDescription(tx.description);
     setNewPaymentMethod(tx.paymentMethod);
     setNewAmount(String(tx.amount));
+    setNewAccountId(tx.accountId || '');
   };
 
   const handleDeleteTransaction = (id: string) => {
@@ -189,6 +197,12 @@ export const ExpensesSheet: React.FC<ExpensesSheetProps> = ({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+      {financialAssets.length > 0 && (
+        <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          Select the cash or bank account funding this expense so its balance updates from its opening balance.
+        </div>
+      )}
+
       {/* ---------------------------------------------------- */}
       {/* Header Banner */}
       {/* ---------------------------------------------------- */}
