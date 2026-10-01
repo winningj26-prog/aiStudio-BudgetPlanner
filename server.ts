@@ -197,98 +197,64 @@ app.get('/api/platform/audit-logs', async (req, res) => {
 
 app.post('/api/platform/users/override', async (req, res) => {
   try {
-    const authUser = await requirePlatformAdmin(req);
-    const body = req.body || {};
-    const userId = typeof body.userId === 'string' ? body.userId.trim() : '';
-    const planId = body.planId;
-    const onboardingCompleted = body.onboardingCompleted;
-    const appAccess = body.appAccess || {};
-    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+    const authUser = await verifySupabaseRequest(req);
+    if (!isPlatformAdmin(authUser)) return res.status(403).json({ error: 'Platform administration access is required.' });
 
+    const { userId, planId, onboardingCompleted, appAccess = {} } = req.body || {};
     if (!userId) return res.status(400).json({ error: 'User ID is required.' });
-    if (['free', 'plus', 'pro'].indexOf(planId) === -1) return res.status(400).json({ error: 'A valid subscription plan is required.' });
-    if (typeof onboardingCompleted !== 'boolean') return res.status(400).json({ error: 'Onboarding status must be a boolean.' });
-    if (!reason || reason.length < 5 || reason.length > 500) {
-      return res.status(400).json({ error: 'A reason between 5 and 500 characters is required.' });
-    }
-    if (typeof appAccess !== 'object' || appAccess === null || Array.isArray(appAccess)) {
-      return res.status(400).json({ error: 'App access must be an object.' });
-    }
-
-    const allowedAppIds = ['budget-planner', 'app-2', 'app-3', 'app-4'];
-    const requestedAppIds = Object.keys(appAccess);
-    for (const appId of requestedAppIds) {
-      if (allowedAppIds.indexOf(appId) === -1) {
-        return res.status(400).json({ error: 'Unsupported app entitlement: ' + appId });
-      }
-    }
-
-    const encodedUserId = encodeURIComponent(userId);
-    const userRows = await supabaseRequest(
-      'profiles?select=id,email,display_name,onboarding_completed&id=eq.' + encodedUserId + '&limit=1',
-    );
-    const profile = userRows && userRows[0];
-    if (!profile) return res.status(404).json({ error: 'User account not found.' });
-
-    const currentSubscriptions = await supabaseRequest(
-      'subscriptions?select=id,plan_id,provider,status,current_period_end&user_id=eq.' + encodedUserId + '&status=in.(active,trialing,past_due,incomplete)&order=created_at.desc&limit=1',
-    );
-    const currentSubscription = currentSubscriptions && currentSubscriptions[0];
-    const currentEntitlements = await supabaseRequest(
-      'app_entitlements?select=id,app_id,enabled&user_id=eq.' + encodedUserId,
-    );
 
     const now = new Date().toISOString();
-    const periodEnd = planId === 'free'
-      ? null
-      : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
 
-    if (currentSubscription && currentSubscription.id) {
-      await supabaseRequest('subscriptions?id=eq.' + encodeURIComponent(currentSubscription.id), {
-        method: 'PATCH',
-        headers: { Prefer: 'return=minimal' },
-        body: JSON.stringify({
-          plan_id: planId,
-          provider: 'none',
-          provider_subscription_id: 'admin_override',
-          status: 'active',
-          current_period_end: periodEnd,
-          updated_at: now,
-        }),
-      });
-    } else {
-      await supabaseRequest('subscriptions', {
-        method: 'POST',
-        headers: { Prefer: 'return=minimal' },
-        body: JSON.stringify({
-          user_id: userId,
-          plan_id: planId,
-          provider: 'none',
-          provider_subscription_id: 'admin_override',
-          status: 'active',
-          current_period_end: periodEnd,
-        }),
-      });
-    }
-
-    await supabaseRequest('profiles?id=eq.' + encodedUserId, {
+    await supabaseRequest('profiles?id=eq.' + encodeURIComponent(userId), {
       method: 'PATCH',
       headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({
         onboarding_completed: onboardingCompleted,
         onboarding_completed_at: onboardingCompleted ? now : null,
-        updated_at: now,
-      }),
+        updated_at: now
+      })
     });
 
-    for (const appId of requestedAppIds) {
-      const enabled = Boolean(appAccess[appId]);
-      const existing = (currentEntitlements || []).find((row: any) => row.app_id === appId);
-      if (existing && existing.id) {
-        await supabaseRequest('app_entitlements?id=eq.' + encodeURIComponent(existing.id), {
+    if (['free', 'plus', 'pro'].includes(planId)) {
+      const periodEnd = planId === 'free' ? null : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      const live = await supabaseRequest('subscriptions?select=id&user_id=eq.' + encodeURIComponent(userId) + '&status=in.(active,trialing,past_due,incomplete)&limit=1');
+
+      if (live?.[0]?.id) {
+        await supabaseRequest('subscriptions?id=eq.' + live[0].id, {
           method: 'PATCH',
           headers: { Prefer: 'return=minimal' },
-          body: JSON.stringify({ enabled, updated_at: now }),
+          body: JSON.stringify({
+            plan_id: planId,
+            provider: 'none',
+            provider_subscription_id: 'admin_override',
+            status: 'active',
+            current_period_end: periodEnd,
+            updated_at: now
+          })
+        });
+      } else {
+        await supabaseRequest('subscriptions', {
+          method: 'POST',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            user_id: userId,
+            plan_id: planId,
+            provider: 'none',
+            provider_subscription_id: 'admin_override',
+            status: 'active',
+            current_period_end: periodEnd
+          })
+        });
+      }
+    }
+
+    for (const [appId, enabled] of Object.entries(appAccess)) {
+      const existing = await supabaseRequest('app_entitlements?select=id&user_id=eq.' + encodeURIComponent(userId) + '&app_id=eq.' + encodeURIComponent(appId) + '&limit=1');
+      if (existing?.[0]?.id) {
+        await supabaseRequest('app_entitlements?id=eq.' + existing[0].id, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ enabled: Boolean(enabled), updated_at: now })
         });
       } else {
         await supabaseRequest('app_entitlements', {
@@ -297,15 +263,10 @@ app.post('/api/platform/users/override', async (req, res) => {
           body: JSON.stringify({
             user_id: userId,
             app_id: appId,
-            enabled: enabled,
-          }),
+            enabled: Boolean(enabled)
+          })
         });
       }
-    }
-
-    const beforeAppAccess = {};
-    for (const row of currentEntitlements || []) {
-      beforeAppAccess[row.app_id] = Boolean(row.enabled);
     }
 
     await supabaseRequest('platform_config_audit', {
@@ -314,34 +275,17 @@ app.post('/api/platform/users/override', async (req, res) => {
       body: JSON.stringify({
         admin_email: authUser.email || 'unknown',
         section: 'user_override',
-        changed_fields: {
-          targetUserId: userId,
-          targetEmail: profile.email || null,
-          targetDisplayName: profile.display_name || null,
-          reason,
-          before: {
-            planId: (currentSubscription && currentSubscription.plan_id) || 'none',
-            subscriptionProvider: (currentSubscription && currentSubscription.provider) || null,
-            onboardingCompleted: Boolean(profile.onboarding_completed),
-            appAccess: beforeAppAccess,
-          },
-          after: {
-            planId,
-            onboardingCompleted,
-            appAccess,
-          },
-        },
-      }),
+        changed_fields: { userId, planId, onboardingCompleted, appAccess }
+      })
     });
 
     return res.json({ ok: true });
   } catch (error) {
     console.error('Account override error:', error);
-    const status = (error as Error & { status?: number }).status || 500;
+    const status = (error as Error & { status?: number }).status ?? 500;
     return res.status(status).json({ error: 'Unable to update account settings.' });
   }
 });
-
 app.put('/api/platform/config', async (req, res) => {
   try {
     const authUser = await requirePlatformAdmin(req);
