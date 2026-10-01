@@ -81,7 +81,21 @@ export function calculateFinancialSnapshot(
     (sum, debt) => sum + positive(debt.openingBalance ?? debt.balance), 0,
   );
 
-  const availableCash = Math.max(0, legacyCash + trackedAccountAssets - goalAllocated);
+  // Savings goals are internal earmarks inside real cash/bank accounts. They do not
+  // create another asset, and an unlinked/legacy goal cannot reduce a specific
+  // account because there is no account balance to earmark against.
+  const linkedGoalAllocations = new Map<string, number>();
+  for (const goal of savingsGoals) {
+    if (!goal.accountId) continue;
+    const amount = positive(goal.currentAmount);
+    linkedGoalAllocations.set(goal.accountId, (linkedGoalAllocations.get(goal.accountId) ?? 0) + amount);
+  }
+  let linkedGoalAllocated = 0;
+  for (const [accountId, requested] of linkedGoalAllocations) {
+    const balance = positive(accountBalances[accountId] ?? 0);
+    linkedGoalAllocated += Math.min(requested, balance);
+  }
+  const availableCash = Math.max(0, legacyCash + trackedAccountAssets - linkedGoalAllocated);
   const externalAssets = trackedAccountAssets;
   const totalAssets = Math.max(0, legacyCash + trackedAccountAssets);
   const totalLiabilities = debts.reduce((sum, debt) => sum + positive(debt.balance), 0);
