@@ -892,6 +892,10 @@ export default function App() {
           <AdvancedAnalyticsSheet
             incomeTransactions={incomeTransactions}
             expenseTransactions={expenseTransactions}
+            savingsGoals={savingsGoals}
+            debts={debts}
+            financialAssets={financialAssets}
+            openingCashBalance={openingCashBalance}
             settings={settings}
           />
         )}
