@@ -831,6 +831,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         categories={categories}
         incomeCategories={incomeCategories}
         settings={settings}
+        financialAssets={financialAssets}
         onSelectCell={onSelectCell}
         currentMonthlySavings={savings}
         currentSavingsRate={savingsRate}
