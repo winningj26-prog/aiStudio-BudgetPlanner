@@ -589,7 +589,7 @@ app.get('/api/billing/mobile-money', async (req, res) => {
   const billing = await getPlatformBillingConfig();
   const planId = req.query.planId as keyof typeof billing.plans;
   const plan = billing.plans[planId];
-  if (!plan || !Number.isSafeInteger(amount) || amount <= 0) {
+  if (!plan || !Number.isSafeInteger(plan.amount) || plan.amount <= 0) {
     return res.status(400).json({ error: 'Invalid billing plan.' });
   }
   return res.json({
@@ -701,8 +701,8 @@ async function requireManualBillingAdmin(authUserId: string) {
 app.post('/api/billing/mobile-money/review', async (req, res) => {
   try {
     const authUser = await verifySupabaseRequest(req);
+    if (!isPlatformAdmin(authUser)) return res.status(403).json({ error: 'Platform administration access is required.' });
     const email = (authUser.email || '').toLowerCase();
-    if (!manualAdminEmails.includes(email)) return res.status(403).json({ error: 'Manual billing review is not enabled for this account.' });
 
     const requestId = typeof req.body?.requestId === 'string' ? req.body.requestId : '';
     const decision = req.body?.decision === 'approve' ? 'approved' : req.body?.decision === 'reject' ? 'rejected' : null;
@@ -818,7 +818,7 @@ app.post('/api/billing/checkout', async (req, res) => {
     const amount = planId === 'plus' ? config.plusAmount : config.proAmount;
 
     if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
-    if (!plan || !Number.isSafeInteger(plan.amount) || plan.amount <= 0) {
+    if (!plan || !Number.isSafeInteger(amount) || amount <= 0) {
       return res.status(503).json({ error: 'This billing plan is not configured yet.' });
     }
     if (!config.appBaseUrl) {
