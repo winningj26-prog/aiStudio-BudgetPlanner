@@ -69,6 +69,7 @@ interface DashboardSheetProps {
   recurringTransactions?: RecurringTransaction[];
   onUpdateIncomeTransactions?: (transactions: IncomeTransaction[]) => void;
   onUpdateExpenseTransactions?: (transactions: ExpenseTransaction[]) => void;
+  aiInsightsEnabled?: boolean;
 }
 
 export const DashboardSheet: React.FC<DashboardSheetProps> = ({
@@ -89,6 +90,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   recurringTransactions = [],
   onUpdateIncomeTransactions,
   onUpdateExpenseTransactions,
+  aiInsightsEnabled = false,
 }) => {
   const [isLocalExportModalOpen, setIsLocalExportModalOpen] = useState(false);
 
@@ -217,6 +219,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
 
   // Function to fetch AI insights from Express proxy backend
   const fetchAiInsights = async () => {
+    if (!aiInsightsEnabled) return;
     setIsAiLoading(true);
     setAiError(null);
     setIsAiFallback(false);
@@ -268,7 +271,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   // Fetch on mount and when transaction lists or month changes
   useEffect(() => {
     fetchAiInsights();
-  }, [incomeTransactions.length, expenseTransactions.length, settings.month]);
+  }, [incomeTransactions.length, expenseTransactions.length, settings.month, aiInsightsEnabled]);
 
   // Budget Alerts logic: Warning if spent is >= 90% of budget
   const budgetAlerts = useMemo(() => {
@@ -942,20 +945,30 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
               </div>
               
               {/* Manual regenerate button */}
-              <button
-                type="button"
-                onClick={fetchAiInsights}
-                disabled={isAiLoading}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-700 transition-all cursor-pointer shadow-3xs disabled:opacity-50"
-              >
-                <RefreshCw className={`h-3 w-3 text-slate-500 ${isAiLoading ? 'animate-spin' : ''}`} />
-                <span>Ask AI Advisor</span>
-              </button>
+              {aiInsightsEnabled && (
+                <button
+                  type="button"
+                  onClick={fetchAiInsights}
+                  disabled={isAiLoading}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-700 transition-all cursor-pointer shadow-3xs disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3 w-3 text-slate-500 ${isAiLoading ? 'animate-spin' : ''}`} />
+                  <span>Ask AI Advisor</span>
+                </button>
+              )}
             </div>
 
             {/* Insights Content */}
             <div className="space-y-4">
-              {isAiLoading ? (
+              {!aiInsightsEnabled ? (
+                <div className="flex flex-col items-center justify-center py-10 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                  <Sparkles className="h-8 w-8 text-slate-300 mb-2" />
+                  <span className="font-bold text-slate-700">AI Insights is a Pro feature</span>
+                  <span className="mt-1 max-w-xs text-center leading-relaxed text-slate-500">
+                    Upgrade to Pro to unlock Gemini-powered spending insights.
+                  </span>
+                </div>
+              ) : isAiLoading ? (
                 <div className="flex flex-col items-center justify-center py-12 text-slate-500 text-xs">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-2" />
                   <span className="font-extrabold text-slate-800 animate-pulse">Generative AI analysis in progress...</span>
