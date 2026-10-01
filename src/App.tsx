@@ -742,6 +742,7 @@ export default function App() {
             recurringTransactions={recurringTransactions}
             onUpdateIncomeTransactions={setIncomeTransactions}
             onUpdateExpenseTransactions={setExpenseTransactions}
+            aiInsightsEnabled={hasToolkitFeature(toolkitSession?.session.entitlements, 'budget.aiInsights')}
           />
         )}
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Clock3, Copy, Loader2, Smartphone } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ToolkitPlanId } from '../types/toolkit';
@@ -19,6 +19,11 @@ export const MobileMoneyPaymentView: React.FC<MobileMoneyPaymentViewProps> = ({ 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const onApprovedRef = useRef(onApproved);
+
+  useEffect(() => {
+    onApprovedRef.current = onApproved;
+  }, [onApproved]);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,7 +39,7 @@ export const MobileMoneyPaymentView: React.FC<MobileMoneyPaymentViewProps> = ({ 
           setStatus(paymentStatus.status);
           setTransactionId(paymentStatus.transactionId ?? '');
           setPayerName(paymentStatus.payerName ?? '');
-          if (paymentStatus.status === 'approved') await onApproved();
+          if (paymentStatus.status === 'approved') await onApprovedRef.current();
         }
       } catch (error) {
         if (!cancelled) setErrorMessage(error instanceof Error ? error.message : 'Unable to load Mobile Money payment details.');
@@ -44,7 +49,7 @@ export const MobileMoneyPaymentView: React.FC<MobileMoneyPaymentViewProps> = ({ 
     };
     void load();
     return () => { cancelled = true; };
-  }, [planId, user, onApproved]);
+  }, [planId, user]);
 
   const submit = async () => {
     if (!transactionId.trim()) {
@@ -56,6 +61,7 @@ export const MobileMoneyPaymentView: React.FC<MobileMoneyPaymentViewProps> = ({ 
     try {
       const result = await createManualPaymentRequest(user, planId, transactionId.trim(), payerName.trim());
       setStatus(result.status);
+      if (result.status === 'approved') await onApprovedRef.current();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to submit the payment transaction.');
     } finally {

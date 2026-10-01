@@ -6,6 +6,7 @@ import {
   emailPasswordSignUp,
   sendPasswordReset,
 } from '../services/supabaseAuth';
+import { isValidAuthEmail, isValidAuthPassword, normalizeAuthEmail } from '../services/authValidation';
 
 type AuthMode = 'signIn' | 'signUp';
 
@@ -49,14 +50,14 @@ export const LoginView: React.FC = () => {
 
   const handleEmailSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!email.trim() || password.length < 6) {
+    if (!isValidAuthEmail(email) || !isValidAuthPassword(password)) {
       setErrorMessage('Enter a valid email and a password of at least 6 characters.');
       return;
     }
     await runAuth(() =>
       mode === 'signUp'
-        ? emailPasswordSignUp(email, password)
-        : emailPasswordSignIn(email, password),
+        ? emailPasswordSignUp(normalizeAuthEmail(email), password)
+        : emailPasswordSignIn(normalizeAuthEmail(email), password),
     );
   };
 
@@ -75,15 +76,15 @@ export const LoginView: React.FC = () => {
   };
 
   const handleReset = async () => {
-    if (!email.trim()) {
-      setErrorMessage('Enter your email address first.');
+    if (!isValidAuthEmail(email)) {
+      setErrorMessage('Enter a valid email address first.');
       return;
     }
     setIsResetting(true);
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      await sendPasswordReset(email);
+      await sendPasswordReset(normalizeAuthEmail(email));
       setSuccessMessage('Password reset instructions have been sent to your email.');
     } catch (error: any) {
       setErrorMessage(error?.message || 'Could not send the password reset email.');

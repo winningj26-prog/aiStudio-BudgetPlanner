@@ -29,7 +29,7 @@ export interface SyncPayload {
   plannedExpenses: Record<string, number>;
 }
 
-function parseSheetAmount(value: unknown, context: string): number {
+export function parseSheetAmount(value: unknown, context: string): number {
   const raw = String(value ?? '').trim();
   if (!raw) throw new Error(`Invalid amount in ${context}: value is empty`);
 
@@ -44,7 +44,7 @@ function parseSheetAmount(value: unknown, context: string): number {
   if (!Number.isFinite(amount)) throw new Error(`Invalid amount in ${context}: "${raw}"`);
   return amount;
 }
-function parseSheetDate(value: unknown, context: string): string {
+export function parseSheetDate(value: unknown, context: string): string {
   const raw = String(value ?? '').trim();
   let year: number;
   let month: number;

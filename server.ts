@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
+import { isToolkitPlanId, normalizeDisplayName } from './src/services/accountValidation';
 
 dotenv.config();
 
@@ -662,11 +663,11 @@ app.get('/api/account/session', async (req, res) => {
 app.post('/api/account/onboarding', async (req, res) => {
   try {
     const authUser = await verifySupabaseRequest(req);
-    const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
+    const displayName = normalizeDisplayName(req.body?.displayName);
     const planId = req.body?.planId;
 
     if (!displayName) return res.status(400).json({ error: 'Display name is required.' });
-    if (!['free', 'plus', 'pro'].includes(planId)) {
+    if (!isToolkitPlanId(planId)) {
       return res.status(400).json({ error: 'Invalid subscription plan.' });
     }
 
