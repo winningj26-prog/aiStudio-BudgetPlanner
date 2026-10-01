@@ -161,7 +161,7 @@ test('Google Sheets spreadsheet IDs normalize URLs without altering raw IDs', ()
 });
 
 test('Google Sheets amount parser accepts normal currency values and rejects malformed values', () => {
-  assert.equal(parseSheetAmount('SLE 1,250.50', 'test'), 1250.5);
+  assert.equal(parseSheetAmount('£1,250.50', 'test'), 1250.5);
   assert.equal(parseSheetAmount('-25', 'test'), -25);
   assert.throws(() => parseSheetAmount('1,2,3.00', 'test'), /Invalid amount/);
   assert.throws(() => parseSheetAmount('25 USD', 'test'), /Invalid amount/);
