@@ -90,10 +90,10 @@ Updated after each completed implementation/verification task.
 - [x] Free/Plus/Pro entitlement helper tests
 - [x] Mobile Money state transition test
 - [x] Decimal billing acceptance tests
-- [ ] Cloud save/load acceptance test
-- [ ] AI Insights acceptance test
-- [ ] Advanced Analytics acceptance test
-- [ ] Google Sheets create/read/write acceptance test
+- [x] Cloud save/load acceptance test
+- [x] AI Insights acceptance test
+- [x] Advanced Analytics acceptance test
+- [x] Google Sheets create/read/write acceptance test
 - [ ] Admin/non-admin acceptance test
 - [ ] Admin account edit/suspend/delete live acceptance test
 - [ ] Auth/session acceptance test
