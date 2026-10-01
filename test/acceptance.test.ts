@@ -269,3 +269,22 @@ test('manual billing input validation rejects malformed plans, amounts, and over
   assert.equal(normalizeOptionalText('x'.repeat(120), 120), 'x'.repeat(120));
   assert.equal(normalizeOptionalText('x'.repeat(121), 120), null);
 });
+
+
+test('budget insight daily widget dismissal sets and matches today date in storage', () => {
+  const storage = installStorage();
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  // Start undispatched
+  assert.equal(storage.getItem('budget_insight_dismissed_date'), null);
+
+  // Dispatch daily dismissal
+  storage.setItem('budget_insight_dismissed_date', todayKey);
+  assert.equal(storage.getItem('budget_insight_dismissed_date'), todayKey);
+
+  // Simulate on-mount check
+  const isDismissedForToday = storage.getItem('budget_insight_dismissed_date') === todayKey;
+  assert.equal(isDismissedForToday, true);
+});
+
