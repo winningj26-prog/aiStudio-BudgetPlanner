@@ -224,9 +224,13 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
     setAiError(null);
     setIsAiFallback(false);
     try {
+      const accessToken = await getAuthAccessToken();
       const response = await fetch('/api/insights', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
           incomeTransactions,
           expenseTransactions,
@@ -241,7 +245,12 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
       setAiInsights(data.insights);
       setIsAiFallback(data.fallback || false);
     } catch (err: any) {
-      console.warn("Express backend /api/insights not reachable or failed. Using high-fidelity local financial advisor insights:", err);
+      console.warn("Express backend /api/insights not reachable or failed:", err);
+      setAiInsights(null);
+      setAiError(err instanceof Error ? err.message : 'Unable to generate AI insights.');
+      return;
+      
+      /*
       
       // Calculate active metrics for smart client-side insights
       const totalInc = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
@@ -263,6 +272,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
       setAiInsights(fallBackInsights);
       setIsAiFallback(true);
       setAiError(null);
+      */
     } finally {
       setIsAiLoading(false);
     }
