@@ -1032,8 +1032,6 @@ export default function App() {
           expenseTransactions,
           plannedIncome,
           plannedExpenses,
-          financialAssets,
-          openingCashBalance,
           annualData,
         }}
       />
