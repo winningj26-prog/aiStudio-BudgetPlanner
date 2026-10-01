@@ -214,3 +214,11 @@ test('platform admin authorization distinguishes configured admins from non-admi
   assert.equal(isPlatformAdminEmail('user@example.com', allowed), false);
   assert.equal(isPlatformAdminEmail(null, allowed), false);
 });
+
+
+test('AI Insights UI is visible only when the Pro feature entitlement enables it', () => {
+  assert.equal(isAiInsightsUiEnabled(false), false);
+  assert.equal(isAiInsightsUiEnabled(undefined), false);
+  assert.equal(isAiInsightsUiEnabled(null as any), false);
+  assert.equal(isAiInsightsUiEnabled(true), true);
+});
