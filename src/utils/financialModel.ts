@@ -31,6 +31,11 @@ export function calculateFinancialSnapshot(
   debtPayments: DebtPayment[] = [],
   openingCashBalance = 0,
 ): FinancialSnapshot {
+  const debtPayments = Array.isArray(debtPaymentsOrOpeningCash) ? debtPaymentsOrOpeningCash : [];
+  const resolvedOpeningCashBalance = typeof debtPaymentsOrOpeningCash === 'number'
+    ? debtPaymentsOrOpeningCash
+    : openingCashBalance;
+
   const totalIncome = incomeTransactions.reduce((sum, tx) => sum + positive(tx.amount), 0);
   const debtInterestExpense = debtPayments.reduce((sum, payment) => sum + positive(payment.interest), 0);
   const debtPrincipalPaid = debtPayments.reduce((sum, payment) => sum + positive(payment.principal), 0);
@@ -73,8 +78,8 @@ export function calculateFinancialSnapshot(
   // openingCashBalance remains a legacy compatibility balance. Once structured
   // cash/bank accounts exist, unassigned activity is still tracked separately
   // but does not get duplicated into those accounts.
-  const legacyCash = positive(openingCashBalance) + (hasStructuredCashAccounts ? 0 : unassignedCashFlow);
-  const openingAssets = positive(openingCashBalance) + assets.reduce(
+  const legacyCash = positive(resolvedOpeningCashBalance) + (hasStructuredCashAccounts ? 0 : unassignedCashFlow);
+  const openingAssets = positive(resolvedOpeningCashBalance) + assets.reduce(
     (sum, asset) => sum + positive(asset.openingAmount ?? asset.amount), 0,
   );
   const openingLiabilities = debts.reduce(
