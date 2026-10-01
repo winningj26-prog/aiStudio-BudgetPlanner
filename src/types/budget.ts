@@ -51,7 +51,9 @@ export interface FinancialAsset {
   id: string;
   name: string;
   amount: number;
-  category: 'Liquid' | 'Investment' | 'Real Estate' | 'Other';
+  category: 'Liquid' | 'Investment' | 'Real Estate' | 'Vehicle' | 'Business' | 'Retirement' | 'Receivable' | 'Other';
+  /** Balance at the point the user started tracking. Falls back to amount for legacy records. */
+  openingAmount?: number;
 }
 
 export interface Debt {
