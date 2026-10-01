@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { ArrowLeft, Check, Smartphone } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ToolkitEntitlementResponse, ToolkitPlanId } from '../types/toolkit';
-import { loadToolkitAccountSession } from '../services/toolkitAccount';
+import { downgradeToolkitSubscriptionToFree, getMobileMoneyPaymentInfo, loadToolkitAccountSession } from '../services/toolkitAccount';
 import { MobileMoneyPaymentView } from './MobileMoneyPaymentView';
 
 interface SubscriptionViewProps {
@@ -12,15 +12,49 @@ interface SubscriptionViewProps {
   onSessionUpdated: (session: ToolkitEntitlementResponse) => void;
 }
 
-const plans: Array<{ id: ToolkitPlanId; name: string; price: string; description: string; features: string[] }> = [
-  { id: 'free', name: 'Free', price: 'Free', description: 'Core budgeting with local persistence and export.', features: ['Core budgeting', 'Local persistence', 'Workbook export'] },
-  { id: 'plus', name: 'Plus', price: 'Le 550', description: 'Cloud sync and Google Sheets.', features: ['Everything in Free', 'Cloud sync', 'Google Sheets'] },
-  { id: 'pro', name: 'Pro', price: 'Le 1,000', description: 'AI, advanced analytics, automation, cloud sync, and Google Sheets.', features: ['Everything in Plus', 'AI Insights', 'Advanced Analytics', 'Automation'] },
-];
+const planDetails: Record<ToolkitPlanId, { name: string; description: string; features: string[] }> = {
+  free: { name: 'Free', description: 'Core budgeting with local persistence and export.', features: ['Core budgeting', 'Local persistence', 'Workbook export'] },
+  plus: { name: 'Plus', description: 'Cloud sync and Google Sheets.', features: ['Everything in Free', 'Cloud sync', 'Google Sheets'] },
+  pro: { name: 'Pro', description: 'AI, advanced analytics, automation, cloud sync, and Google Sheets.', features: ['Everything in Plus', 'AI Insights', 'Advanced Analytics', 'Automation'] },
+};
 
 export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, session, onBack, onSessionUpdated }) => {
   const currentPlan = session.session.subscription.planId;
   const [paymentPlan, setPaymentPlan] = useState<'plus' | 'pro' | null>(null);
+  const [planPrices, setPlanPrices] = useState<Record<'plus' | 'pro', string>>({ plus: 'Loading…', pro: 'Loading…' });
+  const [downgrading, setDowngrading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void Promise.all([getMobileMoneyPaymentInfo('plus'), getMobileMoneyPaymentInfo('pro')])
+      .then(([plus, pro]) => {
+        if (!cancelled) setPlanPrices({
+          plus: `${plus.currency} ${plus.amount.toLocaleString()}`,
+          pro: `${pro.currency} ${pro.amount.toLocaleString()}`,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setPlanPrices({ plus: 'Price unavailable', pro: 'Price unavailable' });
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleDowngrade = async () => {
+    if (!window.confirm('Switch this account to the Free plan now? Paid features will be disabled immediately.')) return;
+    setDowngrading(true);
+    setError(null);
+    try {
+      await downgradeToolkitSubscriptionToFree(user);
+      const latest = await loadToolkitAccountSession(user);
+      if (!latest) throw new Error('Subscription changed, but the account session could not be refreshed.');
+      onSessionUpdated(latest);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to change subscription plan.');
+    } finally {
+      setDowngrading(false);
+    }
+  };
 
   const handleApproved = useCallback(async () => {
     const latest = await loadToolkitAccountSession(user);
@@ -54,9 +88,12 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
 
         <main className="py-8">
           <div className="grid gap-4 md:grid-cols-3">
-            {plans.map((plan) => {
+            {(Object.keys(planDetails) as ToolkitPlanId[]).map((id) => {
+              const details = planDetails[id];
+              const plan = { id, ...details, price: id === 'free' ? 'Free' : planPrices[id] };
               const current = currentPlan === plan.id;
               const canPay = plan.id !== 'free' && !current;
+              const canDowngrade = plan.id === 'free' && !current && (currentPlan === 'plus' || currentPlan === 'pro');
               return (
                 <article key={plan.id} className={current ? 'rounded-2xl border border-emerald-400 bg-emerald-400/10 p-5' : 'rounded-2xl border border-white/10 bg-white/5 p-5'}>
                   <div className="flex items-center justify-between gap-3">
@@ -68,13 +105,14 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
                   <ul className="mt-5 space-y-2">
                     {plan.features.map((feature) => <li key={feature} className="flex gap-2 text-xs text-slate-300"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />{feature}</li>)}
                   </ul>
-                  <button type="button" disabled={!canPay} onClick={canPay ? () => setPaymentPlan(plan.id as 'plus' | 'pro') : undefined} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">
-                    {current ? 'Current plan' : plan.id === 'free' ? 'Included' : <><Smartphone className="h-4 w-4" />Pay with Mobile Money</>}
+                  <button type="button" disabled={!canPay && !canDowngrade || downgrading} onClick={canDowngrade ? handleDowngrade : canPay ? () => setPaymentPlan(plan.id as 'plus' | 'pro') : undefined} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">
+                    {current ? 'Current plan' : canDowngrade ? (downgrading ? 'Switching…' : 'Switch to Free') : plan.id === 'free' ? 'Included' : <><Smartphone className="h-4 w-4" />Pay with Mobile Money</>}
                   </button>
                 </article>
               );
             })}
           </div>
+          {error && <p className="mt-4 rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-center text-xs text-rose-200">{error}</p>}
           <p className="mt-6 text-center text-xs text-slate-500">Mobile Money payments are verified manually. Your plan is not activated until the transaction is confirmed.</p>
         </main>
       </div>
