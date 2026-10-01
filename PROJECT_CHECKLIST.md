@@ -112,6 +112,7 @@ Updated after each completed implementation/verification task.
 - [x] Latest security-review checklist commit deployed to Render and reached live (`dep-dav82is9v7es73fh37b0`)
 - [x] AI Insights UI Pro entitlement gate implemented and production build deployed live (`dep-dav875u7bikc73f4j2m0`)
 - [x] AI Insights UI acceptance contract test added; full test execution remains pending because the execution environment cannot resolve GitHub
+- [x] Billing edge-case hardening deployed and verified live (`dep-davaene0tbcc73aqi9ig`)
 
 ## Current blocker / dependency
 - Real Mobile Money verification requires the user's actual provider/account details.
