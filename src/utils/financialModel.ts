@@ -28,7 +28,7 @@ export function calculateFinancialSnapshot(
   savingsGoals: SavingsGoal[],
   debts: Debt[],
   assets: FinancialAsset[],
-  debtPayments: DebtPayment[] = [],
+  debtPaymentsOrOpeningCash: DebtPayment[] | number = [],
   openingCashBalance = 0,
 ): FinancialSnapshot {
   const debtPayments = Array.isArray(debtPaymentsOrOpeningCash) ? debtPaymentsOrOpeningCash : [];
