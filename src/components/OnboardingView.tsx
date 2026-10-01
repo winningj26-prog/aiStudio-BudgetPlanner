@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Check, ShieldCheck, ArrowRight } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ToolkitPlanId, ToolkitEntitlementResponse } from '../types/toolkit';
-import { completeToolkitOnboarding, createBillingCheckout, loadToolkitAccountSession } from '../services/toolkitAccount';
+import { completeToolkitOnboarding, loadToolkitAccountSession } from '../services/toolkitAccount';
+import { MobileMoneyPaymentView } from './MobileMoneyPaymentView';
 
 interface OnboardingViewProps {
   user: User;
@@ -12,57 +13,24 @@ interface OnboardingViewProps {
 
 const plans: Array<{ id: ToolkitPlanId; name: string; price: string; description: string; features: string[] }> = [
   { id: 'free', name: 'Free', price: 'Free', description: 'Start budgeting with the essentials.', features: ['Core budgeting', 'Local persistence', 'Workbook export'] },
-  { id: 'plus', name: 'Plus', price: 'Paid plan', description: 'Add cloud sync and Google Sheets.', features: ['Everything in Free', 'Cloud sync', 'Google Sheets'] },
-  { id: 'pro', name: 'Pro', price: 'Paid plan', description: 'Add AI and advanced budgeting tools.', features: ['Everything in Plus', 'AI Insights', 'Advanced Analytics', 'Automation'] },
+  { id: 'plus', name: 'Plus', price: 'Le 550', description: 'Add cloud sync and Google Sheets.', features: ['Everything in Free', 'Cloud sync', 'Google Sheets'] },
+  { id: 'pro', name: 'Pro', price: 'Le 1,000', description: 'Add AI and advanced budgeting tools.', features: ['Everything in Plus', 'AI Insights', 'Advanced Analytics', 'Automation'] },
 ];
 
 export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete }) => {
   const [displayName, setDisplayName] = useState((user.user_metadata?.full_name as string | undefined) ?? '');
   const [planId, setPlanId] = useState<ToolkitPlanId>('free');
+  const [paymentPlan, setPaymentPlan] = useState<'plus' | 'pro' | null>(() => {
+    const value = new URLSearchParams(window.location.search).get('mobile_money');
+    return value === 'plus' || value === 'pro' ? value : null;
+  });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [paymentPending, setPaymentPending] = useState(() => new URLSearchParams(window.location.search).get('billing') === 'success');
 
-  useEffect(() => {
-    if (!paymentPending) return;
-
-    let cancelled = false;
-    let attempts = 0;
-    const poll = async () => {
-      attempts += 1;
-      try {
-        const latest = await loadToolkitAccountSession(user);
-        if (cancelled) return;
-        if (latest?.session.user.onboardingComplete) {
-          window.history.replaceState({}, '', window.location.pathname);
-          onComplete(latest);
-          return;
-        }
-      } catch {
-        // Keep polling while the provider webhook finishes processing.
-      }
-
-      if (!cancelled && attempts < 15) {
-        window.setTimeout(poll, 2000);
-      } else if (!cancelled) {
-        setPaymentPending(false);
-        setErrorMessage('Payment was returned successfully, but account activation is still pending. Please refresh in a moment.');
-      }
-    };
-
-    void poll();
-    return () => {
-      cancelled = true;
-    };
-  }, [paymentPending, planId, user, onComplete]);
-
-  useEffect(() => {
-    const billing = new URLSearchParams(window.location.search).get('billing');
-    if (billing === 'cancelled') {
-      setErrorMessage('Checkout was cancelled. Your subscription was not changed.');
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
+  const handleApproved = async () => {
+    window.history.replaceState({}, '', window.location.pathname);
+    onComplete(await loadToolkitAccountSession(user));
+  };
 
   const handleContinue = async () => {
     if (!displayName.trim()) {
@@ -71,15 +39,14 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
     }
     setLoading(true);
     setErrorMessage(null);
-    setPaymentPending(false);
     try {
       await completeToolkitOnboarding(user, displayName.trim(), planId);
       if (planId === 'free') {
         onComplete(await loadToolkitAccountSession(user));
         return;
       }
-      const checkout = await createBillingCheckout(user, planId);
-      window.location.assign(checkout.checkoutUrl);
+      window.history.replaceState({}, '', `?mobile_money=${planId}`);
+      setPaymentPlan(planId);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to complete onboarding.');
     } finally {
@@ -87,23 +54,31 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
     }
   };
 
+  if (paymentPlan) {
+    return (
+      <MobileMoneyPaymentView
+        user={user}
+        planId={paymentPlan}
+        onBack={() => setPaymentPlan(null)}
+        onApproved={handleApproved}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100">
       <div className="mx-auto max-w-4xl">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/15">
-            <ShieldCheck className="h-6 w-6 text-emerald-300" />
-          </div>
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/15"><ShieldCheck className="h-6 w-6 text-emerald-300" /></div>
           <p className="text-sm font-semibold text-emerald-300">Welcome to the toolkit</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Set up your workspace</h1>
-          <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-400">Choose how you want to start. You can change plans later through the account and billing flow.</p>
+          <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-400">Choose your plan. Paid plans are activated after your Mobile Money payment is verified.</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
           <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-lg font-bold text-white">About you</h2>
-            <label className="mt-5 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Display name
+            <label className="mt-5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Display name
               <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name" className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400" placeholder="Your name" />
             </label>
             <p className="mt-4 text-xs text-slate-500">{user.email}</p>
@@ -128,20 +103,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
         </div>
 
         {errorMessage && <p className="mt-5 text-center text-sm font-medium text-rose-300">{errorMessage}</p>}
-        {paymentPending && (
-          <p className="mt-5 text-center text-sm font-medium text-amber-300">
-            We’re confirming your payment. This can take a few seconds.
-          </p>
-        )}
         <div className="mt-8 flex justify-center">
-          <button type="button" onClick={handleContinue} disabled={loading || paymentPending} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-60">
-            {loading
-              ? 'Setting up your workspace…'
-              : paymentPending
-                ? 'Confirming your payment…'
-                : planId === 'free'
-                  ? 'Start with Free'
-                  : `Continue to ${planId === 'plus' ? 'Plus' : 'Pro'} checkout`}
+          <button type="button" onClick={() => void handleContinue()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-60">
+            {loading ? 'Setting up your workspace…' : planId === 'free' ? 'Start with Free' : `Continue to Mobile Money payment`}
             {!loading && <ArrowRight className="h-4 w-4" />}
           </button>
         </div>

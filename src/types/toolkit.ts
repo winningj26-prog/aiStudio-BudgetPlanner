@@ -44,7 +44,7 @@ export interface ToolkitUser {
 export interface ToolkitSubscription {
   planId: ToolkitPlanId;
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete';
-  provider: 'monime' | 'none';
+  provider: 'monime' | 'mobile_money' | 'none';
   currentPeriodEnd: string | null;
   selectedAt?: string | null;
 }

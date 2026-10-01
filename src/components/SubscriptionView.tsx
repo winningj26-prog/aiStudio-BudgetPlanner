@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Check, CreditCard, Loader2 } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { ArrowLeft, Check, Smartphone } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ToolkitEntitlementResponse, ToolkitPlanId } from '../types/toolkit';
-import { createBillingCheckout, loadToolkitAccountSession } from '../services/toolkitAccount';
+import { loadToolkitAccountSession } from '../services/toolkitAccount';
+import { MobileMoneyPaymentView } from './MobileMoneyPaymentView';
 
 interface SubscriptionViewProps {
   user: User;
@@ -11,66 +12,31 @@ interface SubscriptionViewProps {
   onSessionUpdated: (session: ToolkitEntitlementResponse) => void;
 }
 
-const plans: Array<{ id: ToolkitPlanId; name: string; price: string; description: string; features: string[]; configured: boolean }> = [
-  { id: 'free', name: 'Free', price: 'Free', description: 'Core budgeting with local persistence and export.', features: ['Core budgeting', 'Local persistence', 'Workbook export'], configured: true },
-  { id: 'plus', name: 'Plus', price: 'Le 550', description: 'Cloud sync and Google Sheets.', features: ['Everything in Free', 'Cloud sync', 'Google Sheets'], configured: true },
-  { id: 'pro', name: 'Pro', price: 'Paid plan', description: 'AI, advanced analytics, automation, cloud sync, and Google Sheets.', features: ['Everything in Plus', 'AI Insights', 'Advanced Analytics', 'Automation'], configured: true },
+const plans: Array<{ id: ToolkitPlanId; name: string; price: string; description: string; features: string[] }> = [
+  { id: 'free', name: 'Free', price: 'Free', description: 'Core budgeting with local persistence and export.', features: ['Core budgeting', 'Local persistence', 'Workbook export'] },
+  { id: 'plus', name: 'Plus', price: 'Le 550', description: 'Cloud sync and Google Sheets.', features: ['Everything in Free', 'Cloud sync', 'Google Sheets'] },
+  { id: 'pro', name: 'Pro', price: 'Le 1,000', description: 'AI, advanced analytics, automation, cloud sync, and Google Sheets.', features: ['Everything in Plus', 'AI Insights', 'Advanced Analytics', 'Automation'] },
 ];
 
 export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, session, onBack, onSessionUpdated }) => {
   const currentPlan = session.session.subscription.planId;
-  const [loadingPlan, setLoadingPlan] = useState<ToolkitPlanId | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [pendingReturn, setPendingReturn] = useState(() => new URLSearchParams(window.location.search).get('billing') === 'success');
+  const [paymentPlan, setPaymentPlan] = useState<'plus' | 'pro' | null>(null);
 
-  useEffect(() => {
-    if (!pendingReturn) return;
-    let cancelled = false;
-    let attempts = 0;
-    const poll = async () => {
-      attempts += 1;
-      try {
-        const latest = await loadToolkitAccountSession(user);
-        if (cancelled) return;
-        if (latest && latest.session.subscription.planId !== currentPlan) {
-          window.history.replaceState({}, '', window.location.pathname);
-          onSessionUpdated(latest);
-          setPendingReturn(false);
-          return;
-        }
-      } catch {
-        // Keep polling while billing activation finishes.
-      }
-      if (attempts < 15) {
-        window.setTimeout(poll, 2000);
-      } else if (!cancelled) {
-        setPendingReturn(false);
-        setErrorMessage('Payment was returned, but the subscription is still being activated. Please refresh in a moment.');
-      }
-    };
-    void poll();
-    return () => { cancelled = true; };
-  }, [pendingReturn, currentPlan, user, onSessionUpdated]);
+  const handleApproved = useCallback(async () => {
+    const latest = await loadToolkitAccountSession(user);
+    if (latest) onSessionUpdated(latest);
+  }, [user, onSessionUpdated]);
 
-  useEffect(() => {
-    const billing = new URLSearchParams(window.location.search).get('billing');
-    if (billing === 'cancelled') {
-      setErrorMessage('Checkout was cancelled. Your subscription was not changed.');
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
-
-  const handleUpgrade = async (planId: 'plus' | 'pro') => {
-    setLoadingPlan(planId);
-    setErrorMessage(null);
-    try {
-      const checkout = await createBillingCheckout(user, planId);
-      window.location.assign(checkout.checkoutUrl);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to start subscription checkout.');
-      setLoadingPlan(null);
-    }
-  };
+  if (paymentPlan) {
+    return (
+      <MobileMoneyPaymentView
+        user={user}
+        planId={paymentPlan}
+        onBack={() => setPaymentPlan(null)}
+        onApproved={handleApproved}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
@@ -90,8 +56,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
           <div className="grid gap-4 md:grid-cols-3">
             {plans.map((plan) => {
               const current = currentPlan === plan.id;
-              const canUpgrade = plan.id !== 'free' && !current && plan.configured;
-              const loading = loadingPlan === plan.id;
+              const canPay = plan.id !== 'free' && !current;
               return (
                 <article key={plan.id} className={current ? 'rounded-2xl border border-emerald-400 bg-emerald-400/10 p-5' : 'rounded-2xl border border-white/10 bg-white/5 p-5'}>
                   <div className="flex items-center justify-between gap-3">
@@ -103,15 +68,14 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
                   <ul className="mt-5 space-y-2">
                     {plan.features.map((feature) => <li key={feature} className="flex gap-2 text-xs text-slate-300"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />{feature}</li>)}
                   </ul>
-                  <button type="button" disabled={current || !canUpgrade || loading || pendingReturn} onClick={canUpgrade ? () => void handleUpgrade(plan.id as 'plus' | 'pro') : undefined} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">
-                    {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Opening checkout…</> : current ? 'Current plan' : plan.id === 'plus' ? 'Upgrade to Plus' : <><CreditCard className="h-4 w-4" />Upgrade to Pro</>}
+                  <button type="button" disabled={!canPay} onClick={canPay ? () => setPaymentPlan(plan.id as 'plus' | 'pro') : undefined} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">
+                    {current ? 'Current plan' : plan.id === 'free' ? 'Included' : <><Smartphone className="h-4 w-4" />Pay with Mobile Money</>}
                   </button>
                 </article>
               );
             })}
           </div>
-          {pendingReturn && <p className="mt-6 text-center text-sm font-medium text-amber-300">We’re confirming your payment and updating your subscription…</p>}
-          {errorMessage && <p className="mt-6 text-center text-sm font-medium text-rose-300">{errorMessage}</p>}
+          <p className="mt-6 text-center text-xs text-slate-500">Mobile Money payments are verified manually. Your plan is not activated until the transaction is confirmed.</p>
         </main>
       </div>
     </div>

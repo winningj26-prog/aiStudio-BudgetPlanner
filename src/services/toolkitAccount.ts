@@ -63,3 +63,55 @@ export async function createBillingCheckout(
   }
   return body;
 }
+
+
+export interface MobileMoneyPaymentInfo {
+  provider: string;
+  accountName: string;
+  accountNumber: string;
+  instructions: string;
+  amount: number;
+  currency: string;
+}
+
+export interface ManualPaymentStatus {
+  id: string;
+  planId: 'plus' | 'pro';
+  status: 'pending' | 'approved' | 'rejected';
+  transactionId: string;
+  payerName: string | null;
+}
+
+export async function getMobileMoneyPaymentInfo(planId: 'plus' | 'pro'): Promise<MobileMoneyPaymentInfo> {
+  const response = await fetch(`/api/billing/mobile-money?planId=${encodeURIComponent(planId)}`);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || 'Unable to load Mobile Money payment details.');
+  return body;
+}
+
+export async function createManualPaymentRequest(
+  user: User,
+  planId: 'plus' | 'pro',
+  transactionId: string,
+  payerName?: string,
+): Promise<ManualPaymentStatus> {
+  const idToken = await getAuthAccessToken();
+  const response = await fetch('/api/billing/mobile-money/submit', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ planId, transactionId, payerName }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || 'Unable to submit the payment transaction.');
+  return body;
+}
+
+export async function loadManualPaymentStatus(user: User, planId: 'plus' | 'pro'): Promise<ManualPaymentStatus | null> {
+  const idToken = await getAuthAccessToken();
+  const response = await fetch(`/api/billing/mobile-money/status?planId=${encodeURIComponent(planId)}`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || 'Unable to load payment status.');
+  return body.request ?? null;
+}

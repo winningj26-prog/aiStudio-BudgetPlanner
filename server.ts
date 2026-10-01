@@ -387,6 +387,189 @@ app.put('/api/workbook', async (req, res) => {
 
 
 
+const mobileMoneyCurrency = process.env.MOBILE_MONEY_CURRENCY || 'SLE';
+const mobileMoneyProvider = process.env.MOBILE_MONEY_PROVIDER || '';
+const mobileMoneyAccountName = process.env.MOBILE_MONEY_ACCOUNT_NAME || '';
+const mobileMoneyAccountNumber = process.env.MOBILE_MONEY_ACCOUNT_NUMBER || '';
+const mobileMoneyInstructions = process.env.MOBILE_MONEY_INSTRUCTIONS || 'Make the exact payment amount shown above, keep your transaction receipt, and submit the transaction ID below. Your subscription will be activated only after manual verification.';
+const manualPlusAmount = Number(process.env.MOBILE_MONEY_PLUS_AMOUNT || 550);
+const manualProAmount = Number(process.env.MOBILE_MONEY_PRO_AMOUNT || 1000);
+const manualAdminEmails = (process.env.MANUAL_BILLING_ADMIN_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+
+const manualPaymentPlans = {
+  plus: { name: 'Toolkit Plus', amount: manualPlusAmount },
+  pro: { name: 'Toolkit Pro', amount: manualProAmount },
+} as const;
+
+app.get('/api/billing/mobile-money', (req, res) => {
+  const planId = req.query.planId as keyof typeof manualPaymentPlans;
+  const plan = manualPaymentPlans[planId];
+  if (!plan || !Number.isSafeInteger(plan.amount) || plan.amount <= 0) {
+    return res.status(400).json({ error: 'Invalid billing plan.' });
+  }
+  return res.json({
+    provider: mobileMoneyProvider,
+    accountName: mobileMoneyAccountName,
+    accountNumber: mobileMoneyAccountNumber,
+    instructions: mobileMoneyInstructions,
+    amount: plan.amount,
+    currency: mobileMoneyCurrency,
+  });
+});
+
+app.post('/api/billing/mobile-money/submit', async (req, res) => {
+  try {
+    const authUser = await verifySupabaseRequest(req);
+    const profile = await getToolkitProfile(authUser.id);
+    const planId = req.body?.planId as keyof typeof manualPaymentPlans;
+    const plan = manualPaymentPlans[planId];
+    const transactionId = typeof req.body?.transactionId === 'string' ? req.body.transactionId.trim() : '';
+    const payerName = typeof req.body?.payerName === 'string' ? req.body.payerName.trim() : null;
+
+    if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
+    if (!plan || !Number.isSafeInteger(plan.amount) || plan.amount <= 0) return res.status(400).json({ error: 'Invalid billing plan.' });
+    if (!transactionId || transactionId.length > 120) return res.status(400).json({ error: 'A valid Mobile Money transaction ID is required.' });
+
+    const existing = await supabaseRequest(
+      `manual_payment_requests?select=id,plan_id,status,transaction_id,payer_name&user_id=eq.${encodeURIComponent(profile.id)}&status=in.(pending,approved)&order=created_at.desc&limit=1`,
+    );
+    if (existing?.[0]) {
+      const current = existing[0];
+      return res.status(409).json({
+        error: current.status === 'approved' ? 'A payment has already been approved for this account.' : 'A payment is already pending verification.',
+      });
+    }
+
+    const duplicate = await supabaseRequest(
+      `manual_payment_requests?select=id&transaction_id=ilike.${encodeURIComponent(transactionId)}&limit=1`,
+    );
+    if (duplicate?.[0]) return res.status(409).json({ error: 'This transaction ID has already been submitted.' });
+
+    const rows = await supabaseRequest('manual_payment_requests', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        user_id: profile.id,
+        plan_id: planId,
+        amount_value: plan.amount,
+        currency: mobileMoneyCurrency,
+        payment_method: 'mobile_money',
+        transaction_id: transactionId,
+        payer_name: payerName || null,
+        status: 'pending',
+      }),
+    });
+
+    const request = rows?.[0];
+    return res.status(201).json({
+      id: request.id,
+      planId: request.plan_id,
+      status: request.status,
+      transactionId: request.transaction_id,
+      payerName: request.payer_name,
+    });
+  } catch (error) {
+    console.error('Mobile Money payment submission error:', error);
+    return res.status(500).json({ error: 'Unable to submit the Mobile Money payment.' });
+  }
+});
+
+app.get('/api/billing/mobile-money/status', async (req, res) => {
+  try {
+    const authUser = await verifySupabaseRequest(req);
+    const profile = await getToolkitProfile(authUser.id);
+    const planId = req.query.planId as keyof typeof manualPaymentPlans;
+    if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
+    if (!manualPaymentPlans[planId]) return res.status(400).json({ error: 'Invalid billing plan.' });
+
+    const rows = await supabaseRequest(
+      `manual_payment_requests?select=id,plan_id,status,transaction_id,payer_name&user_id=eq.${encodeURIComponent(profile.id)}&plan_id=eq.${encodeURIComponent(planId)}&order=created_at.desc&limit=1`,
+    );
+    const request = rows?.[0];
+    return res.json({
+      request: request
+        ? {
+            id: request.id,
+            planId: request.plan_id,
+            status: request.status,
+            transactionId: request.transaction_id,
+            payerName: request.payer_name,
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error('Mobile Money payment status error:', error);
+    return res.status(500).json({ error: 'Unable to load Mobile Money payment status.' });
+  }
+});
+
+async function requireManualBillingAdmin(authUserId: string) {
+  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: { apikey: supabaseServiceRoleKey || '', Authorization: `Bearer ${authUserId}` },
+  });
+  void response;
+  throw new Error('Manual billing admin verification must use the authenticated request.');
+}
+
+app.post('/api/billing/mobile-money/review', async (req, res) => {
+  try {
+    const authUser = await verifySupabaseRequest(req);
+    const email = (authUser.email || '').toLowerCase();
+    if (!manualAdminEmails.includes(email)) return res.status(403).json({ error: 'Manual billing review is not enabled for this account.' });
+
+    const requestId = typeof req.body?.requestId === 'string' ? req.body.requestId : '';
+    const decision = req.body?.decision === 'approve' ? 'approved' : req.body?.decision === 'reject' ? 'rejected' : null;
+    const reviewerNote = typeof req.body?.reviewerNote === 'string' ? req.body.reviewerNote.trim() : null;
+    if (!requestId || !decision) return res.status(400).json({ error: 'Request ID and a valid review decision are required.' });
+
+    const rows = await supabaseRequest(
+      `manual_payment_requests?select=id,user_id,plan_id,status&id=eq.${encodeURIComponent(requestId)}&limit=1`,
+    );
+    const request = rows?.[0];
+    if (!request) return res.status(404).json({ error: 'Payment request not found.' });
+    if (request.status !== 'pending') return res.status(409).json({ error: 'This payment request has already been reviewed.' });
+
+    const now = new Date().toISOString();
+    await supabaseRequest(`manual_payment_requests?id=eq.${encodeURIComponent(requestId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ status: decision, reviewed_at: now, reviewed_by: email, reviewer_note: reviewerNote || null, updated_at: now }),
+    });
+
+    if (decision === 'approved') {
+      const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const live = await supabaseRequest(`subscriptions?select=id&user_id=eq.${request.user_id}&status=in.(active,trialing,past_due,incomplete)&limit=1`);
+      if (live?.[0]?.id) {
+        await supabaseRequest(`subscriptions?id=eq.${live[0].id}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ plan_id: request.plan_id, provider: 'mobile_money', provider_subscription_id: requestId, status: 'active', current_period_end: periodEnd, updated_at: now }),
+        });
+      } else {
+        await supabaseRequest('subscriptions', {
+          method: 'POST',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ user_id: request.user_id, plan_id: request.plan_id, provider: 'mobile_money', provider_subscription_id: requestId, status: 'active', current_period_end: periodEnd }),
+        });
+      }
+      await supabaseRequest(`profiles?id=eq.${encodeURIComponent(request.user_id)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ onboarding_completed: true, onboarding_completed_at: now, updated_at: now }),
+      });
+    }
+
+    return res.json({ ok: true, status: decision });
+  } catch (error) {
+    console.error('Mobile Money payment review error:', error);
+    return res.status(500).json({ error: 'Unable to review the Mobile Money payment.' });
+  }
+});
+
+
 const monimeAccessToken = process.env.MONIME_ACCESS_TOKEN;
 const monimeSpaceId = process.env.MONIME_SPACE_ID;
 const monimeWebhookSecret = process.env.MONIME_WEBHOOK_SECRET;
