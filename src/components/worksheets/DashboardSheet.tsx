@@ -1052,7 +1052,6 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         </div>
       </div>
 
-              </>
       )}
 
       {/* Bottom Row: Recent Transactions Table (Left) + Key Insights List (Right) */}
