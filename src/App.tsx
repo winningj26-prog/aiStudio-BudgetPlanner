@@ -846,6 +846,7 @@ export default function App() {
             highlightInputs={highlightInputs}
             onSelectCell={setSelectedCell}
             recurringTransactions={recurringTransactions}
+            financialAssets={financialAssets}
             onUpdateRecurringTransactions={setRecurringTransactions}
           />
         )}
