@@ -14,6 +14,7 @@ import {
 } from '../src/types/toolkit.ts';
 import { createLocalWorkbookRepository } from '../src/services/workbookRepository.ts';
 import { getAuthSessionState } from '../src/services/supabaseAuth.ts';
+import { isPlatformAdminEmail, normalizePlatformAdminEmails } from '../src/utils/platformAdmin.ts';
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -202,4 +203,14 @@ test('auth session state restores identity and clears cleanly on signed-out stat
     userId: 'user-123',
     providerToken: 'google-provider-token',
   });
+});
+
+
+test('platform admin authorization distinguishes configured admins from non-admins', () => {
+  const allowed = normalizePlatformAdminEmails(' Admin@Example.com, operator@example.com ');
+  assert.deepEqual(allowed, ['admin@example.com', 'operator@example.com']);
+  assert.equal(isPlatformAdminEmail('ADMIN@example.com', allowed), true);
+  assert.equal(isPlatformAdminEmail('operator@example.com', allowed), true);
+  assert.equal(isPlatformAdminEmail('user@example.com', allowed), false);
+  assert.equal(isPlatformAdminEmail(null, allowed), false);
 });
