@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
@@ -20,6 +21,11 @@ app.use(express.json());
 const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, '');
 const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
 const supabaseServiceRoleKey = supabaseSecretKey || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAdminAuth = supabaseUrl && supabaseServiceRoleKey
+  ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    })
+  : null;
 const platformAdminEmails = (process.env.PLATFORM_ADMIN_EMAILS || '')
   .split(',')
   .map((email) => email.trim().toLowerCase())
@@ -354,28 +360,58 @@ app.post('/api/platform/users/action', async (req, res) => {
     const { userId, action, displayName, email, status } = req.body || {};
     if (!userId) return res.status(400).json({ error: 'User ID is required.' });
 
+    const targetProfiles = await supabaseRequest(
+      `profiles?select=id,auth_user_id,email,display_name&id=eq.${encodeURIComponent(userId)}&limit=1`,
+    );
+    const targetProfile = targetProfiles?.[0];
+    if (!targetProfile) return res.status(404).json({ error: 'User account not found.' });
+
     const now = new Date().toISOString();
 
     if (action === 'edit') {
-      if (!email || !email.trim()) return res.status(400).json({ error: 'Email address cannot be empty.' });
+      if (!displayName || !displayName.trim()) {
+        return res.status(400).json({ error: 'Display name cannot be empty.' });
+      }
+      if (!email || !email.trim()) {
+        return res.status(400).json({ error: 'Email address cannot be empty.' });
+      }
+
+      const nextEmail = email.trim();
+      if (!targetProfile.auth_user_id) {
+        return res.status(409).json({ error: 'User account is not linked to Supabase Auth.' });
+      }
+      if (!supabaseAdminAuth) {
+        return res.status(503).json({ error: 'Supabase Auth administration is not configured.' });
+      }
+
+      if (nextEmail.toLowerCase() !== String(targetProfile.email || '').toLowerCase()) {
+        const { error } = await supabaseAdminAuth.auth.admin.updateUserById(
+          targetProfile.auth_user_id,
+          { email: nextEmail },
+        );
+        if (error) {
+          console.error('Supabase Auth email update error:', error);
+          return res.status(400).json({ error: 'Unable to update the authentication email address.' });
+        }
+      }
+
       await supabaseRequest(`profiles?id=eq.${encodeURIComponent(userId)}`, {
         method: 'PATCH',
         headers: { Prefer: 'return=minimal' },
         body: JSON.stringify({
-          display_name: displayName || null,
-          email: email.trim(),
+          display_name: displayName.trim(),
+          email: nextEmail,
           updated_at: now
         })
       });
 
-      // Audit log
       await supabaseRequest('platform_config_audit', {
         method: 'POST',
         headers: { Prefer: 'return=minimal' },
         body: JSON.stringify({
           admin_email: authUser.email || 'unknown',
           section: 'user_edit',
-          changed_fields: { userId, displayName, email }
+          changed_fields: { userId, displayName: displayName.trim(), email: nextEmail }
         })
       });
 
@@ -426,24 +462,32 @@ app.post('/api/platform/users/action', async (req, res) => {
     }
 
     if (action === 'delete') {
-      // Deleting user profile cascades to sheets, subscriptions, etc.
-      await supabaseRequest(`profiles?id=eq.${encodeURIComponent(userId)}`, {
-        method: 'DELETE',
-        headers: { Prefer: 'return=minimal' }
-      });
+      if (!targetProfile.auth_user_id) {
+        return res.status(409).json({ error: 'User account is not linked to Supabase Auth.' });
+      }
+      if (!supabaseAdminAuth) {
+        return res.status(503).json({ error: 'Supabase Auth administration is not configured.' });
+      }
 
-      // Audit log
+      const { error } = await supabaseAdminAuth.auth.admin.deleteUser(targetProfile.auth_user_id);
+      if (error) {
+        console.error('Supabase Auth user deletion error:', error);
+        return res.status(400).json({ error: 'Unable to delete the authentication account.' });
+      }
+
+      // The auth_user_id foreign key cascades the profile and its associated
+      // account data after the Auth user is deleted.
       await supabaseRequest('platform_config_audit', {
         method: 'POST',
         headers: { Prefer: 'return=minimal' },
         body: JSON.stringify({
           admin_email: authUser.email || 'unknown',
           section: 'user_delete',
-          changed_fields: { userId }
+          changed_fields: { userId, authUserId: targetProfile.auth_user_id }
         })
       });
 
-      return res.json({ ok: true, message: 'User profile and all associated data deleted successfully.' });
+      return res.json({ ok: true, message: 'User authentication account and associated data deleted successfully.' });
     }
 
     return res.status(400).json({ error: 'Invalid action requested.' });
@@ -537,10 +581,19 @@ app.get('/api/account/session', async (req, res) => {
 
     if (!profile?.id) throw new Error('Could not create or load toolkit profile.');
 
-    const liveSubscriptions = await supabaseRequest(
-      `subscriptions?select=plan_id,provider,status,current_period_end&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete)&or=(current_period_end.is.null,current_period_end.gt.${encodeURIComponent(new Date().toISOString())})&order=created_at.desc&limit=1`,
+    const subscriptionRows = await supabaseRequest(
+      `subscriptions?select=plan_id,provider,status,current_period_end&user_id=eq.${profile.id}&order=created_at.desc&limit=20`,
     );
-    let subscription = liveSubscriptions?.[0];
+    const now = Date.now();
+    let subscription = (subscriptionRows ?? []).find((row: any) =>
+      ['active', 'trialing', 'past_due', 'incomplete'].includes(row.status)
+      && (row.current_period_end == null || new Date(row.current_period_end).getTime() > now),
+    );
+
+    const suspendedSubscription = (subscriptionRows ?? []).find((row: any) => row.status === 'suspended');
+    if (!subscription && suspendedSubscription) {
+      subscription = suspendedSubscription;
+    }
 
     if (!subscription) {
       const created = await supabaseRequest('subscriptions', {
