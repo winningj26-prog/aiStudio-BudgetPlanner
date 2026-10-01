@@ -4,6 +4,7 @@ import { isAiInsightsUiEnabled } from '../../utils/aiInsights';
 import {
   CategoryItem,
   Debt,
+  FinancialAsset,
   ExpenseTransaction,
   IncomeTransaction,
   MonthSummary,
@@ -69,6 +70,10 @@ interface DashboardSheetProps {
   savingsGoals: SavingsGoal[];
   onUpdateSavingsGoals: (goals: SavingsGoal[]) => void;
   debts: Debt[];
+  financialAssets: FinancialAsset[];
+  openingCashBalance: number;
+  onUpdateFinancialAssets: (assets: FinancialAsset[]) => void;
+  onUpdateOpeningCashBalance: (amount: number) => void;
   recurringTransactions?: RecurringTransaction[];
   onUpdateIncomeTransactions?: (transactions: IncomeTransaction[]) => void;
   onUpdateExpenseTransactions?: (transactions: ExpenseTransaction[]) => void;
@@ -90,6 +95,10 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   savingsGoals,
   onUpdateSavingsGoals,
   debts,
+  financialAssets,
+  openingCashBalance,
+  onUpdateFinancialAssets,
+  onUpdateOpeningCashBalance,
   recurringTransactions = [],
   onUpdateIncomeTransactions,
   onUpdateExpenseTransactions,
@@ -1223,6 +1232,13 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   ) : (
     <NetWorthForecaster
       debts={debts}
+      financialAssets={financialAssets}
+      openingCashBalance={openingCashBalance}
+      onUpdateFinancialAssets={onUpdateFinancialAssets}
+      onUpdateOpeningCashBalance={onUpdateOpeningCashBalance}
+      incomeTransactions={incomeTransactions}
+      expenseTransactions={expenseTransactions}
+      savingsGoals={savingsGoals}
       settings={settings}
       currentMonthlySavings={savings}
       currentMonthlyExpenses={totalExpenses}
