@@ -1,5 +1,5 @@
 import type { WorkbookData } from '../services/workbookRepository';
-import type { CategoryItem, Debt, ExpenseTransaction, IncomeTransaction, RecurringTransaction, SavingsGoal, SettingsState, WorksheetTab } from '../types/budget';
+import type { CategoryItem, Debt, FinancialAsset, ExpenseTransaction, IncomeTransaction, RecurringTransaction, SavingsGoal, SettingsState, WorksheetTab } from '../types/budget';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const CURRENCIES = ['USD','EUR','GBP','CAD','AUD','JPY'];
@@ -55,6 +55,12 @@ const isDebt = (value: unknown): value is Debt =>
   && (value.notes == null || typeof value.notes === 'string')
   && (value.color == null || typeof value.color === 'string');
 
+
+const isAsset = (value: unknown): value is FinancialAsset =>
+  isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string'
+  && isNonNegativeNumber(value.amount)
+  && ['Liquid','Investment','Real Estate','Other'].includes(String(value.category));
+
 const isRecurring = (value: unknown): value is RecurringTransaction => {
   if (!isRecord(value)
     || typeof value.id !== 'string'
@@ -99,6 +105,8 @@ export function isValidWorkbookData(value: unknown): value is WorkbookData {
     && isNumberMap(value.plannedIncome) && isNumberMap(value.plannedExpenses)
     && Array.isArray(value.savingsGoals) && value.savingsGoals.every(isGoal)
     && Array.isArray(value.debts) && value.debts.every(isDebt)
+    && Array.isArray(value.financialAssets) && value.financialAssets.every(isAsset)
+    && isNonNegativeNumber(value.openingCashBalance)
     && Array.isArray(value.recurringTransactions) && value.recurringTransactions.every(isRecurring)
     && typeof value.userEmail === 'string'
     && typeof value.activeTab === 'string' && TABS.includes(value.activeTab as WorksheetTab)
