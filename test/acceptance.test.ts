@@ -509,3 +509,69 @@ test('financial model treats savings goal contributions as internal allocation, 
   assert.equal(allocated.netWorth, 6000);
   assert.equal(allocated.availableCash, 5500);
 });
+
+
+test('pre-existing finances establish opening net worth without becoming income or expenses', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [
+      { id: 'i1', date: '2026-10-01', category: 'Salary', description: 'First salary', amount: 3000 },
+    ],
+    [
+      { id: 'e1', date: '2026-10-01', category: 'Groceries', description: 'First groceries', paymentMethod: 'Bank', amount: 500 },
+    ],
+    [],
+    [
+      { id: 'd1', name: 'Mortgage', balance: 100000, openingBalance: 105000, interestRate: 6, minimumPayment: 700 },
+    ],
+    [
+      { id: 'a1', name: 'House Equity', amount: 185000, openingAmount: 180000, category: 'Real Estate' },
+      { id: 'a2', name: 'Car', amount: 25000, openingAmount: 25000, category: 'Vehicle' },
+      { id: 'a3', name: 'Business', amount: 40000, openingAmount: 40000, category: 'Business' },
+      { id: 'a4', name: 'Investments', amount: 30000, openingAmount: 30000, category: 'Investment' },
+    ],
+    20000,
+  );
+
+  assert.equal(snapshot.openingAssets, 295000);
+  assert.equal(snapshot.openingLiabilities, 105000);
+  assert.equal(snapshot.openingNetWorth, 190000);
+  assert.equal(snapshot.totalIncome, 3000);
+  assert.equal(snapshot.totalExpenses, 500);
+  assert.equal(snapshot.operatingCashFlow, 2500);
+  assert.equal(snapshot.totalAssets, 302500);
+  assert.equal(snapshot.totalLiabilities, 100000);
+  assert.equal(snapshot.netWorth, 202500);
+});
+
+test('starting asset balances are not confused with later asset changes', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [],
+    [],
+    [],
+    [],
+    [{ id: 'a1', name: 'Brokerage', amount: 35000, openingAmount: 30000, category: 'Investment' }],
+    10000,
+  );
+
+  assert.equal(snapshot.openingAssets, 40000);
+  assert.equal(snapshot.openingNetWorth, 40000);
+  assert.equal(snapshot.externalAssets, 35000);
+  assert.equal(snapshot.totalAssets, 45000);
+  assert.equal(snapshot.netWorth, 45000);
+});
+
+test('legacy financial assets and debts remain valid when opening balances are omitted', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [],
+    [],
+    [],
+    [{ id: 'd1', name: 'Card', balance: 2000, interestRate: 20, minimumPayment: 100 }],
+    [{ id: 'a1', name: 'Savings', amount: 5000, category: 'Liquid' }],
+    1000,
+  );
+
+  assert.equal(snapshot.openingAssets, 6000);
+  assert.equal(snapshot.openingLiabilities, 2000);
+  assert.equal(snapshot.openingNetWorth, 4000);
+  assert.equal(snapshot.netWorth, 4000);
+});
