@@ -77,6 +77,7 @@ Updated after each completed acceptance task.
 - [ ] Rate-limit handling
 - [ ] AI UI error handling
 - [x] Entitlement restrictions
+- [x] AI requests require authenticated session
 - [ ] Production Gemini smoke test
 
 ## H. Production acceptance
