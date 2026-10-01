@@ -250,29 +250,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
       setAiError(err instanceof Error ? err.message : 'Unable to generate AI insights.');
       return;
       
-      /*
-      
-      // Calculate active metrics for smart client-side insights
-      const totalInc = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
-      const totalExp = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
-      const netSavings = totalInc - totalExp;
-      const sRate = totalInc > 0 ? (netSavings / totalInc) * 100 : 0;
-      
-      let fallBackInsights = '';
-      if (sRate < 10) {
-        fallBackInsights = `- Analyze food, dining, and retail categories; batch-cooking at home can help raise your active savings rate above 10% this month.
-- Audit your automated recurring subscriptions and cancel any entertainment or software accounts not utilized in the past 30 days.
-- Delay non-essential discretionary purchases by 48 hours to evaluate if the item is a true necessity or an impulsive desire.`;
-      } else {
-        fallBackInsights = `- Your savings rate of ${sRate.toFixed(1)}% is healthy! Consider directing 20% of this surplus to accelerate your Debt Payoff snowball.
-- Review your monthly variable expense categories for potential micro-savings that can be transferred to high-yield investment goals.
-- Establish a "cooling-off" period of 48 hours for any premium shopping items to maintain your strong budget surplus.`;
-      }
-      
-      setAiInsights(fallBackInsights);
-      setIsAiFallback(true);
-      setAiError(null);
-      */
+
     } finally {
       setIsAiLoading(false);
     }
