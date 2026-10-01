@@ -1,8 +1,10 @@
-import type { Debt, ExpenseTransaction, FinancialAsset, IncomeTransaction, SavingsGoal } from '../types/budget';
+import type { Debt, DebtPayment, ExpenseTransaction, FinancialAsset, IncomeTransaction, SavingsGoal } from '../types/budget';
 
 export interface FinancialSnapshot {
   totalIncome: number;
   totalExpenses: number;
+  debtInterestExpense: number;
+  debtPrincipalPaid: number;
   operatingCashFlow: number;
   goalAllocated: number;
   availableCash: number;
@@ -26,10 +28,13 @@ export function calculateFinancialSnapshot(
   savingsGoals: SavingsGoal[],
   debts: Debt[],
   assets: FinancialAsset[],
+  debtPayments: DebtPayment[] = [], FinancialAsset[],
   openingCashBalance = 0,
 ): FinancialSnapshot {
   const totalIncome = incomeTransactions.reduce((sum, tx) => sum + positive(tx.amount), 0);
-  const totalExpenses = expenseTransactions.reduce((sum, tx) => sum + positive(tx.amount), 0);
+  const debtInterestExpense = debtPayments.reduce((sum, payment) => sum + positive(payment.interest), 0);
+  const debtPrincipalPaid = debtPayments.reduce((sum, payment) => sum + positive(payment.principal), 0);
+  const totalExpenses = expenseTransactions.reduce((sum, tx) => sum + positive(tx.amount), 0) + debtInterestExpense;
   const operatingCashFlow = totalIncome - totalExpenses;
   const goalAllocated = savingsGoals.reduce((sum, goal) => sum + positive(goal.currentAmount), 0);
 
@@ -84,6 +89,8 @@ export function calculateFinancialSnapshot(
   return {
     totalIncome,
     totalExpenses,
+    debtInterestExpense,
+    debtPrincipalPaid,
     operatingCashFlow,
     goalAllocated,
     availableCash,
