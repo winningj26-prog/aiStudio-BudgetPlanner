@@ -97,11 +97,12 @@ Updated after each completed implementation/verification task.
 - [x] Google Sheets create/read/write acceptance test
 - [ ] Admin/non-admin acceptance test
 - [ ] Admin account edit/suspend/delete live acceptance test
-- [x] Auth/session acceptance test (signed-in/signed-out session-state contract; V1 validation #207 acceptance step passed)
+- [x] Auth/session acceptance test (signed-in/signed-out session-state contract; V1 validation #209 passed)
 - [ ] Full production smoke/acceptance pass
 
 - [x] V1 validation TypeScript blocker fixed (duplicate auth import)
 - [x] V1 validation pipeline passed (#200)
+- [x] Auth/session acceptance coverage verified in V1 validation #209
 - [x] AI production hardening merged to main
 - [x] AI production hardening deployed and verified live
 
