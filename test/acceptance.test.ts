@@ -109,6 +109,18 @@ test('Pro plan entitlement gating permits AI Insights & Advanced Analytics', () 
   assert.equal(hasToolkitFeature(pro, 'budget.advancedAnalytics'), true);
 });
 
+test('suspended subscriptions fail closed for frontend entitlements', () => {
+  const suspended = {
+    apps: { 'budget-planner': false },
+    features: {},
+  };
+  assert.equal(hasToolkitAppAccess(suspended, 'budget-planner'), false);
+  assert.equal(hasToolkitFeature(suspended, 'budget.core'), false);
+  assert.equal(hasToolkitFeature(suspended, 'budget.cloudSync'), false);
+  assert.equal(hasToolkitFeature(suspended, 'budget.aiInsights'), false);
+});
+
+
 test('Mobile money review workflow preserves decimal payment amounts', () => {
   const mockPendingPayment = {
     id: 'req-12345', plan_id: 'plus', amount_value: 549.99, currency: 'SLE',
