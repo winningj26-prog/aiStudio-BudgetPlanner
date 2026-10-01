@@ -69,6 +69,7 @@ import { ToolkitHomeView } from './components/ToolkitHomeView';
 import { SubscriptionView } from './components/SubscriptionView';
 import { PasswordRecoveryView } from './components/PasswordRecoveryView';
 import { EmailConfirmationView } from './components/EmailConfirmationView';
+import { PlatformDashboardView } from './components/PlatformDashboardView';
 
 export default function App() {
   // Authentication is owned by Supabase Auth. Local storage is only used for workbook
@@ -157,6 +158,7 @@ export default function App() {
   const [accountSessionReady, setAccountSessionReady] = useState(false);
   const [showToolkitHome, setShowToolkitHome] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
+  const [showPlatformDashboard, setShowPlatformDashboard] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(null);
@@ -489,6 +491,7 @@ export default function App() {
     setToolkitSession(null);
     setShowToolkitHome(false);
     setShowSubscription(false);
+    setShowPlatformDashboard(false);
     setIsLoggedIn(false);
   };
 
@@ -625,6 +628,14 @@ export default function App() {
 
   // 5. If the Toolkit session is available, render the dedicated Toolkit launcher
   // (Completely outside the Excel dashboard shell and dashboard header)
+  if (toolkitSession && showPlatformDashboard && toolkitSession.session.platformAdmin) {
+    return (
+      <PlatformDashboardView
+        onBack={() => setShowPlatformDashboard(false)}
+      />
+    );
+  }
+
   if (toolkitSession && showSubscription) {
     return (
       <SubscriptionView
@@ -652,6 +663,14 @@ export default function App() {
           setShowToolkitHome(false);
           setShowSubscription(true);
         }}
+        onOpenPlatformDashboard={
+          toolkitSession.session.platformAdmin
+            ? () => {
+                setShowToolkitHome(false);
+                setShowPlatformDashboard(true);
+              }
+            : undefined
+        }
         onLogout={handleLogout}
       />
     );
