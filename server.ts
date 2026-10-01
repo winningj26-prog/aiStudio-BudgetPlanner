@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
+import { isPlatformAdminEmail, normalizePlatformAdminEmails } from './src/utils/platformAdmin.ts';
 
 dotenv.config();
 
@@ -26,10 +27,7 @@ const supabaseAdminAuth = supabaseUrl && supabaseServiceRoleKey
       auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     })
   : null;
-const platformAdminEmails = (process.env.PLATFORM_ADMIN_EMAILS || '')
-  .split(',')
-  .map((email) => email.trim().toLowerCase())
-  .filter(Boolean);
+const platformAdminEmails = normalizePlatformAdminEmails(process.env.PLATFORM_ADMIN_EMAILS);
 
 async function supabaseRequest(path: string, init: RequestInit = {}) {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
@@ -66,8 +64,7 @@ async function supabaseRequest(path: string, init: RequestInit = {}) {
 }
 
 function isPlatformAdmin(authUser: { email?: string | null }) {
-  const email = (authUser.email || '').toLowerCase();
-  return Boolean(email && platformAdminEmails.includes(email));
+  return isPlatformAdminEmail(authUser.email, platformAdminEmails);
 }
 
 async function getPlatformSecret(name: string) {
