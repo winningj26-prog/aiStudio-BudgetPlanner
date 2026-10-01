@@ -6,6 +6,7 @@ import {
   emailPasswordSignUp,
   sendPasswordReset,
 } from '../services/supabaseAuth';
+import { isValidAuthEmail, isValidAuthPassword, normalizeAuthEmail } from '../services/authValidation';
 
 type AuthMode = 'signIn' | 'signUp';
 
