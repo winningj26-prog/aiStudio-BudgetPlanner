@@ -7,6 +7,7 @@ import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 import { isPlatformAdminEmail, normalizePlatformAdminEmails } from './src/utils/platformAdmin.ts';
 import { isValidCloudWorkbookPayload } from './src/utils/cloudWorkbook.ts';
+import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from './src/utils/billing.ts';
 
 dotenv.config();
 
@@ -497,8 +498,7 @@ app.post('/api/platform/users/action', async (req, res) => {
 });
 
 app.put('/api/platform/config', async (req, res) => {
-  try {
-    const authUser = await requirePlatformAdmin(req);
+  try {    const authUser = await requirePlatformAdmin(req);
     const body = req.body || {};
     const plusAmount = Number(body.plusAmount);
     const proAmount = Number(body.proAmount);
@@ -935,10 +935,14 @@ async function getPlatformBillingConfig() {
 }
 
 app.get('/api/billing/mobile-money', async (req, res) => {
-  const billing = await getPlatformBillingConfig();
-  const planId = req.query.planId as keyof typeof billing.plans;
+  try {
+    const billing = await getPlatformBillingConfig();
+  const planId = req.query.planId;
+  if (!isValidBillingPlanId(planId)) {
+    return res.status(400).json({ error: 'Invalid billing plan.' });
+  }
   const plan = billing.plans[planId];
-  if (!plan || !Number.isFinite(plan.amount) || plan.amount <= 0 || Math.round(plan.amount * 100) !== plan.amount * 100) {
+  if (!plan || !isValidBillingAmount(plan.amount)) {
     return res.status(400).json({ error: 'Invalid billing plan.' });
   }
   return res.json({
@@ -948,7 +952,11 @@ app.get('/api/billing/mobile-money', async (req, res) => {
     instructions: billing.instructions,
     amount: plan.amount,
     currency: billing.currency,
-  });
+    });
+  } catch (error) {
+    console.error('Mobile Money billing configuration error:', error);
+    return res.status(500).json({ error: 'Unable to load Mobile Money billing configuration.' });
+  }
 });
 
 app.post('/api/billing/mobile-money/submit', async (req, res) => {
@@ -956,14 +964,15 @@ app.post('/api/billing/mobile-money/submit', async (req, res) => {
     const authUser = await verifySupabaseRequest(req);
     const profile = await getToolkitProfile(authUser.id);
     const billing = await getPlatformBillingConfig();
-    const planId = req.body?.planId as keyof typeof billing.plans;
-    const plan = billing.plans[planId];
-    const transactionId = typeof req.body?.transactionId === 'string' ? req.body.transactionId.trim() : '';
-    const payerName = typeof req.body?.payerName === 'string' ? req.body.payerName.trim() : null;
+    const planId = req.body?.planId;
+    const plan = isValidBillingPlanId(planId) ? billing.plans[planId] : null;
+    const transactionId = normalizeTransactionId(req.body?.transactionId);
+    const payerName = normalizeOptionalText(req.body?.payerName, 120);
 
     if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
-    if (!plan || !Number.isFinite(plan.amount) || plan.amount <= 0 || Math.round(plan.amount * 100) !== plan.amount * 100) return res.status(400).json({ error: 'Invalid billing plan.' });
-    if (!transactionId || transactionId.length > 120) return res.status(400).json({ error: 'A valid Mobile Money transaction ID is required.' });
+    if (!isValidBillingPlanId(planId) || !plan || !isValidBillingAmount(plan.amount)) return res.status(400).json({ error: 'Invalid billing plan.' });
+    if (!transactionId) return res.status(400).json({ error: 'A valid Mobile Money transaction ID is required.' });
+    if (req.body?.payerName != null && req.body?.payerName !== '' && payerName == null) return res.status(400).json({ error: 'Payer name must be 120 characters or fewer.' });
 
     const existing = await supabaseRequest(
       `manual_payment_requests?select=id,plan_id,status,transaction_id,payer_name&user_id=eq.${encodeURIComponent(profile.id)}&status=in.(pending,approved)&order=created_at.desc&limit=1`,
@@ -997,8 +1006,7 @@ app.post('/api/billing/mobile-money/submit', async (req, res) => {
 
     const request = rows?.[0];
     return res.status(201).json({
-      id: request.id,
-      planId: request.plan_id,
+      id: request.id,      planId: request.plan_id,
       status: request.status,
       transactionId: request.transaction_id,
       payerName: request.payer_name,
@@ -1014,9 +1022,9 @@ app.get('/api/billing/mobile-money/status', async (req, res) => {
     const authUser = await verifySupabaseRequest(req);
     const profile = await getToolkitProfile(authUser.id);
     const billing = await getPlatformBillingConfig();
-    const planId = req.query.planId as keyof typeof billing.plans;
+    const planId = req.query.planId;
     if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
-    if (!billing.plans[planId]) return res.status(400).json({ error: 'Invalid billing plan.' });
+    if (!isValidBillingPlanId(planId)) return res.status(400).json({ error: 'Invalid billing plan.' });
 
     const rows = await supabaseRequest(
       `manual_payment_requests?select=id,plan_id,status,transaction_id,payer_name&user_id=eq.${encodeURIComponent(profile.id)}&plan_id=eq.${encodeURIComponent(planId)}&order=created_at.desc&limit=1`,
@@ -1055,8 +1063,9 @@ app.post('/api/billing/mobile-money/review', async (req, res) => {
 
     const requestId = typeof req.body?.requestId === 'string' ? req.body.requestId : '';
     const decision = req.body?.decision === 'approve' ? 'approved' : req.body?.decision === 'reject' ? 'rejected' : null;
-    const reviewerNote = typeof req.body?.reviewerNote === 'string' ? req.body.reviewerNote.trim() : null;
+    const reviewerNote = normalizeOptionalText(req.body?.reviewerNote, 500);
     if (!requestId || !decision) return res.status(400).json({ error: 'Request ID and a valid review decision are required.' });
+    if (req.body?.reviewerNote != null && req.body?.reviewerNote !== '' && reviewerNote == null) return res.status(400).json({ error: 'Reviewer note must be 500 characters or fewer.' });
 
     const rows = await supabaseRequest(
       `manual_payment_requests?select=id,user_id,plan_id,status&id=eq.${encodeURIComponent(requestId)}&limit=1`,
@@ -1497,8 +1506,7 @@ if (!isProd) {
       appType: 'custom',
     })
   );
-  app.use(vite.middlewares);
-  
+  app.use(vite.middlewares);  
   // Serve HTML
   app.use('*', async (req, res, next) => {
     const url = req.originalUrl;
