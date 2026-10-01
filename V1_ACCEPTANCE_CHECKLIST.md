@@ -15,6 +15,7 @@ Updated after each completed acceptance task.
 - [x] Local-storage, workbook, entitlement, payment-shape, and Google Sheets parser acceptance coverage
 - [x] Onboarding input validation coverage
 - [x] Authentication input validation coverage
+- [x] Authentication UI wired to centralized validation helpers
 - [ ] Final edge-case/error handling pass
 - [ ] Final production acceptance testing
 
