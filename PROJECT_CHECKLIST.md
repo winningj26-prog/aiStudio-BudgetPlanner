@@ -78,9 +78,9 @@ Updated after each completed implementation/verification task.
 - [x] Browser uses Supabase publishable key
 - [x] Server-only privileged Supabase access
 - [x] Platform secrets kept out of browser responses
-- [x] Supabase Security Advisor reviewed (2026-10-01)
+- [x] Supabase Security Advisor reviewed (2026-10-01, reverified 2026-10-01)
 - [ ] Enable leaked-password protection if available on current Supabase plan
-- [ ] Final admin authorization/audit review
+- [x] Final admin authorization/audit review (server-side admin allow-list + privileged access + audit paths reviewed; Supabase public policy inventory verified empty with RLS enabled)
 - [ ] Rotate/remove temporary test credentials
 - [ ] Production auth/email security review
 
