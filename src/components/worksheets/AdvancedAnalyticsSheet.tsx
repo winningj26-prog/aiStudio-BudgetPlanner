@@ -1,23 +1,40 @@
 import React, { useMemo } from 'react';
-import { ExpenseTransaction, IncomeTransaction, SettingsState } from '../../types/budget';
+import { Debt, ExpenseTransaction, FinancialAsset, IncomeTransaction, SavingsGoal, SettingsState } from '../../types/budget';
+import { calculateFinancialSnapshot } from '../../utils/financialModel';
 import { formatCurrency } from '../../utils/formatters';
 
 interface Props {
   incomeTransactions: IncomeTransaction[];
   expenseTransactions: ExpenseTransaction[];
+  savingsGoals?: SavingsGoal[];
+  debts?: Debt[];
+  financialAssets?: FinancialAsset[];
+  openingCashBalance?: number;
   settings: SettingsState;
 }
 
 export const AdvancedAnalyticsSheet: React.FC<Props> = ({
   incomeTransactions,
   expenseTransactions,
+  savingsGoals = [],
+  debts = [],
+  financialAssets = [],
+  openingCashBalance = 0,
   settings,
 }) => {
   const analytics = useMemo(() => {
-    const income = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const expenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const savings = income - expenses;
-    const savingsRate = income > 0 ? (savings / income) * 100 : 0;
+    const financial = calculateFinancialSnapshot(
+      incomeTransactions,
+      expenseTransactions,
+      savingsGoals,
+      debts,
+      financialAssets,
+      openingCashBalance,
+    );
+    const income = financial.totalIncome;
+    const expenses = financial.totalExpenses;
+    const savings = financial.operatingCashFlow;
+    const savingsRate = financial.savingsRate;
 
     const byCategory = new Map<string, number>();
     for (const transaction of expenseTransactions) {
@@ -31,8 +48,8 @@ export const AdvancedAnalyticsSheet: React.FC<Props> = ({
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
 
-    return { income, expenses, savings, savingsRate, categories };
-  }, [incomeTransactions, expenseTransactions]);
+    return { income, expenses, savings, savingsRate, categories, netWorth: financial.netWorth };
+  }, [incomeTransactions, expenseTransactions, savingsGoals, debts, financialAssets, openingCashBalance]);
 
   return (
     <div className="space-y-6 p-6">
@@ -48,6 +65,7 @@ export const AdvancedAnalyticsSheet: React.FC<Props> = ({
           ['Income', analytics.income],
           ['Expenses', analytics.expenses],
           ['Net Savings', analytics.savings],
+          ['Net Worth', analytics.netWorth],
         ].map(([label, value]) => (
           <div key={label as string} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
