@@ -61,9 +61,9 @@ export const INITIAL_SAVINGS_GOALS: SavingsGoal[] = [];
 export const INITIAL_DEBTS: Debt[] = [];
 export const INITIAL_RECURRING_TRANSACTIONS: RecurringTransaction[] = [];
 
-export const INITIAL_OPENING_CASH_BALANCE = 12500;
-export const INITIAL_FINANCIAL_ASSETS: FinancialAsset[] = [
-  { id: 'asset_1', name: 'Stock Brokerage Portfolio', amount: 28400, category: 'Investment' },
-  { id: 'asset_2', name: 'Primary Residence (Equity)', amount: 185000, category: 'Real Estate' },
-  { id: 'asset_3', name: 'Retirement Account (401k/IRA)', amount: 45000, category: 'Investment' },
-];
+export const INITIAL_OPENING_CASH_BALANCE = 0;
+
+// New accounts start with a blank financial position. Users enter pre-existing
+// cash, bank balances, property, vehicles, businesses, investments, and other
+// assets in the Net Worth worksheet instead of inheriting fabricated demo wealth.
+export const INITIAL_FINANCIAL_ASSETS: FinancialAsset[] = [];
