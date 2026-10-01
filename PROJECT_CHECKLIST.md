@@ -221,3 +221,16 @@ Updated after each completed implementation/verification task.
 - [ ] Live acceptance: change debt balance/payoff data and verify liabilities and net worth update together
 - [ ] Live acceptance: change savings goal allocation and verify available cash/goal totals remain consistent
 - [ ] Live acceptance: edit assets/opening cash and verify net worth and persistence update together
+
+## N. Starting Financial Position
+- [x] New users start with a blank financial position instead of fabricated cash, property, investments, or other wealth
+- [x] Financial assets support pre-existing categories including vehicles, businesses, retirement, receivables, property, and investments
+- [x] Financial assets can retain an explicit opening balance separate from their current valuation
+- [x] Debts can retain an explicit opening balance separate from their current balance
+- [x] Opening net worth is calculated as opening assets minus opening liabilities
+- [x] Existing balances are excluded from income/expense activity and only subsequent transactions change operating cash flow
+- [x] Savings goal allocations remain internal earmarks and do not change net worth
+- [x] Starting-finance acceptance coverage added for pre-existing assets, liabilities, cash, and subsequent activity
+- [ ] Live acceptance: enter a pre-existing household financial position and verify opening net worth
+- [ ] Live acceptance: record first income/expense after setup and verify opening position plus activity
+- [ ] Live acceptance: update debt and asset balances and verify current net worth propagation
