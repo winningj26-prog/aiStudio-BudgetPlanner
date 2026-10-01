@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Debt, ExpenseTransaction, FinancialAsset, IncomeTransaction, SavingsGoal, SettingsState } from '../../types/budget';
+import { Debt, DebtPayment, ExpenseTransaction, FinancialAsset, IncomeTransaction, SavingsGoal, SettingsState } from '../../types/budget';
 import { formatCurrency } from '../../utils/formatters';
 import { calculateFinancialSnapshot } from '../../utils/financialModel';
 import {
@@ -21,6 +21,7 @@ import {
 
 interface NetWorthForecasterProps {
   debts: Debt[];
+  debtPayments: DebtPayment[];
   financialAssets: FinancialAsset[];
   openingCashBalance: number;
   onUpdateFinancialAssets: (assets: FinancialAsset[]) => void;
@@ -36,6 +37,7 @@ interface NetWorthForecasterProps {
 
 export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
   debts,
+  debtPayments,
   financialAssets,
   openingCashBalance,
   onUpdateFinancialAssets,
@@ -57,9 +59,10 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
       savingsGoals,
       debts,
       financialAssets,
+      debtPayments,
       openingCashBalance,
     ),
-    [incomeTransactions, expenseTransactions, savingsGoals, debts, financialAssets, openingCashBalance],
+    [incomeTransactions, expenseTransactions, savingsGoals, debts, financialAssets, debtPayments, openingCashBalance],
   );
 
   // Form states for adding custom asset
