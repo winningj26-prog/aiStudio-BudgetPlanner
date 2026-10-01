@@ -56,6 +56,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
           <div className="grid gap-4 md:grid-cols-3">
             {plans.map((plan) => {
               const current = currentPlan === plan.id;
+              const canPay = plan.id !== 'free' && !current;
               return (
                 <article key={plan.id} className={current ? 'rounded-2xl border border-emerald-400 bg-emerald-400/10 p-5' : 'rounded-2xl border border-white/10 bg-white/5 p-5'}>
                   <div className="flex items-center justify-between gap-3">
@@ -67,8 +68,8 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
                   <ul className="mt-5 space-y-2">
                     {plan.features.map((feature) => <li key={feature} className="flex gap-2 text-xs text-slate-300"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />{feature}</li>)}
                   </ul>
-                  <button type="button" disabled={current} onClick={current ? undefined : () => setPaymentPlan(plan.id as 'plus' | 'pro')} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">
-                    {current ? 'Current plan' : <><Smartphone className="h-4 w-4" />Pay with Mobile Money</>}
+                  <button type="button" disabled={!canPay} onClick={canPay ? () => setPaymentPlan(plan.id as 'plus' | 'pro') : undefined} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">
+                    {current ? 'Current plan' : plan.id === 'free' ? 'Included' : <><Smartphone className="h-4 w-4" />Pay with Mobile Money</>}
                   </button>
                 </article>
               );
