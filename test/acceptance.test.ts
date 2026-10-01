@@ -327,7 +327,7 @@ test('invalid workbook snapshots fall back without replacing a trusted local wor
     settings: { currency: 'USD', month: 'January', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
     incomeCategories: [], expenseCategories: [], paymentMethods: [],
     incomeTransactions: [], expenseTransactions: [], plannedIncome: {}, plannedExpenses: {},
-    savingsGoals: [], debts: [], recurringTransactions: [],
+    savingsGoals: [], debts: [], financialAssets: [], openingCashBalance: 0, recurringTransactions: [],
     userEmail: 'trusted@example.com', activeTab: 'start_here' as const, sheetConfig: null,
   };
   assert.deepEqual(normalizeWorkbookData({ settings: null }, fallback), fallback);
