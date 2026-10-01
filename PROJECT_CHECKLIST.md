@@ -25,6 +25,7 @@ Updated after each completed implementation/verification task.
 
 ## C. Paid features
 - [x] AI Insights foundation/enforcement/usage tracking
+- [x] AI Insights authenticated request + Pro UI gating
 - [ ] AI UI acceptance testing
 - [x] Advanced Analytics + gating
 - [ ] Free/Plus/Pro acceptance testing
