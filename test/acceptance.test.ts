@@ -18,6 +18,7 @@ import { isPlatformAdminEmail, normalizePlatformAdminEmails } from '../src/utils
 import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
 import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
 import { isValidWorkbookData, normalizeWorkbookData } from '../src/utils/workbookValidation.ts';
+import { buildAnnualSummary, calculateBudgetItem, calculateBudgetStatus, sumExpensesByCategory, sumIncomeByCategory, sumExpenseTransactions, sumIncomeTransactions } from '../src/utils/formulas.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 
 class MemoryStorage {
@@ -329,4 +330,79 @@ test('invalid workbook snapshots fall back without replacing a trusted local wor
   };
   assert.deepEqual(normalizeWorkbookData({ settings: null }, fallback), fallback);
   assert.deepEqual(normalizeWorkbookData(fallback, fallback), fallback);
+});
+
+
+test('transaction calculations preserve positive amounts and category totals', () => {
+  const income = [
+    { id: 'i1', date: '2026-01-05', category: 'Salary', description: 'Pay', amount: 4000 },
+    { id: 'i2', date: '2026-01-20', category: ' salary ', description: 'Bonus', amount: 500 },
+  ];
+  const expenses = [
+    { id: 'e1', date: '2026-01-02', category: 'Housing', description: 'Rent', paymentMethod: 'Bank', amount: 1200 },
+    { id: 'e2', date: '2026-01-10', category: 'Groceries', description: 'Food', paymentMethod: 'Cash', amount: 300 },
+  ];
+  assert.equal(sumIncomeTransactions(income), 4500);
+  assert.equal(sumExpenseTransactions(expenses), 1500);
+  assert.equal(sumIncomeByCategory(income, 'SALARY'), 4500);
+  assert.equal(sumExpensesByCategory(expenses, 'housing'), 1200);
+});
+
+test('budget calculations distinguish expense variance from income target variance', () => {
+  const expense = calculateBudgetItem('Housing', 'expense', 1000, 1100);
+  assert.equal(expense.difference, -100);
+  assert.equal(expense.percentUsed, 110);
+  assert.equal(expense.status, 'Over Budget');
+
+  const income = calculateBudgetItem('Salary', 'income', 5000, 4500);
+  assert.equal(income.difference, -500);
+  assert.equal(income.percentUsed, 90);
+  assert.equal(income.status, 'Near Target');
+
+  assert.equal(calculateBudgetStatus(80), 'On Track');
+  assert.equal(calculateBudgetStatus(100), 'Near Limit');
+  assert.equal(calculateBudgetStatus(100.01), 'Over Budget');
+});
+
+test('annual budget summary groups transactions by calendar year and month', () => {
+  const income = [
+    { id: 'i1', date: '2026-01-05', category: 'Salary', description: 'Pay', amount: 1000 },
+    { id: 'i2', date: '2026-02-05', category: 'Salary', description: 'Pay', amount: 1200 },
+    { id: 'i3', date: '2025-12-05', category: 'Salary', description: 'Pay', amount: 900 },
+  ];
+  const expenses = [
+    { id: 'e1', date: '2026-01-06', category: 'Housing', description: 'Rent', paymentMethod: 'Bank', amount: 400 },
+    { id: 'e2', date: '2026-02-06', category: 'Food', description: 'Groceries', paymentMethod: 'Cash', amount: 300 },
+  ];
+  const summary = buildAnnualSummary(income, expenses, 2026);
+  assert.equal(summary[0].income, 1000);
+  assert.equal(summary[0].expenses, 400);
+  assert.equal(summary[0].savings, 600);
+  assert.equal(summary[0].savingsRate, 60);
+  assert.equal(summary[1].income, 1200);
+  assert.equal(summary[1].expenses, 300);
+  assert.equal(summary[1].savings, 900);
+  assert.equal(summary[1].savingsRate, 75);
+  assert.equal(summary.reduce((sum, month) => sum + month.income, 0), 2200);
+});
+
+test('budget calculations handle zero planned amounts without Infinity or NaN', () => {
+  assert.deepEqual(calculateBudgetItem('Other', 'expense', 0, 0), {
+    category: 'Other',
+    type: 'expense',
+    planned: 0,
+    actual: 0,
+    difference: 0,
+    percentUsed: 0,
+    status: 'On Track',
+  });
+  assert.deepEqual(calculateBudgetItem('Other', 'expense', 0, 50), {
+    category: 'Other',
+    type: 'expense',
+    planned: 0,
+    actual: 50,
+    difference: -50,
+    percentUsed: 100,
+    status: 'Near Limit',
+  });
 });
