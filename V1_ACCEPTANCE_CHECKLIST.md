@@ -46,6 +46,7 @@ Updated after each completed acceptance task.
 - [x] Payment instructions
 - [x] Payment submission validation
 - [x] Pending-payment state
+- [x] Verified payment approval completes paid onboarding flow
 - [x] Duplicate-payment protection
 - [ ] Payment verification/admin flow acceptance
 - [ ] Subscription activation after verified payment
