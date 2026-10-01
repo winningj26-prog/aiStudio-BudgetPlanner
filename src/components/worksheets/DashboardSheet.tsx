@@ -1050,9 +1050,9 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
             )}
           </div>
         </div>
-      </div>
 
       )}
+      </div>
 
       {/* Bottom Row: Recent Transactions Table (Left) + Key Insights List (Right) */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
