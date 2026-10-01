@@ -4,6 +4,7 @@ import { isAiInsightsUiEnabled } from '../../utils/aiInsights';
 import {
   CategoryItem,
   Debt,
+  DebtPayment,
   FinancialAsset,
   ExpenseTransaction,
   IncomeTransaction,
@@ -70,6 +71,7 @@ interface DashboardSheetProps {
   savingsGoals: SavingsGoal[];
   onUpdateSavingsGoals: (goals: SavingsGoal[]) => void;
   debts: Debt[];
+  debtPayments: DebtPayment[];
   financialAssets: FinancialAsset[];
   openingCashBalance: number;
   onUpdateFinancialAssets: (assets: FinancialAsset[]) => void;
@@ -95,6 +97,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   savingsGoals,
   onUpdateSavingsGoals,
   debts,
+  debtPayments,
   financialAssets,
   openingCashBalance,
   onUpdateFinancialAssets,
