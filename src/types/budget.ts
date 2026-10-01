@@ -51,7 +51,7 @@ export interface FinancialAsset {
   id: string;
   name: string;
   amount: number;
-  category: 'Liquid' | 'Investment' | 'Real Estate' | 'Vehicle' | 'Business' | 'Retirement' | 'Receivable' | 'Other';
+  category: 'Cash' | 'Bank' | 'Investment' | 'Real Estate' | 'Vehicle' | 'Business' | 'Retirement' | 'Receivable' | 'Other';
   /** Balance at the point the user started tracking. Falls back to amount for legacy records. */
   openingAmount?: number;
 }
@@ -62,6 +62,8 @@ export interface Debt {
   balance: number;
   interestRate: number; // e.g. 18.5 for 18.5%
   minimumPayment: number;
+  /** Liability balance when tracking began. Falls back to balance for legacy records. */
+  openingBalance?: number;
   notes?: string;
   color?: string;
 }
