@@ -216,7 +216,7 @@ app.get('/api/platform/config', async (req, res) => {
 app.get('/api/platform/users', async (req, res) => {
   try {
     await requirePlatformAdmin(req);
-    const profiles = await supabaseRequest('profiles?select=id,email,display_name,photo_url,onboarding_completed,created_at');
+    const profiles = await supabaseRequest('profiles?select=id,email,display_name,photo_url,onboarding_completed,account_status,created_at');
     const subscriptions = await supabaseRequest('subscriptions?select=user_id,plan_id,provider,status,current_period_end');
     return res.json({ profiles, subscriptions });
   } catch (error) {
@@ -229,7 +229,7 @@ app.get('/api/platform/users', async (req, res) => {
 app.get('/api/platform/payment-requests', async (req, res) => {
   try {
     await requirePlatformAdmin(req);
-    const requests = await supabaseRequest('manual_payment_requests?select=id,user_id,plan_id,amount_value,currency,payment_method,transaction_id,payer_name,status,reviewed_at,reviewed_by,reviewer_note,created_at&order=created_at.desc');
+    const requests = await supabaseRequest('manual_payment_requests?select=id,user_id,plan_id,amount_value,currency,payment_method,payment_provider,transaction_id,payer_name,status,reviewed_at,reviewed_by,reviewer_note,created_at&order=created_at.desc');
     const profiles = await supabaseRequest('profiles?select=id,email,display_name');
     return res.json({ requests, profiles });
   } catch (error) {
