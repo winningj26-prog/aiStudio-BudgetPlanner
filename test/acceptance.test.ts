@@ -17,6 +17,7 @@ import { getAuthSessionState } from '../src/services/supabaseAuth.ts';
 import { isPlatformAdminEmail, normalizePlatformAdminEmails } from '../src/utils/platformAdmin.ts';
 import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
 import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
+import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -232,3 +233,27 @@ test('heuristic budget analyzer successfully computes savings rate thresholds', 
   assert.equal(rate >= 20, true); // Exceeds standard threshold
 });
 
+
+test('manual billing input validation rejects malformed plans, amounts, and oversized text', () => {
+  assert.equal(isValidBillingPlanId('plus'), true);
+  assert.equal(isValidBillingPlanId('pro'), true);
+  assert.equal(isValidBillingPlanId('free'), false);
+  assert.equal(isValidBillingPlanId(null), false);
+
+  assert.equal(isValidBillingAmount(549.99), true);
+  assert.equal(isValidBillingAmount(0), false);
+  assert.equal(isValidBillingAmount(-1), false);
+  assert.equal(isValidBillingAmount(549.999), false);
+  assert.equal(isValidBillingAmount(Number.NaN), false);
+  assert.equal(isValidBillingAmount(Number.POSITIVE_INFINITY), false);
+
+  assert.equal(normalizeTransactionId('  TXN-123  '), 'TXN-123');
+  assert.equal(normalizeTransactionId(''), null);
+  assert.equal(normalizeTransactionId('x'.repeat(121)), null);
+  assert.equal(normalizeTransactionId(123), null);
+
+  assert.equal(normalizeOptionalText('  Payer Name  ', 120), 'Payer Name');
+  assert.equal(normalizeOptionalText('', 120), null);
+  assert.equal(normalizeOptionalText('x'.repeat(120), 120), 'x'.repeat(120));
+  assert.equal(normalizeOptionalText('x'.repeat(121), 120), null);
+});
