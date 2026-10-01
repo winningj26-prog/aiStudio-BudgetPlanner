@@ -507,7 +507,7 @@ test('financial model treats savings goal contributions as internal allocation, 
 
   assert.equal(base.netWorth, 6000);
   assert.equal(allocated.netWorth, 6000);
-  assert.equal(allocated.availableCash, 5500);
+  assert.equal(allocated.availableCash, 6000);
 });
 
 
@@ -650,4 +650,88 @@ test('debt payment records must balance total, principal, and interest', () => {
     interest: 500,
   };
   assert.equal(snapshot.amount, snapshot.principal + snapshot.interest);
+});
+
+
+test('linked savings goal earmarks an existing bank balance without creating an asset', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [],
+    [],
+    [{ id: 'g1', name: 'Emergency Fund', targetAmount: 3000, currentAmount: 2000, accountId: 'bank1' }],
+    [],
+    [{ id: 'bank1', name: 'Main Bank', amount: 10000, openingAmount: 10000, category: 'Bank' }],
+    [],
+    0,
+  );
+
+  assert.equal(snapshot.goalAllocated, 2000);
+  assert.equal(snapshot.accountBalances.bank1, 10000);
+  assert.equal(snapshot.availableCash, 8000);
+  assert.equal(snapshot.totalAssets, 10000);
+  assert.equal(snapshot.netWorth, 10000);
+});
+
+test('multiple savings goals on one account share one cash balance and are clamped together', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [],
+    [],
+    [
+      { id: 'g1', name: 'Emergency Fund', targetAmount: 2500, currentAmount: 2000, accountId: 'bank1' },
+      { id: 'g2', name: 'Vacation', targetAmount: 2000, currentAmount: 1500, accountId: 'bank1' },
+    ],
+    [],
+    [{ id: 'bank1', name: 'Main Bank', amount: 4000, openingAmount: 4000, category: 'Bank' }],
+    [],
+    0,
+  );
+
+  assert.equal(snapshot.goalAllocated, 3500);
+  assert.equal(snapshot.availableCash, 500);
+  assert.equal(snapshot.totalAssets, 4000);
+  assert.equal(snapshot.netWorth, 4000);
+});
+
+test('savings goals across accounts earmark each account independently', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [],
+    [],
+    [
+      { id: 'g1', name: 'Emergency Fund', targetAmount: 2000, currentAmount: 1500, accountId: 'bank1' },
+      { id: 'g2', name: 'Travel', targetAmount: 3000, currentAmount: 1000, accountId: 'bank2' },
+    ],
+    [],
+    [
+      { id: 'bank1', name: 'Main Bank', amount: 5000, openingAmount: 5000, category: 'Bank' },
+      { id: 'bank2', name: 'Savings Bank', amount: 7000, openingAmount: 7000, category: 'Bank' },
+    ],
+    [],
+    0,
+  );
+
+  assert.equal(snapshot.availableCash, 9500);
+  assert.equal(snapshot.totalAssets, 12000);
+  assert.equal(snapshot.netWorth, 12000);
+});
+
+test('goal allocation remains separate from cash-flow and net-worth accounting after account activity', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [
+      { id: 'i1', date: '2026-10-01', category: 'Salary', description: 'Pay', amount: 3000, accountId: 'bank1' },
+    ],
+    [
+      { id: 'e1', date: '2026-10-02', category: 'Rent', description: 'Rent', paymentMethod: 'Bank', amount: 1000, accountId: 'bank1' },
+    ],
+    [{ id: 'g1', name: 'Emergency Fund', targetAmount: 2500, currentAmount: 1500, accountId: 'bank1' }],
+    [],
+    [{ id: 'bank1', name: 'Main Bank', amount: 5000, openingAmount: 5000, category: 'Bank' }],
+    [],
+    0,
+  );
+
+  assert.equal(snapshot.accountBalances.bank1, 7000);
+  assert.equal(snapshot.goalAllocated, 1500);
+  assert.equal(snapshot.availableCash, 5500);
+  assert.equal(snapshot.totalIncome, 3000);
+  assert.equal(snapshot.totalExpenses, 1000);
+  assert.equal(snapshot.netWorth, 7000);
 });
