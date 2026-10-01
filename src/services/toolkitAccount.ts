@@ -94,6 +94,8 @@ export async function createBillingCheckout(
 
 export interface MobileMoneyPaymentInfo {
   provider: string;
+  paymentMethods?: string[];
+  mobileMoneyProviders?: Array<{ id: string; name: string; accountName: string; accountNumber: string; instructions: string; enabled: boolean }>;
   accountName: string;
   accountNumber: string;
   instructions: string;
