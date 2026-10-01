@@ -20,6 +20,10 @@ app.use(express.json());
 const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, '');
 const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
 const supabaseServiceRoleKey = supabaseSecretKey || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const platformAdminEmails = (process.env.PLATFORM_ADMIN_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
 
 async function supabaseRequest(path: string, init: RequestInit = {}) {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
@@ -49,6 +53,184 @@ async function supabaseRequest(path: string, init: RequestInit = {}) {
   if (response.status === 204) return null;
   return response.json();
 }
+
+function isPlatformAdmin(authUser: { email?: string | null }) {
+  const email = (authUser.email || '').toLowerCase();
+  return Boolean(email && platformAdminEmails.includes(email));
+}
+
+async function getPlatformSecret(name: string) {
+  const rows = await supabaseRequest('rpc/platform_secret_get', {
+    method: 'POST',
+    body: JSON.stringify({ secret_name: name }),
+  });
+  return typeof rows === 'string' ? rows : null;
+}
+
+async function setPlatformSecret(name: string, value: string, description: string) {
+  await supabaseRequest('rpc/platform_secret_upsert', {
+    method: 'POST',
+    body: JSON.stringify({
+      secret_value: value,
+      secret_name: name,
+      secret_description: description,
+    }),
+  });
+}
+
+async function getPlatformConfig() {
+  const rows = await supabaseRequest(
+    'platform_settings?select=id,currency,plus_amount,pro_amount,mobile_money_provider,mobile_money_account_name,mobile_money_account_number,mobile_money_instructions,monime_api_version,app_base_url,integration_settings,updated_by,updated_at&limit=1',
+  );
+  const row = rows?.[0] || {};
+  const [monimeAccessToken, monimeSpaceId, monimeWebhookSecret, geminiApiKey, resendSmtpPassword] =
+    await Promise.all([
+      getPlatformSecret('monime_access_token'),
+      getPlatformSecret('monime_space_id'),
+      getPlatformSecret('monime_webhook_secret'),
+      getPlatformSecret('gemini_api_key'),
+      getPlatformSecret('resend_smtp_password'),
+    ]);
+
+  return {
+    currency: row.currency || process.env.MOBILE_MONEY_CURRENCY || 'SLE',
+    plusAmount: Number(row.plus_amount || process.env.MOBILE_MONEY_PLUS_AMOUNT || 550),
+    proAmount: Number(row.pro_amount || process.env.MOBILE_MONEY_PRO_AMOUNT || 1000),
+    mobileMoneyProvider: row.mobile_money_provider || process.env.MOBILE_MONEY_PROVIDER || '',
+    mobileMoneyAccountName: row.mobile_money_account_name || process.env.MOBILE_MONEY_ACCOUNT_NAME || '',
+    mobileMoneyAccountNumber: row.mobile_money_account_number || process.env.MOBILE_MONEY_ACCOUNT_NUMBER || '',
+    mobileMoneyInstructions: row.mobile_money_instructions || process.env.MOBILE_MONEY_INSTRUCTIONS || 'Make the exact payment amount shown above, keep your transaction receipt, and submit the transaction ID below. Your subscription will be activated only after manual verification.',
+    monimeApiVersion: row.monime_api_version || process.env.MONIME_API_VERSION || 'caph.2025-08-23',
+    appBaseUrl: row.app_base_url || (process.env.APP_BASE_URL || '').replace(/\/$/, ''),
+    integrationSettings: row.integration_settings || {},
+    monimeAccessToken: monimeAccessToken || process.env.MONIME_ACCESS_TOKEN || '',
+    monimeSpaceId: monimeSpaceId || process.env.MONIME_SPACE_ID || '',
+    monimeWebhookSecret: monimeWebhookSecret || process.env.MONIME_WEBHOOK_SECRET || '',
+    geminiApiKey: geminiApiKey || process.env.GEMINI_API_KEY || '',
+    resendSmtpPassword: resendSmtpPassword || '',
+    updatedBy: row.updated_by || null,
+    updatedAt: row.updated_at || null,
+  };
+}
+
+async function requirePlatformAdmin(req: express.Request) {
+  const authUser = await verifySupabaseRequest(req);
+  if (!isPlatformAdmin(authUser)) {
+    const error = new Error('Platform administration access is required.');
+    (error as Error & { status?: number }).status = 403;
+    throw error;
+  }
+  return authUser;
+}
+
+app.get('/api/platform/config', async (req, res) => {
+  try {
+    const authUser = await requirePlatformAdmin(req);
+    const config = await getPlatformConfig();
+    return res.json({
+      config: {
+        currency: config.currency,
+        plusAmount: config.plusAmount,
+        proAmount: config.proAmount,
+        mobileMoneyProvider: config.mobileMoneyProvider,
+        mobileMoneyAccountName: config.mobileMoneyAccountName,
+        mobileMoneyAccountNumber: config.mobileMoneyAccountNumber,
+        mobileMoneyInstructions: config.mobileMoneyInstructions,
+        monimeApiVersion: config.monimeApiVersion,
+        appBaseUrl: config.appBaseUrl,
+        integrationSettings: config.integrationSettings,
+        secrets: {
+          monimeAccessTokenConfigured: Boolean(config.monimeAccessToken),
+          monimeSpaceIdConfigured: Boolean(config.monimeSpaceId),
+          monimeWebhookSecretConfigured: Boolean(config.monimeWebhookSecret),
+          geminiApiKeyConfigured: Boolean(config.geminiApiKey),
+          resendSmtpPasswordConfigured: Boolean(config.resendSmtpPassword),
+        },
+        updatedBy: config.updatedBy,
+        updatedAt: config.updatedAt,
+      },
+      adminEmail: authUser.email || null,
+    });
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
+    return res.status(status).json({ error: status === 403 ? 'Platform administration access is required.' : 'Unable to load platform configuration.' });
+  }
+});
+
+app.put('/api/platform/config', async (req, res) => {
+  try {
+    const authUser = await requirePlatformAdmin(req);
+    const body = req.body || {};
+    const plusAmount = Number(body.plusAmount);
+    const proAmount = Number(body.proAmount);
+    if (!Number.isSafeInteger(plusAmount) || plusAmount <= 0 || !Number.isSafeInteger(proAmount) || proAmount <= 0) {
+      return res.status(400).json({ error: 'Plus and Pro amounts must be positive whole numbers.' });
+    }
+
+    const current = await getPlatformConfig();
+    const next = {
+      currency: typeof body.currency === 'string' && body.currency.trim() ? body.currency.trim().toUpperCase() : current.currency,
+      plusAmount,
+      proAmount,
+      mobileMoneyProvider: typeof body.mobileMoneyProvider === 'string' ? body.mobileMoneyProvider.trim() : current.mobileMoneyProvider,
+      mobileMoneyAccountName: typeof body.mobileMoneyAccountName === 'string' ? body.mobileMoneyAccountName.trim() : current.mobileMoneyAccountName,
+      mobileMoneyAccountNumber: typeof body.mobileMoneyAccountNumber === 'string' ? body.mobileMoneyAccountNumber.trim() : current.mobileMoneyAccountNumber,
+      mobileMoneyInstructions: typeof body.mobileMoneyInstructions === 'string' && body.mobileMoneyInstructions.trim() ? body.mobileMoneyInstructions.trim() : current.mobileMoneyInstructions,
+      monimeApiVersion: typeof body.monimeApiVersion === 'string' && body.monimeApiVersion.trim() ? body.monimeApiVersion.trim() : current.monimeApiVersion,
+      appBaseUrl: typeof body.appBaseUrl === 'string' ? body.appBaseUrl.trim().replace(/\/$/, '') : current.appBaseUrl,
+      integrationSettings: typeof body.integrationSettings === 'object' && body.integrationSettings !== null ? body.integrationSettings : current.integrationSettings,
+    };
+
+    await supabaseRequest('platform_settings?id=eq.1', {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        currency: next.currency,
+        plus_amount: next.plusAmount,
+        pro_amount: next.proAmount,
+        mobile_money_provider: next.mobileMoneyProvider,
+        mobile_money_account_name: next.mobileMoneyAccountName,
+        mobile_money_account_number: next.mobileMoneyAccountNumber,
+        mobile_money_instructions: next.mobileMoneyInstructions,
+        monime_api_version: next.monimeApiVersion,
+        app_base_url: next.appBaseUrl,
+        integration_settings: next.integrationSettings,
+        updated_by: authUser.email || null,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+
+    const secretFields: Array<[string, string | undefined, string]> = [
+      ['monime_access_token', body.monimeAccessToken, 'Monime API access token'],
+      ['monime_space_id', body.monimeSpaceId, 'Monime space ID'],
+      ['monime_webhook_secret', body.monimeWebhookSecret, 'Monime webhook signing secret'],
+      ['gemini_api_key', body.geminiApiKey, 'Google Gemini API key'],
+      ['resend_smtp_password', body.resendSmtpPassword, 'Resend SMTP credential'],
+    ];
+    for (const [name, value, description] of secretFields) {
+      if (typeof value === 'string' && value.trim()) {
+        await setPlatformSecret(name, value.trim(), description);
+      }
+    }
+
+    const changedFields = Object.keys(body).filter((key) => !/token|secret|password|apiKey/i.test(key));
+    await supabaseRequest('platform_config_audit', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        admin_email: authUser.email || 'unknown',
+        section: 'platform',
+        changed_fields: changedFields,
+      }),
+    });
+
+    return res.json({ ok: true });
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
+    console.error('Platform configuration update error:', error);
+    return res.status(status).json({ error: status === 403 ? 'Platform administration access is required.' : 'Unable to save platform configuration.' });
+  }
+});
 
 app.get('/api/account/session', async (req, res) => {
   try {
@@ -108,6 +290,7 @@ app.get('/api/account/session', async (req, res) => {
           provider: subscription?.provider || 'none',
           currentPeriodEnd: subscription?.current_period_end || null,
         },
+        platformAdmin: isPlatformAdmin(authUser),
         entitlements: {
           apps: appAccess,
           features: Object.fromEntries(
@@ -387,36 +570,35 @@ app.put('/api/workbook', async (req, res) => {
 
 
 
-const mobileMoneyCurrency = process.env.MOBILE_MONEY_CURRENCY || 'SLE';
-const mobileMoneyProvider = process.env.MOBILE_MONEY_PROVIDER || '';
-const mobileMoneyAccountName = process.env.MOBILE_MONEY_ACCOUNT_NAME || '';
-const mobileMoneyAccountNumber = process.env.MOBILE_MONEY_ACCOUNT_NUMBER || '';
-const mobileMoneyInstructions = process.env.MOBILE_MONEY_INSTRUCTIONS || 'Make the exact payment amount shown above, keep your transaction receipt, and submit the transaction ID below. Your subscription will be activated only after manual verification.';
-const manualPlusAmount = Number(process.env.MOBILE_MONEY_PLUS_AMOUNT || 550);
-const manualProAmount = Number(process.env.MOBILE_MONEY_PRO_AMOUNT || 1000);
-const manualAdminEmails = (process.env.MANUAL_BILLING_ADMIN_EMAILS || '')
-  .split(',')
-  .map((email) => email.trim().toLowerCase())
-  .filter(Boolean);
+async function getPlatformBillingConfig() {
+  const config = await getPlatformConfig();
+  return {
+    currency: config.currency,
+    provider: config.mobileMoneyProvider,
+    accountName: config.mobileMoneyAccountName,
+    accountNumber: config.mobileMoneyAccountNumber,
+    instructions: config.mobileMoneyInstructions,
+    plans: {
+      plus: { name: 'Toolkit Plus', amount: config.plusAmount },
+      pro: { name: 'Toolkit Pro', amount: config.proAmount },
+    },
+  };
+}
 
-const manualPaymentPlans = {
-  plus: { name: 'Toolkit Plus', amount: manualPlusAmount },
-  pro: { name: 'Toolkit Pro', amount: manualProAmount },
-} as const;
-
-app.get('/api/billing/mobile-money', (req, res) => {
-  const planId = req.query.planId as keyof typeof manualPaymentPlans;
-  const plan = manualPaymentPlans[planId];
-  if (!plan || !Number.isSafeInteger(plan.amount) || plan.amount <= 0) {
+app.get('/api/billing/mobile-money', async (req, res) => {
+  const billing = await getPlatformBillingConfig();
+  const planId = req.query.planId as keyof typeof billing.plans;
+  const plan = billing.plans[planId];
+  if (!plan || !Number.isSafeInteger(amount) || amount <= 0) {
     return res.status(400).json({ error: 'Invalid billing plan.' });
   }
   return res.json({
-    provider: mobileMoneyProvider,
-    accountName: mobileMoneyAccountName,
-    accountNumber: mobileMoneyAccountNumber,
-    instructions: mobileMoneyInstructions,
+    provider: billing.provider,
+    accountName: billing.accountName,
+    accountNumber: billing.accountNumber,
+    instructions: billing.instructions,
     amount: plan.amount,
-    currency: mobileMoneyCurrency,
+    currency: billing.currency,
   });
 });
 
@@ -424,8 +606,9 @@ app.post('/api/billing/mobile-money/submit', async (req, res) => {
   try {
     const authUser = await verifySupabaseRequest(req);
     const profile = await getToolkitProfile(authUser.id);
-    const planId = req.body?.planId as keyof typeof manualPaymentPlans;
-    const plan = manualPaymentPlans[planId];
+    const billing = await getPlatformBillingConfig();
+    const planId = req.body?.planId as keyof typeof billing.plans;
+    const plan = billing.plans[planId];
     const transactionId = typeof req.body?.transactionId === 'string' ? req.body.transactionId.trim() : '';
     const payerName = typeof req.body?.payerName === 'string' ? req.body.payerName.trim() : null;
 
@@ -455,7 +638,7 @@ app.post('/api/billing/mobile-money/submit', async (req, res) => {
         user_id: profile.id,
         plan_id: planId,
         amount_value: plan.amount,
-        currency: mobileMoneyCurrency,
+        currency: billing.currency,
         payment_method: 'mobile_money',
         transaction_id: transactionId,
         payer_name: payerName || null,
@@ -481,9 +664,10 @@ app.get('/api/billing/mobile-money/status', async (req, res) => {
   try {
     const authUser = await verifySupabaseRequest(req);
     const profile = await getToolkitProfile(authUser.id);
-    const planId = req.query.planId as keyof typeof manualPaymentPlans;
+    const billing = await getPlatformBillingConfig();
+    const planId = req.query.planId as keyof typeof billing.plans;
     if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
-    if (!manualPaymentPlans[planId]) return res.status(400).json({ error: 'Invalid billing plan.' });
+    if (!billing.plans[planId]) return res.status(400).json({ error: 'Invalid billing plan.' });
 
     const rows = await supabaseRequest(
       `manual_payment_requests?select=id,plan_id,status,transaction_id,payer_name&user_id=eq.${encodeURIComponent(profile.id)}&plan_id=eq.${encodeURIComponent(planId)}&order=created_at.desc&limit=1`,
@@ -570,29 +754,35 @@ app.post('/api/billing/mobile-money/review', async (req, res) => {
 });
 
 
-const monimeAccessToken = process.env.MONIME_ACCESS_TOKEN;
-const monimeSpaceId = process.env.MONIME_SPACE_ID;
-const monimeWebhookSecret = process.env.MONIME_WEBHOOK_SECRET;
-const monimeApiVersion = process.env.MONIME_API_VERSION || 'caph.2025-08-23';
-const monimeCurrency = process.env.MONIME_CURRENCY || 'SLE';
-const monimePlusAmount = Number(process.env.MONIME_PLUS_AMOUNT || 0);
-const monimeProAmount = Number(process.env.MONIME_PRO_AMOUNT || 0);
-const appBaseUrl = (process.env.APP_BASE_URL || '').replace(/\/$/, '');
+async function getMonimeRuntimeConfig() {
+  const config = await getPlatformConfig();
+  return {
+    accessToken: config.monimeAccessToken,
+    spaceId: config.monimeSpaceId,
+    webhookSecret: config.monimeWebhookSecret,
+    apiVersion: config.monimeApiVersion,
+    currency: config.currency,
+    plusAmount: config.plusAmount,
+    proAmount: config.proAmount,
+    appBaseUrl: config.appBaseUrl,
+  };
+}
 
 const monimePlanConfig = {
-  plus: { name: 'Toolkit Plus', amount: monimePlusAmount },
-  pro: { name: 'Toolkit Pro', amount: monimeProAmount },
+  plus: { name: 'Toolkit Plus' },
+  pro: { name: 'Toolkit Pro' },
 } as const;
 
 async function monimeRequest(pathname: string, init: RequestInit = {}) {
-  if (!monimeAccessToken || !monimeSpaceId) {
+  const config = await getMonimeRuntimeConfig();
+  if (!config.accessToken || !config.spaceId) {
     throw new Error('Monime billing is not configured.');
   }
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${monimeAccessToken}`,
+    Authorization: `Bearer ${config.accessToken}`,
     'Content-Type': 'application/json',
-    'Monime-Space-Id': monimeSpaceId,
-    'Monime-Version': monimeApiVersion,
+    'Monime-Space-Id': config.spaceId,
+    'Monime-Version': config.apiVersion,
     ...(init.headers as Record<string, string> | undefined),
   };
   const response = await fetch(`https://api.monime.io${pathname}`, { ...init, headers });
@@ -606,12 +796,13 @@ function getMonimeSignatureHeader(req: express.Request) {
   return req.headers[configured] as string | undefined;
 }
 
-function verifyMonimeWebhookSignature(rawBody: Buffer, signatureHeader: string | undefined) {
-  if (!monimeWebhookSecret || !signatureHeader) return false;
+async function verifyMonimeWebhookSignature(rawBody: Buffer, signatureHeader: string | undefined) {
+  const config = await getMonimeRuntimeConfig();
+  if (!config.webhookSecret || !signatureHeader) return false;
   const match = signatureHeader.match(/(?:^|[, ]+)(?:sha256=|v1=)?([a-f0-9]{64})(?:$|[, ]+)/i);
   const supplied = match?.[1] || (signatureHeader.match(/^[a-f0-9]{64}$/i)?.[0] ?? '');
   if (!supplied) return false;
-  const expected = crypto.createHmac('sha256', monimeWebhookSecret).update(rawBody).digest('hex');
+  const expected = crypto.createHmac('sha256', config.webhookSecret).update(rawBody).digest('hex');
   const a = Buffer.from(supplied, 'hex');
   const b = Buffer.from(expected, 'hex');
   return a.length === b.length && crypto.timingSafeEqual(a, b);
@@ -621,14 +812,16 @@ app.post('/api/billing/checkout', async (req, res) => {
   try {
     const authUser = await verifySupabaseRequest(req);
     const profile = await getToolkitProfile(authUser.id);
+    const config = await getMonimeRuntimeConfig();
     const planId = req.body?.planId as keyof typeof monimePlanConfig;
     const plan = monimePlanConfig[planId];
+    const amount = planId === 'plus' ? config.plusAmount : config.proAmount;
 
     if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
     if (!plan || !Number.isSafeInteger(plan.amount) || plan.amount <= 0) {
       return res.status(503).json({ error: 'This billing plan is not configured yet.' });
     }
-    if (!appBaseUrl) {
+    if (!config.appBaseUrl) {
       return res.status(503).json({ error: 'APP_BASE_URL is not configured.' });
     }
 
@@ -641,15 +834,15 @@ app.post('/api/billing/checkout', async (req, res) => {
         name: plan.name,
         lineItems: [{
           name: plan.name,
-          price: { currency: monimeCurrency, value: plan.amount },
+          price: { currency: config.currency, value: amount },
           type: 'custom',
           quantity: 1,
           reference: planId,
           description: `BudgetPlanner ${planId} toolkit plan - 30 day billing period`,
         }],
         description: `BudgetPlanner ${planId} plan`,
-        cancelUrl: `${appBaseUrl}/?billing=cancelled`,
-        successUrl: `${appBaseUrl}/?billing=success`,
+        cancelUrl: `${config.appBaseUrl}/?billing=cancelled`,
+        successUrl: `${config.appBaseUrl}/?billing=success`,
         reference,
         metadata: {
           toolkitUserId: profile.id,
@@ -671,8 +864,8 @@ app.post('/api/billing/checkout', async (req, res) => {
         provider: 'monime',
         provider_session_id: session.id,
         status: 'pending',
-        amount_value: plan.amount,
-        currency: monimeCurrency,
+        amount_value: amount,
+        currency: config.currency,
       }),
     });
 
@@ -688,7 +881,7 @@ app.post('/api/billing/checkout', async (req, res) => {
 
 app.post('/api/billing/webhook', async (req, res) => {
   const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from('');
-  if (!verifyMonimeWebhookSignature(rawBody, getMonimeSignatureHeader(req))) {
+  if (!(await verifyMonimeWebhookSignature(rawBody, getMonimeSignatureHeader(req)))) {
     return res.status(401).json({ error: 'Invalid webhook signature.' });
   }
 
