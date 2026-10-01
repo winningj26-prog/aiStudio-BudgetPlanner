@@ -17,6 +17,7 @@ import { getAuthSessionState } from '../src/services/supabaseAuth.ts';
 import { isPlatformAdminEmail, normalizePlatformAdminEmails } from '../src/utils/platformAdmin.ts';
 import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
 import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
+import { isValidWorkbookData, normalizeWorkbookData } from '../src/utils/workbookValidation.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 
 class MemoryStorage {
@@ -288,3 +289,44 @@ test('budget insight daily widget dismissal sets and matches today date in stora
   assert.equal(isDismissedForToday, true);
 });
 
+
+
+test('workbook schema validation rejects malformed ledger and settings values', () => {
+  const valid = {
+    settings: { currency: 'USD', month: 'January', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
+    incomeCategories: [], expenseCategories: [], paymentMethods: ['Cash'],
+    incomeTransactions: [{ id: 'i1', date: '2026-01-01', category: 'Salary', description: 'Pay', amount: 1000 }],
+    expenseTransactions: [{ id: 'e1', date: '2026-01-02', category: 'Housing', description: 'Rent', paymentMethod: 'Bank', amount: 500 }],
+    plannedIncome: { inc_1: 1000 }, plannedExpenses: { exp_1: 500 },
+    savingsGoals: [], debts: [], recurringTransactions: [],
+    userEmail: 'user@example.com', activeTab: 'dashboard' as const, sheetConfig: null,
+  };
+  assert.equal(isValidWorkbookData(valid), true);
+  assert.equal(isValidWorkbookData({
+    ...valid,
+    expenseTransactions: [{ ...valid.expenseTransactions[0], amount: -1 }],
+  }), false);
+  assert.equal(isValidWorkbookData({
+    ...valid,
+    settings: { ...valid.settings, year: 1800 },
+  }), false);
+  assert.equal(isValidWorkbookData({
+    ...valid,
+    recurringTransactions: [{
+      id: 'r1', type: 'expense', description: 'Rent', amount: 500,
+      category: 'Housing', dayOfMonth: 32, frequency: 'monthly', isActive: true,
+    }],
+  }), false);
+});
+
+test('invalid workbook snapshots fall back without replacing a trusted local workbook', () => {
+  const fallback = {
+    settings: { currency: 'USD', month: 'January', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
+    incomeCategories: [], expenseCategories: [], paymentMethods: [],
+    incomeTransactions: [], expenseTransactions: [], plannedIncome: {}, plannedExpenses: {},
+    savingsGoals: [], debts: [], recurringTransactions: [],
+    userEmail: 'trusted@example.com', activeTab: 'start_here' as const, sheetConfig: null,
+  };
+  assert.deepEqual(normalizeWorkbookData({ settings: null }, fallback), fallback);
+  assert.deepEqual(normalizeWorkbookData(fallback, fallback), fallback);
+});
