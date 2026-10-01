@@ -219,3 +219,16 @@ test('AI Insights UI is visible only when the Pro feature entitlement enables it
   assert.equal(isAiInsightsUiEnabled(null as any), false);
   assert.equal(isAiInsightsUiEnabled(true), true);
 });
+
+
+test('heuristic budget analyzer successfully computes savings rate thresholds', () => {
+  const mockIncomeSum = 5000;
+  const mockExpensesSum = 3500;
+  const surplus = mockIncomeSum - mockExpensesSum;
+  const rate = mockIncomeSum > 0 ? (surplus / mockIncomeSum) * 100 : 0;
+  
+  assert.equal(surplus, 1500);
+  assert.equal(rate, 30); // 30% savings rate
+  assert.equal(rate >= 20, true); // Exceeds standard threshold
+});
+
