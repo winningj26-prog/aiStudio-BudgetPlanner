@@ -1,5 +1,5 @@
 import type { WorkbookData } from '../services/workbookRepository';
-import type { CategoryItem, Debt, FinancialAsset, ExpenseTransaction, IncomeTransaction, RecurringTransaction, SavingsGoal, SettingsState, WorksheetTab } from '../types/budget';
+import type { CategoryItem, Debt, DebtPayment, FinancialAsset, ExpenseTransaction, IncomeTransaction, RecurringTransaction, SavingsGoal, SettingsState, WorksheetTab } from '../types/budget';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const CURRENCIES = ['USD','EUR','GBP','CAD','AUD','JPY'];
@@ -58,6 +58,16 @@ const isDebt = (value: unknown): value is Debt =>
   && (value.color == null || typeof value.color === 'string');
 
 
+const isDebtPayment = (value: unknown): value is DebtPayment =>
+  isRecord(value) && typeof value.id === 'string' && isDate(value.date)
+  && typeof value.debtId === 'string' && value.debtId.length > 0
+  && (value.accountId == null || typeof value.accountId === 'string')
+  && isNonNegativeNumber(value.amount)
+  && isNonNegativeNumber(value.principal)
+  && isNonNegativeNumber(value.interest)
+  && Math.abs(value.amount - value.principal - value.interest) < 0.01
+  && (value.notes == null || typeof value.notes === 'string');
+
 const isAsset = (value: unknown): value is FinancialAsset =>
   isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string'
   && isNonNegativeNumber(value.amount)
@@ -108,6 +118,7 @@ export function isValidWorkbookData(value: unknown): value is WorkbookData {
     && isNumberMap(value.plannedIncome) && isNumberMap(value.plannedExpenses)
     && Array.isArray(value.savingsGoals) && value.savingsGoals.every(isGoal)
     && Array.isArray(value.debts) && value.debts.every(isDebt)
+    && Array.isArray(value.debtPayments) && value.debtPayments.every(isDebtPayment)
     && Array.isArray(value.financialAssets) && value.financialAssets.every(isAsset)
     && isNonNegativeNumber(value.openingCashBalance)
     && Array.isArray(value.recurringTransactions) && value.recurringTransactions.every(isRecurring)
