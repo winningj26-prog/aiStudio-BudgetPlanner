@@ -41,7 +41,7 @@ import { createLocalWorkbookRepository } from './services/workbookRepository';
 import { loadCloudWorkbook, saveCloudWorkbook } from './services/cloudWorkbookRepository';
 import type { User } from '@supabase/supabase-js';
 import { initAuth, supabaseSignOut } from './services/supabaseAuth';
-import { loadToolkitAccountSession } from './services/toolkitAccount';
+import { loadToolkitAccountSession, ToolkitAccountSuspendedError } from './services/toolkitAccount';
 import { OnboardingView } from './components/OnboardingView';
 import { hasToolkitFeature } from './types/toolkit';
 import type { ToolkitEntitlementResponse } from './types/toolkit';
@@ -160,6 +160,7 @@ export default function App() {
   const [showSubscription, setShowSubscription] = useState(false);
   const [showPlatformDashboard, setShowPlatformDashboard] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [suspendedNotice, setSuspendedNotice] = useState<{ support: { email: string | null; phone: string | null }; reason: string | null } | null>(null);
 
   const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(null);
 
@@ -228,6 +229,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = initAuth(
       (user, token) => {
+        setSuspendedNotice(null);
         setAuthUser(user);
         setGoogleAccessToken(token);
         setIsLoggedIn(true);
@@ -334,11 +336,20 @@ export default function App() {
     void loadToolkitAccountSession(authUser).then((session) => {
       if (!cancelled) {
         setToolkitSession(session);
-        // Authentication must always land in the shared Toolkit launcher.
-        // The BudgetPlanner workbook is entered only by an explicit app selection.
         setShowToolkitHome(Boolean(session));
         setAccountSessionReady(true);
       }
+    }).catch(async (error) => {
+      if (cancelled) return;
+      if (error instanceof ToolkitAccountSuspendedError) {
+        setSuspendedNotice({ support: error.support, reason: error.reason });
+        setToolkitSession(null);
+        setAccountSessionReady(true);
+        await supabaseSignOut();
+        return;
+      }
+      setToolkitSession(null);
+      setAccountSessionReady(true);
     });
 
     return () => {
@@ -560,11 +571,31 @@ export default function App() {
     );
   }
 
-  // 2. If not logged in, render the Login Screen
-  if (!isLoggedIn) {
+  // 2. Suspended accounts are signed out and shown a clear administrator-contact notice.
+  if (suspendedNotice) {
     return (
-      <LoginView />
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
+        <div className="w-full max-w-lg rounded-2xl border border-amber-400/20 bg-white/5 p-7 text-center shadow-2xl">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/10 text-amber-300">!</div>
+          <h1 className="mt-5 text-2xl font-black text-white">Account suspended</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-300">Your account is currently suspended and you cannot access BudgetPlanner. Please contact an administrator to restore access.</p>
+          {suspendedNotice.reason && <p className="mt-3 text-xs text-slate-400">Reason: {suspendedNotice.reason}</p>}
+          {(suspendedNotice.support.email || suspendedNotice.support.phone) && (
+            <div className="mt-5 rounded-xl border border-white/10 bg-slate-900 p-4 text-left text-sm">
+              <p className="font-bold text-white">Administrator contact</p>
+              {suspendedNotice.support.email && <p className="mt-2 text-slate-300">Email: {suspendedNotice.support.email}</p>}
+              {suspendedNotice.support.phone && <p className="mt-1 text-slate-300">Phone: {suspendedNotice.support.phone}</p>}
+            </div>
+          )}
+          <button type="button" onClick={() => setSuspendedNotice(null)} className="mt-6 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-slate-950">Back to sign in</button>
+        </div>
+      </div>
     );
+  }
+
+  // 3. If not logged in, render the Login Screen
+  if (!isLoggedIn) {
+    return <LoginView />;
   }
 
   // 3. Wait for the Toolkit account/session check before rendering the
