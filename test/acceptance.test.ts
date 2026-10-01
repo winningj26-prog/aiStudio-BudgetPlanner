@@ -20,6 +20,7 @@ import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
 import { isValidWorkbookData, normalizeWorkbookData } from '../src/utils/workbookValidation.ts';
 import { buildAnnualSummary, calculateBudgetItem, calculateBudgetStatus, sumExpensesByCategory, sumIncomeByCategory, sumExpenseTransactions, sumIncomeTransactions } from '../src/utils/formulas.ts';
 import { calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates } from '../src/utils/financialPlanning.ts';
+import { calculateFinancialSnapshot } from '../src/utils/financialModel.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 
 class MemoryStorage {
@@ -64,7 +65,7 @@ test('local workbook repository round-trips account-scoped workbook data', () =>
   const defaults = {
     settings: { currency: 'USD', month: 'January', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
     incomeCategories: [], expenseCategories: [], paymentMethods: [], incomeTransactions: [],
-    expenseTransactions: [], plannedIncome: {}, plannedExpenses: {}, savingsGoals: [], debts: [],
+    expenseTransactions: [], plannedIncome: {}, plannedExpenses: {}, savingsGoals: [], debts: [], financialAssets: [], openingCashBalance: 0,
     recurringTransactions: [], userEmail: '', activeTab: 'start_here' as const, sheetConfig: null,
   };
   const repository = createLocalWorkbookRepository('user-a', defaults);
@@ -300,7 +301,7 @@ test('workbook schema validation rejects malformed ledger and settings values', 
     incomeTransactions: [{ id: 'i1', date: '2026-01-01', category: 'Salary', description: 'Pay', amount: 1000 }],
     expenseTransactions: [{ id: 'e1', date: '2026-01-02', category: 'Housing', description: 'Rent', paymentMethod: 'Bank', amount: 500 }],
     plannedIncome: { inc_1: 1000 }, plannedExpenses: { exp_1: 500 },
-    savingsGoals: [], debts: [], recurringTransactions: [],
+    savingsGoals: [], debts: [], financialAssets: [], openingCashBalance: 0, recurringTransactions: [],
     userEmail: 'user@example.com', activeTab: 'dashboard' as const, sheetConfig: null,
   };
   assert.equal(isValidWorkbookData(valid), true);
@@ -461,4 +462,50 @@ test('recurring date generation respects frequency and month length', () => {
   ]);
   assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 31, frequency: 'yearly' }), ['2026-02-28']);
   assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 0, frequency: 'monthly' }), []);
+});
+
+
+test('shared financial model connects cash flow, savings goals, debts, and assets', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [{ id: 'i1', date: '2026-01-01', category: 'Salary', description: 'Pay', amount: 5000 }],
+    [{ id: 'e1', date: '2026-01-02', category: 'Housing', description: 'Rent', paymentMethod: 'Bank', amount: 2000 }],
+    [{ id: 'g1', name: 'Emergency Fund', targetAmount: 3000, currentAmount: 500 }],
+    [{ id: 'd1', name: 'Card', balance: 4000, interestRate: 12, minimumPayment: 100 }],
+    [{ id: 'a1', name: 'Stocks', amount: 10000, category: 'Investment' }],
+    3000,
+  );
+
+  assert.equal(snapshot.totalIncome, 5000);
+  assert.equal(snapshot.totalExpenses, 2000);
+  assert.equal(snapshot.operatingCashFlow, 3000);
+  assert.equal(snapshot.goalAllocated, 500);
+  assert.equal(snapshot.availableCash, 5500);
+  assert.equal(snapshot.externalAssets, 10000);
+  assert.equal(snapshot.totalAssets, 16000);
+  assert.equal(snapshot.totalLiabilities, 4000);
+  assert.equal(snapshot.netWorth, 12000);
+  assert.equal(snapshot.savingsRate, 60);
+});
+
+test('financial model treats savings goal contributions as internal allocation, not an expense', () => {
+  const base = calculateFinancialSnapshot(
+    [{ id: 'i1', date: '2026-01-01', category: 'Salary', description: 'Pay', amount: 5000 }],
+    [],
+    [],
+    [],
+    [],
+    1000,
+  );
+  const allocated = calculateFinancialSnapshot(
+    [{ id: 'i1', date: '2026-01-01', category: 'Salary', description: 'Pay', amount: 5000 }],
+    [],
+    [{ id: 'g1', name: 'Goal', targetAmount: 2000, currentAmount: 500 }],
+    [],
+    [],
+    1000,
+  );
+
+  assert.equal(base.netWorth, 6000);
+  assert.equal(allocated.netWorth, 6000);
+  assert.equal(allocated.availableCash, 5500);
 });
