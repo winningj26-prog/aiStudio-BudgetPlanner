@@ -8,6 +8,7 @@ Updated after each completed implementation/verification task.
 - [x] Workbook repository abstraction
 - [x] Cloud persistence foundation
 - [x] Cloud endpoint authorization/data-path review
+- [x] Cloud workbook payload validation hardened and covered by acceptance contract test
 - [x] Render deployment
 - [x] Google Sheets foundation
 - [x] Gemini integration foundation
@@ -92,6 +93,7 @@ Updated after each completed implementation/verification task.
 - [x] Mobile Money state transition test
 - [x] Decimal billing acceptance tests
 - [x] Cloud save/load acceptance test
+- [x] Cloud save payload shape acceptance coverage
 - [x] AI Insights acceptance test
 - [x] Advanced Analytics acceptance test
 - [x] Google Sheets create/read/write acceptance test
