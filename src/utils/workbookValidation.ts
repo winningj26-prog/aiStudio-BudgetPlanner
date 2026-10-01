@@ -66,13 +66,19 @@ const isRecurring = (value: unknown): value is RecurringTransaction =>
   && typeof value.isActive === 'boolean'
   && (value.notes == null || typeof value.notes === 'string');
 
-const isSettings = (value: unknown): value is SettingsState =>
-  isRecord(value) && CURRENCIES.includes(String(value.currency))
-  && MONTHS.includes(String(value.month)) && Number.isInteger(value.year)
-  && value.year >= 1900 && value.year <= 2200
-  && DATE_FORMATS.includes(String(value.dateFormat))
-  && (value.secondaryCurrency == null || CURRENCIES.includes(String(value.secondaryCurrency)))
-  && (value.enableSecondaryCurrency == null || typeof value.enableSecondaryCurrency === 'boolean');
+const isSettings = (value: unknown): value is SettingsState => {
+  if (!isRecord(value)
+    || !CURRENCIES.includes(String(value.currency))
+    || !MONTHS.includes(String(value.month))
+    || !isFiniteNumber(value.year)
+    || !Number.isInteger(value.year)
+    || value.year < 1900
+    || value.year > 2200
+    || !DATE_FORMATS.includes(String(value.dateFormat))
+    || (value.secondaryCurrency != null && !CURRENCIES.includes(String(value.secondaryCurrency)))
+    || (value.enableSecondaryCurrency != null && typeof value.enableSecondaryCurrency !== 'boolean')) return false;
+  return true;
+};
 
 const isNumberMap = (value: unknown): value is Record<string, number> =>
   isRecord(value) && Object.values(value).every(isNonNegativeNumber);
