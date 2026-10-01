@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
   Debt,
+  DebtPayment,
+  FinancialAsset,
   SettingsState,
 } from '../../types/budget';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -27,7 +29,10 @@ import {
 
 interface DebtPayoffSheetProps {
   debts: Debt[];
+  debtPayments: DebtPayment[];
+  financialAssets: FinancialAsset[];
   onUpdateDebts: (debts: Debt[]) => void;
+  onUpdateDebtPayments: (payments: DebtPayment[]) => void;
   settings: SettingsState;
   highlightInputs: boolean;
   onSelectCell: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
@@ -35,7 +40,10 @@ interface DebtPayoffSheetProps {
 
 export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
   debts,
+  debtPayments,
+  financialAssets,
   onUpdateDebts,
+  onUpdateDebtPayments,
   settings,
   highlightInputs,
   onSelectCell,
@@ -50,6 +58,11 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
   const [newInterestRate, setNewInterestRate] = useState('');
   const [newMinimumPayment, setNewMinimumPayment] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [paymentDebtId, setPaymentDebtId] = useState('');
+  const [paymentAccountId, setPaymentAccountId] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentInterest, setPaymentInterest] = useState('');
+  const [paymentDate, setPaymentDate] = useState(`${settings.year}-${String(['January','February','March','April','May','June','July','August','September','October','November','December'].indexOf(settings.month) + 1).padStart(2, '0')}-01`);
 
   // Table selection / Excel highlight
   const [activeCellRef, setActiveCellRef] = useState<string | null>(null);
@@ -360,6 +373,35 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
     };
   }, [debts, additionalPayment, strategy, settings.currency]);
 
+  const handleRecordDebtPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    const debt = debts.find((item) => item.id === paymentDebtId);
+    const amount = parseFloat(paymentAmount);
+    const interest = parseFloat(paymentInterest || '0');
+    if (!debt || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(interest) || interest < 0 || interest > amount) {
+      alert('Enter a valid debt payment and interest amount.');
+      return;
+    }
+    const principal = amount - interest;
+    if (principal > debt.balance + 0.01) {
+      alert('Principal cannot exceed the debt balance.');
+      return;
+    }
+    const payment: DebtPayment = {
+      id: `debt_payment_${Date.now()}`,
+      date: paymentDate,
+      debtId: debt.id,
+      accountId: paymentAccountId || undefined,
+      amount,
+      principal,
+      interest,
+    };
+    onUpdateDebtPayments([...debtPayments, payment]);
+    onUpdateDebts(debts.map((item) => item.id === debt.id ? { ...item, balance: Math.max(0, item.balance - principal) } : item));
+    setPaymentAmount('');
+    setPaymentInterest('');
+  };
+
   // Convert month number to a real calendar month string
   const getPayoffDateString = (monthsFromNow: number) => {
     if (monthsFromNow <= 0) return 'Immediate';
@@ -421,6 +463,27 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
           </div>
         </div>
       )}
+
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5 shadow-xs">
+        <div className="mb-3">
+          <h3 className="font-bold text-slate-900">Record an actual debt payment</h3>
+          <p className="text-xs text-slate-600">Principal reduces the liability; interest is recorded as an expense. The simulator above never changes your actual balances.</p>
+        </div>
+        <form onSubmit={handleRecordDebtPayment} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <select value={paymentDebtId} onChange={(e) => setPaymentDebtId(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${inputClass}`}>
+            <option value="">Select debt</option>
+            {debts.map((debt) => <option key={debt.id} value={debt.id}>{debt.name}</option>)}
+          </select>
+          <select value={paymentAccountId} onChange={(e) => setPaymentAccountId(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${inputClass}`}>
+            <option value="">Funding account</option>
+            {financialAssets.filter((asset) => asset.category === 'Cash' || asset.category === 'Bank').map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+          </select>
+          <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${inputClass}`} />
+          <input type="number" min="0.01" step="0.01" placeholder="Total payment" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${inputClass}`} />
+          <input type="number" min="0" step="0.01" placeholder="Interest portion" value={paymentInterest} onChange={(e) => setPaymentInterest(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${inputClass}`} />
+          <button type="submit" className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800">Record payment</button>
+        </form>
+      </div>
 
       {/* ---------------------------------------------------- */}
       {/* Top Row: Executive Strategy Controller & Dashboard Cards */}
