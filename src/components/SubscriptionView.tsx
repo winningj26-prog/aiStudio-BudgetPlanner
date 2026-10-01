@@ -33,7 +33,9 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
     void Promise.all([getMobileMoneyPaymentInfo('plus'), getMobileMoneyPaymentInfo('pro')])
       .then(([plus, pro]) => {
         if (!cancelled) {
-          setPaymentMethods(plus.paymentMethods ?? ['mobile_money']);
+          const methods = plus.paymentMethods ?? ['mobile_money'];
+          setPaymentMethods(methods);
+          setSelectedPaymentMethod(methods[0] ?? 'mobile_money');
           setPlanPrices({
           plus: `${plus.currency} ${plus.amount.toLocaleString()}`,
           pro: `${pro.currency} ${pro.amount.toLocaleString()}`,
