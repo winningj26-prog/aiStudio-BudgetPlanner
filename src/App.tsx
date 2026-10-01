@@ -66,6 +66,7 @@ import { CalendarViewSheet } from './components/worksheets/CalendarViewSheet';
 import { TechSpecsSheet } from './components/worksheets/TechSpecsSheet';
 import { AdvancedAnalyticsSheet } from './components/worksheets/AdvancedAnalyticsSheet';
 import { ToolkitHomeView } from './components/ToolkitHomeView';
+import { SubscriptionView } from './components/SubscriptionView';
 import { PasswordRecoveryView } from './components/PasswordRecoveryView';
 import { EmailConfirmationView } from './components/EmailConfirmationView';
 
@@ -155,6 +156,7 @@ export default function App() {
   const [cloudReady, setCloudReady] = useState(false);
   const [accountSessionReady, setAccountSessionReady] = useState(false);
   const [showToolkitHome, setShowToolkitHome] = useState(false);
+  const [showSubscription, setShowSubscription] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   const [sheetConfig, setSheetConfig] = useState<GoogleSheetConfig | null>(null);
@@ -486,6 +488,7 @@ export default function App() {
     setGoogleAccessToken(null);
     setToolkitSession(null);
     setShowToolkitHome(false);
+    setShowSubscription(false);
     setIsLoggedIn(false);
   };
 
@@ -622,6 +625,21 @@ export default function App() {
 
   // 5. If the Toolkit session is available, render the dedicated Toolkit launcher
   // (Completely outside the Excel dashboard shell and dashboard header)
+  if (toolkitSession && showSubscription) {
+    return (
+      <SubscriptionView
+        user={authUser!}
+        session={toolkitSession}
+        onBack={() => setShowSubscription(false)}
+        onSessionUpdated={(session) => {
+          setToolkitSession(session);
+          setShowSubscription(false);
+          setShowToolkitHome(true);
+        }}
+      />
+    );
+  }
+
   if (toolkitSession && showToolkitHome) {
     return (
       <ToolkitHomeView
@@ -629,6 +647,10 @@ export default function App() {
         onOpenBudgetPlanner={() => {
           setShowToolkitHome(false);
           setActiveTab('start_here');
+        }}
+        onManageSubscription={() => {
+          setShowToolkitHome(false);
+          setShowSubscription(true);
         }}
         onLogout={handleLogout}
       />
