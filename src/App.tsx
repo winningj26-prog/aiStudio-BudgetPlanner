@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import {
   CategoryItem,
   Debt,
+  DebtPayment,
   FinancialAsset,
   ExpenseTransaction,
   IncomeTransaction,
@@ -135,6 +136,9 @@ export default function App() {
   const [debts, setDebts] = useState<Debt[]>(() =>
     loadFromStorage<Debt[]>(STORAGE_KEYS.DEBTS, INITIAL_DEBTS)
   );
+  const [debtPayments, setDebtPayments] = useState<DebtPayment[]>(() =>
+    loadFromStorage<DebtPayment[]>(STORAGE_KEYS.DEBT_PAYMENTS, [])
+  );
   const [financialAssets, setFinancialAssets] = useState<FinancialAsset[]>(() =>
     loadFromStorage<FinancialAsset[]>(STORAGE_KEYS.FINANCIAL_ASSETS, INITIAL_FINANCIAL_ASSETS)
   );
@@ -192,6 +196,7 @@ export default function App() {
       plannedExpenses: INITIAL_PLANNED_EXPENSES,
       savingsGoals: INITIAL_SAVINGS_GOALS,
       debts: INITIAL_DEBTS,
+      debtPayments: [],
       financialAssets: INITIAL_FINANCIAL_ASSETS,
       openingCashBalance: INITIAL_OPENING_CASH_BALANCE,
       recurringTransactions: INITIAL_RECURRING_TRANSACTIONS,
@@ -230,6 +235,7 @@ export default function App() {
     plannedExpenses,
     savingsGoals,
     debts,
+    debtPayments,
     financialAssets,
     openingCashBalance,
     recurringTransactions,
@@ -429,6 +435,7 @@ export default function App() {
           setPlannedExpenses(cloud.plannedExpenses);
           setSavingsGoals(cloud.savingsGoals);
           setDebts(cloud.debts);
+          setDebtPayments(cloud.debtPayments);
           setFinancialAssets(cloud.financialAssets);
           setOpeningCashBalance(cloud.openingCashBalance);
           setRecurringTransactions(cloud.recurringTransactions);
@@ -491,6 +498,7 @@ export default function App() {
     plannedExpenses,
     savingsGoals,
     debts,
+    debtPayments,
     financialAssets,
     openingCashBalance,
     recurringTransactions,
@@ -886,7 +894,9 @@ export default function App() {
         {activeTab === 'debt_payoff' && (
           <DebtPayoffSheet
             debts={debts}
+            debtPayments={debtPayments}
             onUpdateDebts={setDebts}
+            onUpdateDebtPayments={setDebtPayments}
             settings={settings}
             highlightInputs={highlightInputs}
             onSelectCell={setSelectedCell}
