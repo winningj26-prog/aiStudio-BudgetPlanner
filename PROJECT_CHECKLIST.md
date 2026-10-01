@@ -242,3 +242,14 @@ Updated after each completed implementation/verification task.
 - [x] Acceptance tests aligned with the structured Bank Account category
 - [ ] Live acceptance: enter multiple pre-existing asset/account types and verify opening net worth
 - [ ] Live acceptance: enter pre-existing debts and verify opening liabilities
+
+## P. Account-linked transaction propagation
+- [x] Income transactions support an optional financial account link
+- [x] Expense transactions support an optional financial account link
+- [x] Cash and bank account balances recalculate from opening balances plus linked activity
+- [x] Legacy unassigned transactions remain supported without double-counting structured accounts
+- [x] Income and expense entry screens expose cash/bank account selectors
+- [x] Account-linked transaction propagation acceptance tests added
+- [ ] Live acceptance: salary credited to a selected bank account updates that account balance
+- [ ] Live acceptance: expense paid from a selected account updates only that account
+- [ ] Live acceptance: account-linked activity propagates to dashboard and net worth
