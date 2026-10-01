@@ -661,6 +661,12 @@ app.post('/api/account/onboarding', async (req, res) => {
   try {
     const authUser = await verifySupabaseRequest(req);
     const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
+    if (req.body?.displayName != null && typeof req.body.displayName !== 'string') {
+      return res.status(400).json({ error: 'Display name must be text.' });
+    }
+    if (displayName.length > 120) {
+      return res.status(400).json({ error: 'Display name must be 120 characters or fewer.' });
+    }
     const planId = req.body?.planId;
 
     if (!displayName) return res.status(400).json({ error: 'Display name is required.' });
@@ -732,7 +738,7 @@ async function getOrCreateToolkitProfile(authUser: { id: string; email?: string 
   if (!profile && authUser.email) {
     const email = encodeURIComponent(authUser.email);
     profiles = await supabaseRequest(
-      `profiles?select=id,email,display_name,photo_url,onboarding_completed,auth_user_id,auth_provider&email=ilike.${email}&limit=1`,
+      `profiles?select=id,email,display_name,photo_url,onboarding_completed,auth_user_id,auth_provider&email=eq.${email}&limit=1`,
     );
     const legacyProfile = profiles?.[0];
     if (legacyProfile && !legacyProfile.auth_user_id) {
