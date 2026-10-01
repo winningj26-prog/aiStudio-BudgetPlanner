@@ -218,7 +218,7 @@ app.post('/api/platform/users/override', async (req, res) => {
     const allowedAppIds = new Set(['budget-planner', 'app-2', 'app-3', 'app-4']);
     const requestedAppAccess = appAccess || {};
     const invalidAppIds = Object.keys(requestedAppAccess).filter((appId) => !allowedAppIds.has(appId));
-    if (invalidAppIds.length) return res.status(400).json({ error: `Unsupported app entitlement: ${invalidAppIds[0]}` });
+    if (invalidAppIds.length) return res.status(400).json({ error: 'Unsupported app entitlement: ' + invalidAppIds[0] });
 
     const userRows = await supabaseRequest(
       `profiles?select=id,email,display_name,onboarding_completed&id=eq.${encodeURIComponent(userId)}&limit=1`,
