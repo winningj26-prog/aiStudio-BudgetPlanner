@@ -5,14 +5,21 @@ let cachedGoogleAccessToken: string | null = null;
 
 export type AuthUser = User;
 
+export const getAuthSessionState = (session: Session | null) => ({
+  authenticated: Boolean(session?.user),
+  userId: session?.user?.id ?? null,
+  providerToken: session?.provider_token ?? null,
+});
+
 export const initAuth = (
   onAuthSuccess?: (user: User, providerToken: string | null) => void,
   onAuthFailure?: () => void,
   onPasswordRecovery?: (session: Session | null) => void,
 ) => {
   const syncSession = (session: Session | null) => {
-    cachedGoogleAccessToken = session?.provider_token ?? null;
-    if (session?.user) {
+    const authState = getAuthSessionState(session);
+    cachedGoogleAccessToken = authState.providerToken;
+    if (authState.authenticated && session?.user) {
       onAuthSuccess?.(session.user, cachedGoogleAccessToken);
     } else {
       cachedGoogleAccessToken = null;
