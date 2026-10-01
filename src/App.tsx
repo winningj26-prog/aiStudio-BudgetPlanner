@@ -936,6 +936,7 @@ export default function App() {
         {activeTab === 'net_worth' && (
           <NetWorthForecaster
             debts={debts}
+            debtPayments={debtPayments}
             financialAssets={financialAssets}
             openingCashBalance={openingCashBalance}
             onUpdateFinancialAssets={setFinancialAssets}
