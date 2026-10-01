@@ -27,9 +27,21 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const finishWithFreshSession = async () => {
+    const session = await loadToolkitAccountSession(user);
+    if (!session) {
+      throw new Error('Your account was saved, but the Toolkit session could not be refreshed. Please try again.');
+    }
+    onComplete(session);
+  };
+
   const handleApproved = async () => {
-    window.history.replaceState({}, '', window.location.pathname);
-    onComplete(await loadToolkitAccountSession(user));
+    try {
+      window.history.replaceState({}, '', window.location.pathname);
+      await finishWithFreshSession();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to finish onboarding.');
+    }
   };
 
   const handleContinue = async () => {
@@ -42,7 +54,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
     try {
       await completeToolkitOnboarding(user, displayName.trim(), planId);
       if (planId === 'free') {
-        onComplete(await loadToolkitAccountSession(user));
+        await finishWithFreshSession();
         return;
       }
       window.history.replaceState({}, '', `?mobile_money=${planId}`);
@@ -79,7 +91,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
           <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-lg font-bold text-white">About you</h2>
             <label className="mt-5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Display name
-              <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name" className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400" placeholder="Your name" />
+              <input value={displayName} maxLength={120} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name" className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400" placeholder="Your name" />
             </label>
             <p className="mt-4 text-xs text-slate-500">{user.email}</p>
           </section>
