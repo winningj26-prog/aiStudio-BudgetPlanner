@@ -61,11 +61,9 @@ const isRecurring = (value: unknown): value is RecurringTransaction => {
     || (value.type !== 'income' && value.type !== 'expense')
     || typeof value.description !== 'string'
     || !isNonNegativeNumber(value.amount)
-    || typeof value.category !== 'string'
-    || !isFiniteNumber(value.dayOfMonth)
-    || !Number.isInteger(value.dayOfMonth)
-    || value.dayOfMonth < 1
-    || value.dayOfMonth > 31
+    || typeof value.category !== 'string') return false;
+  const dayOfMonth = value.dayOfMonth;
+  if (!isFiniteNumber(dayOfMonth) || !Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31
     || (value.paymentMethod != null && typeof value.paymentMethod !== 'string')
     || !['monthly','bi-weekly','weekly','yearly'].includes(String(value.frequency))
     || typeof value.isActive !== 'boolean'
