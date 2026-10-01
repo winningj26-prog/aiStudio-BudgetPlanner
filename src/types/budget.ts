@@ -19,6 +19,8 @@ export interface IncomeTransaction {
   category: string;
   description: string;
   amount: number;
+  /** Financial account receiving this income. Optional for legacy transactions. */
+  accountId?: string;
   recurringId?: string;
   isRecurring?: boolean;
 }
@@ -30,6 +32,8 @@ export interface ExpenseTransaction {
   description: string;
   paymentMethod: string;
   amount: number;
+  /** Financial account funding this expense. Optional for legacy transactions. */
+  accountId?: string;
   recurringId?: string;
   isRecurring?: boolean;
 }
