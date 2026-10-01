@@ -169,3 +169,4 @@ Updated after each completed implementation/verification task.
 - [x] Monime checkout respects the platform payment-method configuration
 - [x] V1 validation passed after the quick fixes (#275)
 - [x] Supabase schema verified for account suspension and payment configuration fields
+- [x] Suspension and payment configuration fixes deployed to Render and reached live (`dep-davcca3m8hqs73bt34pg`)
