@@ -52,6 +52,7 @@ const isDebt = (value: unknown): value is Debt =>
   isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string'
   && isNonNegativeNumber(value.balance) && isNonNegativeNumber(value.interestRate)
   && isNonNegativeNumber(value.minimumPayment)
+  && (value.openingBalance == null || isNonNegativeNumber(value.openingBalance))
   && (value.notes == null || typeof value.notes === 'string')
   && (value.color == null || typeof value.color === 'string');
 
@@ -59,7 +60,8 @@ const isDebt = (value: unknown): value is Debt =>
 const isAsset = (value: unknown): value is FinancialAsset =>
   isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string'
   && isNonNegativeNumber(value.amount)
-  && ['Liquid','Investment','Real Estate','Other'].includes(String(value.category));
+  && (value.openingAmount == null || isNonNegativeNumber(value.openingAmount))
+  && ['Liquid','Investment','Real Estate','Vehicle','Business','Retirement','Receivable','Other'].includes(String(value.category));
 
 const isRecurring = (value: unknown): value is RecurringTransaction => {
   if (!isRecord(value)
