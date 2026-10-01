@@ -6,6 +6,7 @@ import {
   RecurringTransaction,
   SavingsGoal,
   SettingsState,
+  FinancialAsset,
 } from '../types/budget';
 
 export const INITIAL_SETTINGS: SettingsState = {
@@ -59,3 +60,10 @@ export const INITIAL_PLANNED_EXPENSES: Record<string, number> = {};
 export const INITIAL_SAVINGS_GOALS: SavingsGoal[] = [];
 export const INITIAL_DEBTS: Debt[] = [];
 export const INITIAL_RECURRING_TRANSACTIONS: RecurringTransaction[] = [];
+
+export const INITIAL_OPENING_CASH_BALANCE = 12500;
+export const INITIAL_FINANCIAL_ASSETS: FinancialAsset[] = [
+  { id: 'asset_1', name: 'Stock Brokerage Portfolio', amount: 28400, category: 'Investment' },
+  { id: 'asset_2', name: 'Primary Residence (Equity)', amount: 185000, category: 'Real Estate' },
+  { id: 'asset_3', name: 'Retirement Account (401k/IRA)', amount: 45000, category: 'Investment' },
+];
