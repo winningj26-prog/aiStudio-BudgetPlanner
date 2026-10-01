@@ -75,6 +75,7 @@ Updated after each completed implementation/verification task.
 - [x] Browser uses Supabase publishable key
 - [x] Server-only privileged Supabase access
 - [x] Platform secrets kept out of browser responses
+- [x] Supabase Security Advisor reviewed (2026-10-01)
 - [ ] Enable leaked-password protection if available on current Supabase plan
 - [ ] Final admin authorization/audit review
 - [ ] Rotate/remove temporary test credentials
@@ -98,3 +99,9 @@ Updated after each completed implementation/verification task.
 ## Current blocker / dependency
 - Real Mobile Money verification requires the user's actual provider/account details.
 - Production auth email confirmation requires an owned sending domain/custom SMTP.
+- Current Supabase Security Advisor warning: leaked-password protection is disabled. Current Supabase documentation says this feature is available on Pro and above.
+
+## Latest verification
+- Supabase project status: ACTIVE_HEALTHY
+- Postgres: 17.6.1
+- Security Advisor: intentional RLS notices plus leaked-password protection warning; no unexpected public-access finding.
