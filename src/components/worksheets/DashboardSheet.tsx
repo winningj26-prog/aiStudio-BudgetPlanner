@@ -831,6 +831,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         incomeTransactions={incomeTransactions}
         expenseTransactions={expenseTransactions}
         settings={settings}
+        plannedExpenses={plannedExpenses}
       />
 
       {/* ---------------------------------------------------------------------- */}

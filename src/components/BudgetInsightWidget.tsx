@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Lightbulb, X, CheckCircle2, AlertTriangle, Coins, Receipt, ArrowRight, Wallet, PiggyBank, Sparkles } from 'lucide-react';
+import { Lightbulb, X } from 'lucide-react';
 import { ExpenseTransaction, IncomeTransaction, SettingsState } from '../types/budget';
 import { formatCurrency } from '../utils/formatters';
 import { sumExpenseTransactions, sumIncomeTransactions } from '../utils/formulas';
@@ -8,6 +8,7 @@ interface BudgetInsightWidgetProps {
   incomeTransactions: IncomeTransaction[];
   expenseTransactions: ExpenseTransaction[];
   settings: SettingsState;
+  plannedExpenses: Record<string, number>;
 }
 
 interface HeuristicTip {
@@ -19,10 +20,71 @@ interface HeuristicTip {
   theme: 'warning' | 'success' | 'info' | 'danger';
 }
 
+const ProgressRing: React.FC<{ percentage: number; label: string }> = ({ percentage, label }) => {
+  const radius = 24;
+  const stroke = 4;
+  const normalizedRadius = radius - stroke * 2;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  // Cap percentage shown at 100 on the circle but keep number
+  const cappedPercent = Math.min(100, Math.max(0, percentage));
+  const strokeDashoffset = circumference - (cappedPercent / 100) * circumference;
+
+  let strokeColor = 'text-indigo-600';
+  if (percentage >= 100) {
+    strokeColor = 'text-rose-600 animate-pulse';
+  } else if (percentage >= 90) {
+    strokeColor = 'text-amber-500';
+  } else if (percentage > 0) {
+    strokeColor = 'text-emerald-500';
+  }
+
+  return (
+    <div className="flex items-center gap-2.5 bg-white/70 hover:bg-white/95 transition-all p-2 rounded-xl border border-slate-150 shadow-3xs backdrop-blur-xs select-none">
+      <div className="relative flex items-center justify-center h-11 w-11 shrink-0">
+        <svg className="h-11 w-11 transform -rotate-90">
+          <circle
+            className="text-slate-150"
+            strokeWidth={stroke}
+            stroke="currentColor"
+            fill="transparent"
+            r={normalizedRadius}
+            cx={radius}
+            cy={radius}
+          />
+          <circle
+            className={`${strokeColor} transition-all duration-500 ease-out`}
+            strokeWidth={stroke}
+            strokeDasharray={circumference + ' ' + circumference}
+            style={{ strokeDashoffset }}
+            strokeLinecap="round"
+            stroke="currentColor"
+            fill="transparent"
+            r={normalizedRadius}
+            cx={radius}
+            cy={radius}
+          />
+        </svg>
+        <span className="absolute text-[9px] font-black text-slate-800 font-mono">
+          {percentage}%
+        </span>
+      </div>
+      <div className="min-w-0 pr-1">
+        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">
+          Budget Spent
+        </span>
+        <span className="text-[10px] font-bold text-slate-700 truncate block max-w-28" title={label}>
+          {label}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 export const BudgetInsightWidget: React.FC<BudgetInsightWidgetProps> = ({
   incomeTransactions,
   expenseTransactions,
   settings,
+  plannedExpenses,
 }) => {
   const [isMounted, setIsMounted] = useState(false);
   const [isDismissed, setIsDismissed] = useState(true); // Start as true, compute on mount to prevent hydration mismatch
@@ -57,20 +119,18 @@ export const BudgetInsightWidget: React.FC<BudgetInsightWidgetProps> = ({
     setIsDismissed(true);
   };
 
-  // Heuristic engine analyzing live transactions
-  const dailyTip = useMemo<HeuristicTip>(() => {
-    const totalInc = sumIncomeTransactions(incomeTransactions);
-    const totalExp = sumExpenseTransactions(expenseTransactions);
-    const netSurp = totalInc - totalExp;
-    const rate = totalInc > 0 ? (netSurp / totalInc) * 100 : 0;
-
-    // Group expenses by category
-    const categoryTotals: Record<string, number> = {};
+  // Group expenses by category
+  const categoryTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
     expenseTransactions.forEach((t) => {
       const cat = t.category || 'Uncategorized';
-      categoryTotals[cat] = (categoryTotals[cat] || 0) + (t.amount || 0);
+      totals[cat] = (totals[cat] || 0) + (t.amount || 0);
     });
+    return totals;
+  }, [expenseTransactions]);
 
+  // Find top expense category and its spent budget percentage
+  const topCategoryInfo = useMemo(() => {
     let topCategory = 'None';
     let topCategoryAmount = 0;
     Object.entries(categoryTotals).forEach(([cat, amt]) => {
@@ -79,7 +139,105 @@ export const BudgetInsightWidget: React.FC<BudgetInsightWidgetProps> = ({
         topCategory = cat;
       }
     });
-    const topCategoryPercent = totalExp > 0 ? (topCategoryAmount / totalExp) * 100 : 0;
+
+    const plannedLimit = plannedExpenses[topCategory] || 0;
+    const spentPercent = plannedLimit > 0 ? (topCategoryAmount / plannedLimit) * 100 : 0;
+
+    return {
+      category: topCategory,
+      amount: topCategoryAmount,
+      planned: plannedLimit,
+      percent: Math.round(spentPercent),
+    };
+  }, [categoryTotals, plannedExpenses]);
+
+  // Find top spending category in the last 30 days and its historical monthly average
+  const topCategory30DaysInfo = useMemo(() => {
+    if (expenseTransactions.length === 0) {
+      return { category: 'None', amount: 0, historicalAverage: 0, exceedsAverage: false, difference: 0, percentExceeded: 0 };
+    }
+
+    // 1. Establish reference "today" date based on the latest transaction date (to support templates gracefully)
+    const transactionTimestamps = expenseTransactions
+      .map((t) => new Date(t.date).getTime())
+      .filter((time) => !isNaN(time));
+    const refDate = transactionTimestamps.length > 0 ? new Date(Math.max(...transactionTimestamps)) : new Date();
+
+    // 30 days window start date
+    const start30DaysAgo = new Date(refDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Filter transactions in the last 30 days
+    const last30DaysTx = expenseTransactions.filter((t) => {
+      const txDate = new Date(t.date);
+      return txDate >= start30DaysAgo && txDate <= refDate;
+    });
+
+    // Sum last 30 days by category
+    const cat30Totals: Record<string, number> = {};
+    last30DaysTx.forEach((t) => {
+      const cat = t.category || 'Uncategorized';
+      cat30Totals[cat] = (cat30Totals[cat] || 0) + (t.amount || 0);
+    });
+
+    let topCategory = 'None';
+    let topCategoryAmount = 0;
+    Object.entries(cat30Totals).forEach(([cat, amt]) => {
+      if (amt > topCategoryAmount) {
+        topCategoryAmount = amt;
+        topCategory = cat;
+      }
+    });
+
+    // 2. Filter transactions older than 30 days to calculate historical monthly average
+    const historicalTx = expenseTransactions.filter((t) => {
+      const txDate = new Date(t.date);
+      return txDate < start30DaysAgo;
+    });
+
+    // Group historical transactions by Year-Month and sum for this specific category
+    const historicalMonthlySums: Record<string, number> = {};
+    historicalTx.forEach((t) => {
+      if (t.category === topCategory) {
+        const txDate = new Date(t.date);
+        const key = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+        historicalMonthlySums[key] = (historicalMonthlySums[key] || 0) + (t.amount || 0);
+      }
+    });
+
+    const monthsCount = Object.keys(historicalMonthlySums).length;
+    let historicalAverage = 0;
+
+    if (monthsCount > 0) {
+      const totalHistoricalSpend = Object.values(historicalMonthlySums).reduce((a, b) => a + b, 0);
+      historicalAverage = totalHistoricalSpend / monthsCount;
+    } else {
+      // Robust Fallback: If no historical transactions, fallback to planned budget for this category
+      historicalAverage = plannedExpenses[topCategory] || 0;
+    }
+
+    const exceedsAverage = topCategoryAmount > historicalAverage && historicalAverage > 0;
+    const difference = exceedsAverage ? topCategoryAmount - historicalAverage : 0;
+    const percentExceeded = historicalAverage > 0 ? (difference / historicalAverage) * 100 : 0;
+
+    return {
+      category: topCategory,
+      amount: topCategoryAmount,
+      historicalAverage,
+      exceedsAverage,
+      difference,
+      percentExceeded: Math.round(percentExceeded),
+    };
+  }, [expenseTransactions, plannedExpenses]);
+
+  // Heuristic engine analyzing live transactions
+  const dailyTip = useMemo<HeuristicTip>(() => {
+    const totalInc = sumIncomeTransactions(incomeTransactions);
+    const totalExp = sumExpenseTransactions(expenseTransactions);
+    const netSurp = totalInc - totalExp;
+    const rate = totalInc > 0 ? (netSurp / totalInc) * 100 : 0;
+
+    let topCategory = topCategoryInfo.category;
+    const topCategoryPercent = totalExp > 0 ? (topCategoryInfo.amount / totalExp) * 100 : 0;
 
     // Check for subscription keyword indicators
     const hasSubscriptions = expenseTransactions.some((t) => {
@@ -94,6 +252,18 @@ export const BudgetInsightWidget: React.FC<BudgetInsightWidgetProps> = ({
     });
 
     const matchedTips: HeuristicTip[] = [];
+
+    // Heuristic 0 (Highest priority): Top Category exceeds historical monthly average
+    if (topCategory30DaysInfo.exceedsAverage) {
+      matchedTips.push({
+        id: 'historical_excess',
+        title: `Spend Reduction Alert: '${topCategory30DaysInfo.category}'`,
+        recommendation: `Your spending on '${topCategory30DaysInfo.category}' over the last 30 days (${formatCurrency(topCategory30DaysInfo.amount, settings.currency)}) has exceeded your historical monthly average of ${formatCurrency(topCategory30DaysInfo.historicalAverage, settings.currency)} by ${topCategory30DaysInfo.percentExceeded}%. To curb this trend, we recommend setting up a 24-hour cooling-off period before completing checkouts in this category.`,
+        metricLabel: 'Excess vs. Avg',
+        metricValue: `+${formatCurrency(topCategory30DaysInfo.difference, settings.currency)} (${topCategory30DaysInfo.percentExceeded}% high)`,
+        theme: 'danger',
+      });
+    }
 
     // Heuristic 1: Net Deficit (Expenses exceed income)
     if (totalExp > totalInc && totalInc > 0) {
@@ -132,11 +302,11 @@ export const BudgetInsightWidget: React.FC<BudgetInsightWidgetProps> = ({
     }
 
     // Heuristic 4: Category concentration
-    if (topCategoryAmount > 0 && topCategoryPercent > 35) {
+    if (topCategoryInfo.amount > 0 && topCategoryPercent > 35) {
       matchedTips.push({
         id: 'category_concentration',
         title: `Optimize '${topCategory}' Categories`,
-        recommendation: `Your spending in '${topCategory}' represents ${topCategoryPercent.toFixed(0)}% of your entire monthly outlay (${formatCurrency(topCategoryAmount, settings.currency)}). When a single category dominates your budget, try establishing a weekly spending cap specifically for '${topCategory}'. Micro-milestones are much easier to stick to than monthly goals!`,
+        recommendation: `Your spending in '${topCategory}' represents ${topCategoryPercent.toFixed(0)}% of your entire monthly outlay (${formatCurrency(topCategoryInfo.amount, settings.currency)}). When a single category dominates your budget, try establishing a weekly spending cap specifically for '${topCategory}'. Micro-milestones are much easier to stick to than monthly goals!`,
         metricLabel: `Top Category Ratio (${topCategory})`,
         metricValue: `${topCategoryPercent.toFixed(0)}% of expenses`,
         theme: 'warning',
@@ -181,13 +351,13 @@ export const BudgetInsightWidget: React.FC<BudgetInsightWidgetProps> = ({
     const dayOfMonth = new Date().getDate();
     const selectedIndex = dayOfMonth % matchedTips.length;
     return matchedTips[selectedIndex] || matchedTips[0];
-  }, [incomeTransactions, expenseTransactions, settings]);
+  }, [incomeTransactions, expenseTransactions, settings, topCategoryInfo, topCategory30DaysInfo]);
 
   if (isDismissed) return null;
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-linear-to-r from-indigo-50/40 via-blue-50/20 to-emerald-50/20 p-5 shadow-xs transition-all duration-550 ease-out ${
+      className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-linear-to-r from-indigo-50/45 via-blue-50/20 to-emerald-50/25 p-5 shadow-xs transition-all duration-550 ease-out ${
         isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
       }`}
     >
@@ -195,20 +365,20 @@ export const BudgetInsightWidget: React.FC<BudgetInsightWidgetProps> = ({
       <button
         type="button"
         onClick={handleDismiss}
-        className="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white/80 hover:bg-slate-100 text-slate-400 hover:text-slate-700 shadow-3xs cursor-pointer transition-colors"
+        className="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white/80 hover:bg-slate-100 text-slate-400 hover:text-slate-700 shadow-3xs cursor-pointer transition-colors z-10"
         title="Dismiss for today"
       >
         <X className="h-3.5 w-3.5" />
       </button>
 
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5 pr-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 pr-6">
         <div className="flex items-start gap-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-tr from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-600/15">
             <Lightbulb className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-50/80 px-2 py-0.5 rounded-md border border-indigo-100">
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-50/85 px-2 py-0.5 rounded-md border border-indigo-100">
                 Daily Budget Insight
               </span>
               <span className="text-[10px] text-slate-400 font-semibold">• Heuristic Analyzer</span>
@@ -224,26 +394,37 @@ export const BudgetInsightWidget: React.FC<BudgetInsightWidgetProps> = ({
           </div>
         </div>
 
-        {/* Quick Stats Check display */}
-        <div className="rounded-xl border border-slate-200 bg-white/80 p-3.5 shrink-0 md:min-w-56 backdrop-blur-xs flex flex-col justify-between self-stretch md:self-auto shadow-2xs">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
-            {dailyTip.metricLabel}
-          </span>
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <span className="text-xs font-black text-slate-950">
-              {dailyTip.metricValue}
-            </span>
-            <span
-              className={`h-2.5 w-2.5 rounded-full ${
-                dailyTip.theme === 'danger'
-                  ? 'bg-rose-500 animate-pulse'
-                  : dailyTip.theme === 'warning'
-                  ? 'bg-amber-400'
-                  : dailyTip.theme === 'success'
-                  ? 'bg-emerald-500'
-                  : 'bg-blue-500'
-              }`}
+        {/* Visual elements container: Progress Ring + Stat Badge */}
+        <div className="flex flex-wrap items-center gap-3 self-stretch lg:self-auto shrink-0">
+          {/* Progress Ring for top Category spend vs budget if planned */}
+          {topCategoryInfo.planned > 0 && (
+            <ProgressRing
+              percentage={topCategoryInfo.percent}
+              label={topCategoryInfo.category}
             />
+          )}
+
+          {/* Quick Stats Check display */}
+          <div className="rounded-xl border border-slate-200 bg-white/80 p-3 shrink-0 min-w-[170px] backdrop-blur-xs flex flex-col justify-between shadow-2xs">
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">
+              {dailyTip.metricLabel}
+            </span>
+            <div className="mt-1.5 flex items-center justify-between gap-3">
+              <span className="text-xs font-black text-slate-950">
+                {dailyTip.metricValue}
+              </span>
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  dailyTip.theme === 'danger'
+                    ? 'bg-rose-500 animate-pulse'
+                    : dailyTip.theme === 'warning'
+                    ? 'bg-amber-400'
+                    : dailyTip.theme === 'success'
+                    ? 'bg-emerald-500'
+                    : 'bg-blue-500'
+                }`}
+              />
+            </div>
           </div>
         </div>
       </div>
