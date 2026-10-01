@@ -156,3 +156,5 @@ Updated after each completed implementation/verification task.
 - [ ] Subscription & entitlements live acceptance: Plus/Pro feature access matrix with real accounts
 - [x] Module 3 entitlement hardening deployed to Render and reached live (`dep-davbm7ndjqhc73efeag0`)
 - [x] Suspended subscription database constraint applied and verified live (Supabase migration `20261001195701`)
+- [x] Subscription & entitlements live validation compile blocker fixed (stale `plans` reference in `OnboardingView.tsx`)
+- [x] V1 validation pipeline passed after Module 3 hardening (#252)
