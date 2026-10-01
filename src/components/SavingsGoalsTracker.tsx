@@ -5,6 +5,7 @@ import {
   SettingsState,
 } from '../types/budget';
 import { formatCurrency } from '../utils/formatters';
+import { calculateSavingsGoalProgress } from '../utils/financialPlanning';
 import {
   Award,
   Calendar,
@@ -91,11 +92,12 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   ];
 
   // Aggregated calculations
-  const totalTarget = savingsGoals.reduce((sum, g) => sum + (g.targetAmount || 0), 0);
-  const totalSaved = savingsGoals.reduce((sum, g) => sum + (g.currentAmount || 0), 0);
+  const goalProgress = savingsGoals.map(calculateSavingsGoalProgress);
+  const totalTarget = goalProgress.reduce((sum, g) => sum + g.targetAmount, 0);
+  const totalSaved = goalProgress.reduce((sum, g) => sum + g.currentAmount, 0);
   const totalRemaining = Math.max(0, totalTarget - totalSaved);
   const overallProgressPct = totalTarget > 0 ? Math.min(100, (totalSaved / totalTarget) * 100) : 0;
-  const completedGoalsCount = savingsGoals.filter((g) => g.currentAmount >= g.targetAmount).length;
+  const completedGoalsCount = goalProgress.filter((g) => g.isComplete).length;
   const totalMonthlyCommitment = savingsGoals.reduce((sum, g) => sum + (g.monthlyContribution || 0), 0);
 
   // Filtered goals
@@ -196,7 +198,7 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
     e.preventDefault();
     if (!contributeGoal) return;
     const added = parseFloat(contributionAmount) || 0;
-    if (added === 0) return;
+    if (!Number.isFinite(added) || added <= 0) return;
 
     const updated = savingsGoals.map((g) => {
       if (g.id === contributeGoal.id) {
