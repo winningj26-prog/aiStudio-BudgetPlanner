@@ -100,6 +100,8 @@ Updated after each completed implementation/verification task.
 - [ ] Auth/session acceptance test
 - [ ] Full production smoke/acceptance pass
 
+- [x] V1 validation TypeScript blocker fixed (duplicate auth import)
+
 ## Current blocker / dependency
 - Real Mobile Money verification requires the user's actual provider/account details.
 - Production auth email confirmation requires an owned sending domain/custom SMTP.
