@@ -16,6 +16,7 @@ import {
   Save,
   Search,
   Settings2,
+  RefreshCw,
   ShieldCheck,
   Smartphone,
   Sparkles,
@@ -120,6 +121,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
   const [profilesMap, setProfilesMap] = useState<Record<string, { email: string, display_name: string | null }>>({});
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [listsLoading, setListsLoading] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
   // Review interaction state
   const [decisionNote, setDecisionNote] = useState('');
@@ -181,6 +183,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
       console.error('Failed to load lists:', err);
     } finally {
       setListsLoading(false);
+      setLastRefreshedAt(new Date());
     }
   };
 
@@ -253,7 +256,28 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
   // Derived Admin Aggregations
   const totalUsersCount = users.length;
   const activePremiumCount = useMemo(() => {
-    return subscriptions.filter(s => s.status === 'active' || s.status === 'trialing').length;
+    return subscriptions.filter(s =>
+      (s.status === 'active' || s.status === 'trialing') && s.plan_id !== 'free'
+    ).length;
+  }, [subscriptions]);
+
+  const subscriptionByUser = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const subscription of subscriptions) {
+      const current = map[subscription.user_id];
+      if (!current) {
+        map[subscription.user_id] = subscription;
+        continue;
+      }
+      const currentEnd = current.current_period_end ? new Date(current.current_period_end).getTime() : 0;
+      const nextEnd = subscription.current_period_end ? new Date(subscription.current_period_end).getTime() : 0;
+      if (subscription.status === 'active' && current.status !== 'active') {
+        map[subscription.user_id] = subscription;
+      } else if (subscription.status === current.status && nextEnd > currentEnd) {
+        map[subscription.user_id] = subscription;
+      }
+    }
+    return map;
   }, [subscriptions]);
 
   const pendingPaymentsCount = useMemo(() => {
@@ -269,7 +293,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
   // Filtered Users List
   const filteredUsers = useMemo(() => {
     return users.filter(u => {
-      const sub = subscriptions.find(s => s.user_id === u.id);
+      const sub = subscriptionByUser[u.id];
       const plan = sub?.plan_id || 'free';
       const matchesSearch = 
         u.email?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
@@ -278,7 +302,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
       if (userPlanFilter !== 'all' && plan !== userPlanFilter) return false;
       return matchesSearch;
     });
-  }, [users, subscriptions, userSearchQuery, userPlanFilter]);
+  }, [users, subscriptionByUser, userSearchQuery, userPlanFilter]);
 
   if (loading || !config) {
     return (
@@ -300,6 +324,12 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
     config.secrets.monimeSpaceIdConfigured &&
     config.secrets.monimeWebhookSecretConfigured,
   );
+  const configuredIntegrations = [
+    mobileMoneyReady,
+    monimeReady,
+    Boolean(config.secrets.geminiApiKeyConfigured),
+    Boolean(config.secrets.resendSmtpPasswordConfigured),
+  ].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-cyan-200">
@@ -355,7 +385,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                 </p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-none">Revenue (Le)</p>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-none">Approved Payments</p>
                 <p className="mt-1.5 text-base font-black text-emerald-400">Le {totalCollectedRevenue.toLocaleString()}</p>
               </div>
             </div>
@@ -461,8 +491,8 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                   <CreditCard className="h-6 w-6" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block leading-none">Estimated Total (ARR)</span>
-                  <span className="text-xl font-black text-slate-900 mt-1 block">Le {(totalCollectedRevenue * 12).toLocaleString()}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block leading-none">Configured Integrations</span>
+                  <span className="text-xl font-black text-slate-900 mt-1 block">{configuredIntegrations} / 4 ready</span>
                 </div>
               </div>
             </div>
@@ -477,7 +507,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                 </div>
                 <div className="divide-y divide-slate-100 space-y-2">
                   {users.slice(0, 5).map(u => {
-                    const sub = subscriptions.find(s => s.user_id === u.id);
+                    const sub = subscriptionByUser[u.id];
                     const plan = sub?.plan_id || 'free';
                     return (
                       <div key={u.id} className="pt-2 pb-1.5 flex items-center justify-between text-xs gap-3">
@@ -549,6 +579,42 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+
+            <div className={`${sectionClass} p-5 sm:p-6`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">Platform Readiness</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Operational configuration at a glance. Secret values remain hidden.</p>
+                </div>
+                <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                  {lastRefreshedAt && <span>Updated {lastRefreshedAt.toLocaleTimeString()}</span>}
+                  <button
+                    type="button"
+                    onClick={() => { void load(); void loadLists(); }}
+                    disabled={listsLoading || loading}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${listsLoading || loading ? 'animate-spin' : ''}`} /> Refresh
+                  </button>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  ['Mobile Money', mobileMoneyReady, 'Payment instructions are customer-ready.'],
+                  ['Monime', monimeReady, 'Gateway credentials are stored in Vault.'],
+                  ['Gemini', Boolean(config.secrets.geminiApiKeyConfigured), 'AI integration credential is configured.'],
+                  ['Resend', Boolean(config.secrets.resendSmtpPasswordConfigured), 'SMTP credential is configured.'],
+                ].map(([label, ready, description]) => (
+                  <div key={String(label)} className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-extrabold text-slate-800">{String(label)}</span>
+                      <StatusPill active={Boolean(ready)} />
+                    </div>
+                    <p className="mt-2 text-[10px] leading-4 text-slate-500">{String(description)}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
