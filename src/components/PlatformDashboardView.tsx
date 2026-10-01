@@ -1041,11 +1041,11 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                   <Field label="Currency" hint="Three-letter payment currency code.">
                     <input className={inputClass} value={config.currency} onChange={e => update('currency', e.target.value.toUpperCase())} />
                   </Field>
-                  <Field label="Plus amount">
-                    <input className={inputClass} type="number" min="1" step="1" value={config.plusAmount} onChange={e => update('plusAmount', Number(e.target.value))} />
+                  <Field label="Plus amount" hint="Positive amount; up to two decimal places.">
+                    <input className={inputClass} type="number" min="0.01" step="0.01" value={config.plusAmount} onChange={e => update('plusAmount', Number(e.target.value))} />
                   </Field>
-                  <Field label="Pro amount">
-                    <input className={inputClass} type="number" min="1" step="1" value={config.proAmount} onChange={e => update('proAmount', Number(e.target.value))} />
+                  <Field label="Pro amount" hint="Positive amount; up to two decimal places.">
+                    <input className={inputClass} type="number" min="0.01" step="0.01" value={config.proAmount} onChange={e => update('proAmount', Number(e.target.value))} />
                   </Field>
                 </div>
               </section>
