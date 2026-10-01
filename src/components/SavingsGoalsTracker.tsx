@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   CategoryItem,
   SavingsGoal,
+  FinancialAsset,
   SettingsState,
 } from '../types/budget';
 import { formatCurrency } from '../utils/formatters';
@@ -33,6 +34,7 @@ interface SavingsGoalsTrackerProps {
   categories: CategoryItem[];
   incomeCategories: CategoryItem[];
   settings: SettingsState;
+  financialAssets?: FinancialAsset[];
   onSelectCell?: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
   currentMonthlySavings?: number;
   currentSavingsRate?: number;
@@ -44,6 +46,7 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   categories,
   incomeCategories,
   settings,
+  financialAssets = [],
   onSelectCell,
   currentMonthlySavings = 500, // default fallback
   currentSavingsRate = 20,     // default fallback
@@ -66,6 +69,7 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   const [monthlyContribution, setMonthlyContribution] = useState('');
   const [goalColor, setGoalColor] = useState('#059669');
   const [goalNotes, setGoalNotes] = useState('');
+  const [goalAccountId, setGoalAccountId] = useState('');
 
   // Savings Goal Calculator Widget states
   const [calcTargetAmount, setCalcTargetAmount] = useState('5000');
@@ -78,6 +82,7 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
     ...incomeCategories.filter((c) => c.isActive).map((c) => c.name),
   ];
   const uniqueCategoryNames = Array.from(new Set(['Savings', 'Emergency Fund', 'Investments', ...allCategories]));
+  const cashAccounts = financialAssets.filter((asset) => asset.category === 'Cash' || asset.category === 'Bank');
 
   // Color palette options for goals
   const COLOR_PALETTE = [
@@ -113,12 +118,13 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
     setEditingGoal(null);
     setGoalName('');
     setTargetAmount('5000');
-    setCurrentAmount('500');
+    setCurrentAmount('0');
     setCategoryName('Savings');
     setTargetDate('2026-12-31');
     setMonthlyContribution('250');
     setGoalColor('#059669');
     setGoalNotes('');
+    setGoalAccountId('');
     setIsAddGoalModalOpen(true);
   };
 
@@ -133,6 +139,7 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
     setMonthlyContribution(goal.monthlyContribution ? String(goal.monthlyContribution) : '');
     setGoalColor(goal.color || '#059669');
     setGoalNotes(goal.notes || '');
+    setGoalAccountId(goal.accountId || '');
     setIsAddGoalModalOpen(true);
   };
 
@@ -153,6 +160,7 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
               ...g,
               name: goalName.trim(),
               categoryName,
+              accountId: goalAccountId || undefined,
               targetAmount: target,
               currentAmount: current,
               targetDate: targetDate || undefined,
@@ -169,6 +177,7 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
         id: `goal_${Date.now()}`,
         name: goalName.trim(),
         categoryName,
+        accountId: goalAccountId || undefined,
         targetAmount: target,
         currentAmount: current,
         targetDate: targetDate || undefined,
@@ -585,6 +594,11 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                           )}
                         </div>
 
+                        {goal.accountId && (
+                          <p className="text-[10px] font-bold text-emerald-700 mt-1">
+                            Earmarked in: {cashAccounts.find((account) => account.id === goal.accountId)?.name || 'Linked account'}
+                          </p>
+                        )}
                         {goal.notes && (
                           <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{goal.notes}</p>
                         )}
@@ -808,6 +822,26 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Funding Account */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Funding Account</label>
+                <select
+                  value={goalAccountId}
+                  onChange={(e) => setGoalAccountId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-emerald-500 focus:outline-hidden cursor-pointer"
+                >
+                  <option value="">Unlinked — tracking only</option>
+                  {cashAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} ({account.category})
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Goal funds stay inside this account. The goal never creates a second asset or changes net worth.
+                </p>
               </div>
 
               {/* Target Amount & Initial Amount */}
