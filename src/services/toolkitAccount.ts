@@ -44,6 +44,17 @@ export async function completeToolkitOnboarding(
   }
 }
 
+export async function downgradeToolkitSubscriptionToFree(user: User): Promise<void> {
+  const idToken = await getAuthAccessToken();
+  const response = await fetch('/api/account/subscription', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ planId: 'free' }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || 'Unable to change subscription plan.');
+}
+
 export async function createBillingCheckout(
   user: User,
   planId: 'plus' | 'pro',
