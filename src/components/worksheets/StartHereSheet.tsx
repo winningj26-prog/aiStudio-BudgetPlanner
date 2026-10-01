@@ -38,7 +38,7 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
   onLogout,
   onOpenToolkit,
 }) => {
-  // 6 Sequential Quick Start Steps (Streamlined without redundant navigation directory)
+  // 6 Sequential Quick Start Steps (Streamlined and responsive)
   const quickStartSteps = [
     {
       step: 1,
@@ -57,8 +57,8 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
       target: 'income' as WorksheetTab,
       sheetLabel: 'Income',
       btnText: 'Enter Income',
-      icon: <Coins className="h-5 w-5 text-teal-600" />,
-      tagColor: 'bg-teal-50 text-teal-800 border-teal-200',
+      icon: <Coins className="h-5 w-5 text-emerald-600" />,
+      tagColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
     },
     {
       step: 3,
@@ -77,8 +77,8 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
       target: 'monthly_budget' as WorksheetTab,
       sheetLabel: 'Monthly Budget',
       btnText: 'Set Planned Budget',
-      icon: <Scale className="h-5 w-5 text-indigo-600" />,
-      tagColor: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+      icon: <Scale className="h-5 w-5 text-blue-600" />,
+      tagColor: 'bg-blue-50 text-blue-800 border-blue-200',
     },
     {
       step: 5,
@@ -87,8 +87,8 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
       target: 'dashboard' as WorksheetTab,
       sheetLabel: 'Dashboard',
       btnText: 'Review Dashboard',
-      icon: <PieChart className="h-5 w-5 text-blue-600" />,
-      tagColor: 'bg-blue-50 text-blue-800 border-blue-200',
+      icon: <PieChart className="h-5 w-5 text-indigo-600" />,
+      tagColor: 'bg-indigo-50 text-indigo-800 border-indigo-200',
     },
     {
       step: 6,
@@ -97,8 +97,8 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
       target: 'annual_summary' as WorksheetTab,
       sheetLabel: 'Annual Summary',
       btnText: 'Track Annual Progress',
-      icon: <CalendarDays className="h-5 w-5 text-purple-600" />,
-      tagColor: 'bg-purple-50 text-purple-800 border-purple-200',
+      icon: <CalendarDays className="h-5 w-5 text-violet-600" />,
+      tagColor: 'bg-violet-50 text-violet-800 border-violet-200',
     },
   ];
 
@@ -107,43 +107,43 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
     {
       title: 'Track Income & Expenses',
       badge: 'Dual Ledgers',
-      badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
+      badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
       icon: <Wallet className="h-6 w-6 text-blue-600" />,
-      bg: 'bg-gradient-to-br from-blue-50/90 to-blue-50/30 border-blue-200',
+      bg: 'bg-white border-slate-200/80 hover:border-blue-300',
       desc: 'Seamlessly log and categorize income and expenses with automated SUM totals, payment method tags, and transaction filters.',
       actions: [
-        { label: 'Log Income', target: 'income' as WorksheetTab, icon: <Coins className="h-3.5 w-3.5 text-teal-600" /> },
+        { label: 'Log Income', target: 'income' as WorksheetTab, icon: <Coins className="h-3.5 w-3.5 text-emerald-600" /> },
         { label: 'Log Expenses', target: 'expenses' as WorksheetTab, icon: <Receipt className="h-3.5 w-3.5 text-rose-600" /> },
       ],
     },
     {
       title: 'Compare Planned vs Actual',
       badge: 'Variance Engine',
-      badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       icon: <BarChart3 className="h-6 w-6 text-emerald-600" />,
-      bg: 'bg-gradient-to-br from-emerald-50/90 to-emerald-50/30 border-emerald-200',
+      bg: 'bg-white border-slate-200/80 hover:border-emerald-300',
       desc: 'Measure variances (=Planned - Actual) with instant percentage utilization badges to maintain fiscal discipline across categories.',
       actions: [
         { label: 'Open Monthly Budget', target: 'monthly_budget' as WorksheetTab, icon: <Scale className="h-3.5 w-3.5 text-emerald-700" /> },
       ],
     },
     {
-      title: 'Monitor Savings',
+      title: 'Monitor Savings Goals',
       badge: 'Net Surplus & Velocity',
-      badgeColor: 'bg-teal-100 text-teal-800 border-teal-200',
-      icon: <PiggyBank className="h-6 w-6 text-teal-600" />,
-      bg: 'bg-gradient-to-br from-teal-50/90 to-teal-50/30 border-teal-200',
+      badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      icon: <PiggyBank className="h-6 w-6 text-indigo-600" />,
+      bg: 'bg-white border-slate-200/80 hover:border-indigo-300',
       desc: 'Track net monthly surplus (=Income - Expenses) and real-time savings rate percentages against target benchmarks.',
       actions: [
-        { label: 'View Dashboard Savings', target: 'dashboard' as WorksheetTab, icon: <PieChart className="h-3.5 w-3.5 text-teal-700" /> },
+        { label: 'View Dashboard Savings', target: 'dashboard' as WorksheetTab, icon: <PieChart className="h-3.5 w-3.5 text-indigo-700" /> },
       ],
     },
     {
       title: 'Identify Overspending',
       badge: '3-Tier Warning System',
-      badgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
+      badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
       icon: <ShieldAlert className="h-6 w-6 text-rose-600" />,
-      bg: 'bg-gradient-to-br from-rose-50/90 to-rose-50/30 border-rose-200',
+      bg: 'bg-white border-slate-200/80 hover:border-rose-300',
       desc: 'Visual three-tier status alerts highlight On Track (0-80%), Near Limit (81-100%), and Over Budget (>100%) spending immediately.',
       actions: [
         { label: 'Review Category Alerts', target: 'monthly_budget' as WorksheetTab, icon: <Flame className="h-3.5 w-3.5 text-rose-600" /> },
@@ -152,19 +152,19 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
     {
       title: 'Review Financial Trends',
       badge: '12-Month Trajectory',
-      badgeColor: 'bg-purple-100 text-purple-800 border-purple-200',
-      icon: <TrendingUp className="h-6 w-6 text-purple-600" />,
-      bg: 'bg-gradient-to-br from-purple-50/90 to-purple-50/30 border-purple-200',
+      badgeColor: 'bg-violet-50 text-violet-700 border-violet-200',
+      icon: <TrendingUp className="h-6 w-6 text-violet-600" />,
+      bg: 'bg-white border-slate-200/80 hover:border-violet-300',
       desc: '12-month comparative trajectory charts reveal seasonal patterns, spending shifts, and cumulative annual savings velocity.',
       actions: [
-        { label: 'Explore Annual Trends', target: 'annual_summary' as WorksheetTab, icon: <CalendarDays className="h-3.5 w-3.5 text-purple-700" /> },
+        { label: 'Explore Annual Trends', target: 'annual_summary' as WorksheetTab, icon: <CalendarDays className="h-3.5 w-3.5 text-violet-700" /> },
       ],
     },
   ];
 
   return (
     <div
-      className="min-h-screen bg-slate-100 text-slate-900"
+      className="min-h-screen bg-slate-50 text-slate-800 selection:bg-emerald-200 selection:text-slate-900"
       onClick={() =>
         onSelectCell({
           reference: 'StartHere!A1',
@@ -173,95 +173,50 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
         })
       }
     >
-      {/* ============================================================ */}
-      {/* 0. DEDICATED LANDING PAGE NAVBAR (Outside Dashboard Header) */}
-      {/* ============================================================ */}
-      <header className="sticky top-0 z-30 border-b border-slate-300/80 bg-white/95 backdrop-blur-md shadow-xs">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+      {/* Dynamic Header Navbar Section */}
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-md shadow-xs">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
+          
           {/* Brand Logo & Name */}
           <div className="flex items-center gap-3">
-            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
-              <svg
-                viewBox="0 0 56 48"
-                className="h-10 w-10 drop-shadow-xs"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <circle cx="28" cy="11" r="5" fill="#059669" />
-                <path
-                  d="M17 19C17 11.268 23.268 5 31 5C38.732 5 45 11.268 45 19"
-                  stroke="#10b981"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M21 21C21 14.5 25.5 10 32 10"
-                  stroke="#047857"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                />
-                <rect
-                  x="4"
-                  y="14"
-                  width="48"
-                  height="32"
-                  rx="9"
-                  fill="#0b3052"
-                />
-                <path
-                  d="M4 22H52"
-                  stroke="#16436f"
-                  strokeWidth="2"
-                />
-                <path
-                  d="M38 24H50C51.6569 24 53 25.3431 53 27V33C53 34.6569 51.6569 36 50 36H38C36.3431 36 35 34.6569 35 33V27C35 25.3431 36.3431 24 38 24Z"
-                  fill="#0b3052"
-                  stroke="#1d4d7a"
-                  strokeWidth="1.5"
-                />
-                <circle cx="44" cy="30" r="3" fill="#ffffff" />
-                <circle cx="44" cy="30" r="1.5" fill="#0b3052" />
-                <rect x="1" y="22" width="3" height="12" rx="1.5" fill="#00a86b" />
-              </svg>
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-tr from-blue-700 to-indigo-700 shadow-md shadow-indigo-700/10 text-white">
+              <Wallet className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm sm:text-lg font-extrabold tracking-tight text-[#0c325c] truncate max-w-[150px] sm:max-w-none">
-                  Personal Monthly Budget Planner
+                <span className="text-sm sm:text-base font-black tracking-tight text-slate-900 truncate max-w-[150px] sm:max-w-none">
+                  BudgetPlanner
                 </span>
-                <span className="hidden sm:inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-800 border border-blue-200">
-                  Landing Route
+                <span className="hidden sm:inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-700 border border-emerald-200">
+                  Active Workspace
                 </span>
               </div>
-              <p className="text-xs text-slate-500 hidden md:block">
-                Plan Today • Track Spending • Save More • Reach Your Goals
+              <p className="text-[10px] text-slate-500 hidden md:block mt-0.5">
+                Modern Double-Entry Ledger & Financial Insights Panel
               </p>
             </div>
           </div>
 
           {/* Right Navigation & Session Actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <div className="hidden md:flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
               <User className="h-3.5 w-3.5 text-blue-600" />
-              <span className="max-w-[160px] truncate">{userEmail}</span>
+              <span className="max-w-[140px] truncate">{userEmail}</span>
             </div>
 
             {onOpenToolkit && (
               <button
-                onClick={onOpenToolkit}
-                title="Open toolkit"
-                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-2 sm:px-2.5 py-1.5 sm:py-2 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); onOpenToolkit(); }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 hover:text-slate-900 px-3 py-1.5 text-xs font-black text-slate-600 transition duration-150 cursor-pointer"
               >
-                <span className="hidden sm:inline">Toolkit</span>
-                <span className="sm:hidden">Apps</span>
+                <span>Apps Launcher</span>
               </button>
             )}
 
             {onLogout && (
               <button
-                onClick={onLogout}
-                title="Log out"
-                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-2 sm:px-2.5 py-1.5 sm:py-2 text-xs font-semibold text-slate-600 hover:text-rose-600 transition-colors cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); onLogout(); }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 px-3 py-1.5 text-xs font-black text-slate-600 transition duration-150 cursor-pointer"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Sign Out</span>
@@ -269,71 +224,69 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
             )}
 
             <button
-              onClick={() => onNavigate('dashboard')}
-              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-sm hover:shadow-md transition-all cursor-pointer ring-2 ring-blue-400/30 shrink-0"
+              onClick={(e) => { e.stopPropagation(); onNavigate('dashboard'); }}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 px-3.5 py-2 text-xs font-black text-white shadow-sm transition duration-150 cursor-pointer"
             >
-              <LayoutDashboard className="h-4 w-4" />
-              <span className="hidden xs:inline">Launch Dashboard</span>
-              <span className="xs:hidden">Dashboard</span>
-              <ArrowRight className="h-4 w-4" />
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              <span>Launch Dashboard</span>
+              <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Landing Page Content Body */}
-      <div className="mx-auto max-w-7xl space-y-8 p-4 sm:p-6 lg:p-8">
-        {/* ============================================================ */}
-        {/* 1. WELCOME SECTION (Landing Route Hero) */}
-        {/* ============================================================ */}
-        <div className="relative overflow-hidden rounded-2xl border border-slate-300/80 bg-gradient-to-br from-[#0b2b4f] via-[#0e3b6c] to-[#092240] text-white shadow-xl">
-          {/* Decorative background glow accents */}
-          <div className="pointer-events-none absolute -right-16 -top-16 h-80 w-80 rounded-full bg-blue-400/15 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-16 -left-16 h-80 w-80 rounded-full bg-emerald-400/15 blur-3xl" />
+      {/* Main Grid Content Area */}
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+        
+        {/* ========================================== */}
+        {/* HERO SECTION / LANDING ROUTE OVERVIEW      */}
+        {/* ========================================== */}
+        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-900 text-white shadow-xl">
+          {/* Subtle background glow accents */}
+          <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 h-96 w-96 rounded-full bg-emerald-500/10 blur-3xl" />
 
           <div className="relative z-10 grid gap-8 p-6 sm:p-8 lg:p-10 lg:grid-cols-12 lg:items-center">
-            <div className="space-y-4 lg:col-span-8">
-              <div className="inline-flex items-center gap-2 rounded-full border border-blue-300/30 bg-blue-500/20 px-3.5 py-1 text-xs font-semibold text-blue-200 backdrop-blur-xs">
-                <Sparkles className="h-3.5 w-3.5 text-blue-300" />
-                <span>Onboarding Hub • Landing Page After Login</span>
+            
+            {/* Left Column Content */}
+            <div className="space-y-4.5 lg:col-span-8">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-white/5">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Executive Budget Workspace</span>
               </div>
 
-              <h1 className="text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl text-white">
-                Welcome to Your Personal Monthly Budget Planner
+              <h1 className="text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl text-white leading-tight">
+                Control your cashflow.<br />
+                Reach your financial milestones.
               </h1>
 
-              <p className="text-sm sm:text-base text-slate-200 leading-relaxed max-w-2xl">
-                Take confident control of your finances. This complete financial workbook empowers you to master your cash flow, eliminate financial stress, and systematically reach your goals:
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
+                Take command of your wealth using professional budgeting workflows. Plan targets, record transaction ledgers, analyze variances, and track seasonal trajectory patterns.
               </p>
 
-              {/* 6 Core Value Proposition Items */}
-              <div className="grid gap-2.5 sm:grid-cols-2 pt-1">
+              {/* Quick Feature highlights */}
+              <div className="grid gap-3 sm:grid-cols-2 pt-2">
                 {[
-                  { title: 'Plan monthly income', desc: 'Set clear earnings targets across salaries, business, and investments' },
-                  { title: 'Track expenses', desc: 'Log daily outlays by category, payment method, and amount' },
-                  { title: 'Compare planned vs actual spending', desc: 'Real-time variance analysis and budget utilization tracking' },
-                  { title: 'Monitor savings', desc: 'Track net monthly surplus and maintain savings rate benchmarks' },
-                  { title: 'Identify overspending', desc: 'Instant conditional alerts when nearing or exceeding category limits' },
-                  { title: 'Review monthly and annual performance', desc: 'Interactive charts and comprehensive 12-month analytics' },
+                  { title: 'Zero-Based Budgets', desc: 'Give every dollar a job to optimize allocation efficiency.' },
+                  { title: 'Variance Tracking', desc: 'Real-time comparisons of planned vs actual categories.' },
+                  { title: 'Conditional Warnings', desc: 'Visual 3-tier highlights on category budget utilization.' },
+                  { title: 'Unified Data Sync', desc: 'Secure local workbook with optional Google Drive backup.' },
                 ].map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-2.5 rounded-lg bg-white/10 p-2.5 backdrop-blur-xs border border-white/10">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <div key={idx} className="flex items-start gap-2.5 rounded-2xl bg-white/5 p-3.5 border border-white/5 backdrop-blur-xs">
+                    <CheckCircle2 className="h-4.5 w-4.5 text-emerald-400 shrink-0 mt-0.5" />
                     <div>
                       <span className="text-xs font-bold text-white block">{item.title}</span>
-                      <span className="text-[11px] text-slate-300 leading-snug">{item.desc}</span>
+                      <span className="text-[11px] text-slate-400 leading-normal mt-0.5 block">{item.desc}</span>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Quick Action Jump Buttons */}
+              {/* Direct Call to Action buttons */}
               <div className="flex flex-wrap items-center gap-3 pt-3">
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onNavigate('dashboard');
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/40 hover:from-blue-500 hover:to-indigo-500 transition-all hover:scale-102 cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); onNavigate('dashboard'); }}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-5 py-3 text-xs font-black shadow-lg shadow-emerald-500/10 transition-all hover:-translate-y-0.5 cursor-pointer"
                 >
                   <LayoutDashboard className="h-4 w-4" />
                   <span>Launch Dashboard</span>
@@ -341,72 +294,70 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
                 </button>
 
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onNavigate('settings');
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-400/60 bg-white/10 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/20 hover:text-white transition-colors cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); onNavigate('settings'); }}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-3 text-xs font-black text-slate-200 transition-colors cursor-pointer"
                 >
                   <SettingsIcon className="h-4 w-4 text-slate-300" />
-                  <span>Configure Preferences</span>
+                  <span>Configure Settings</span>
                 </button>
               </div>
             </div>
 
-            {/* Right Motivational Card / Financial Wisdom */}
+            {/* Right Column Motivation Card */}
             <div className="lg:col-span-4">
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-6 backdrop-blur-md shadow-lg space-y-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-300">
-                    <Lightbulb className="h-4 w-4" />
-                    <span>Financial Wisdom</span>
+              <div className="rounded-3xl border border-white/5 bg-white/5 p-6 backdrop-blur-md space-y-4">
+                <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                    <Lightbulb className="h-4 w-4 animate-pulse" />
+                    <span>Methodology Strategy</span>
                   </div>
-                  <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-200">
+                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-300 border border-emerald-500/20">
                     Rule of Thumb
                   </span>
                 </div>
 
-                <blockquote className="text-sm sm:text-base font-semibold italic leading-relaxed text-slate-100">
-                  &ldquo;A budget gives you permission to spend without guilt and to save without sacrifice.&rdquo;
+                <blockquote className="text-xs sm:text-sm font-semibold italic leading-relaxed text-slate-200">
+                  &ldquo;Allocation gives you permission to spend without guilt, and to save without compromise.&rdquo;
                 </blockquote>
 
-                <div className="rounded-xl bg-black/25 p-3 text-xs text-slate-300 space-y-1.5 border border-white/5">
-                  <div className="flex items-center justify-between font-medium">
-                    <span>Golden Budgeting Rule:</span>
-                    <span className="text-emerald-300 font-bold">50 / 30 / 20</span>
+                <div className="rounded-2xl bg-slate-950/60 p-3.5 text-xs space-y-2 border border-white/5">
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="text-slate-300">The 50/30/20 Standard:</span>
+                    <span className="text-emerald-400 font-black">Target</span>
                   </div>
-                  <p className="text-[11px] text-slate-300">
-                    50% Needs • 30% Wants • 20% Savings & Debt Acceleration.
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    <strong>50% Needs</strong> (Essentials) • <strong>30% Wants</strong> (Discretionary) • <strong>20% Savings</strong> & Debt payoffs.
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between pt-1 text-xs text-slate-300 border-t border-white/10">
-                  <span>Plan Today</span>
-                  <span className="font-extrabold text-emerald-400">Reach Your Goals</span>
+                <div className="flex items-center justify-between pt-1 text-[10px] font-bold text-slate-400">
+                  <span>Balanced Cashflow</span>
+                  <span className="text-emerald-400 font-extrabold uppercase">Durable Growth</span>
                 </div>
               </div>
             </div>
+
           </div>
         </div>
 
-        {/* ============================================================ */}
-        {/* 2. CLEAR QUICK START GUIDE (AVOIDS REDUNDANCY) */}
-        {/* ============================================================ */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+        {/* ========================================== */}
+        {/* QUICK START SECTION / PROCESS FLOW        */}
+        {/* ========================================== */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs">
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
             <div>
               <div className="flex items-center gap-2">
                 <Zap className="h-5 w-5 text-amber-500" />
-                <h2 className="text-lg font-bold text-slate-900 sm:text-xl">
-                  Quick Start Guide
+                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                  Guided Workbook Setup
                 </h2>
               </div>
-              <p className="text-xs text-slate-500 sm:text-sm mt-0.5">
-                Follow these 6 streamlined steps to set up and manage your finances. Click any step to jump straight to that worksheet in the workbook:
+              <p className="text-xs text-slate-500 mt-0.5">
+                Complete these 6 milestones sequentially to initialize your spreadsheet model database.
               </p>
             </div>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 border border-blue-200/60">
-              6 Setup Milestones
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-700 border border-blue-100 shrink-0">
+              6 Active Milestones
             </span>
           </div>
 
@@ -418,36 +369,36 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
                   e.stopPropagation();
                   onNavigate(item.target);
                 }}
-                className="group relative flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50/70 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50/40 hover:shadow-md cursor-pointer"
+                className="group relative flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/50 p-4.5 transition-all duration-300 hover:border-blue-400 hover:bg-blue-50/20 hover:shadow-lg hover:shadow-blue-500/5 cursor-pointer"
               >
                 <div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0c325c] text-xs font-bold text-white shadow-2xs group-hover:bg-blue-600 transition-colors">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-black text-white shadow-2xs group-hover:bg-blue-600 transition-colors">
                         {item.step}
                       </span>
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-blue-700">
-                        Step {item.step}
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 group-hover:text-blue-700 transition-colors">
+                        Step 0{item.step}
                       </span>
                     </div>
-                    <div className="rounded-lg bg-white p-2 shadow-2xs border border-slate-200">
+                    <div className="rounded-xl bg-white p-2 shadow-2xs border border-slate-200 transition group-hover:scale-110">
                       {item.icon}
                     </div>
                   </div>
 
-                  <h3 className="mt-3 text-sm font-bold text-slate-900 group-hover:text-blue-700">
+                  <h3 className="mt-4 text-sm font-black text-slate-950 group-hover:text-blue-700 transition-colors">
                     {item.instruction}
                   </h3>
-                  <p className="mt-1 text-xs text-slate-600 leading-relaxed">
+                  <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
                     {item.description}
                   </p>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-slate-200/70 pt-2.5">
-                  <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${item.tagColor}`}>
-                    Sheet: {item.sheetLabel}
+                <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3">
+                  <span className={`rounded-md border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${item.tagColor}`}>
+                    Tab: {item.sheetLabel}
                   </span>
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 group-hover:translate-x-0.5 transition-transform">
+                  <span className="inline-flex items-center gap-1 text-xs font-black text-blue-600 group-hover:translate-x-0.5 transition-transform">
                     <span>{item.btnText}</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </span>
@@ -457,47 +408,47 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
           </div>
         </div>
 
-        {/* ============================================================ */}
-        {/* 3. ACTION-ORIENTED FEATURE CARDS */}
-        {/* ============================================================ */}
+        {/* ========================================== */}
+        {/* CORE CAPABILITIES GRID MODULES            */}
+        {/* ========================================== */}
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 sm:text-xl">
-                Key Features & Direct Actions
+              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                Unified Ledger Features
               </h2>
-              <p className="text-xs text-slate-500">
-                Powerful tools designed around professional financial management principles
+              <p className="text-xs text-slate-500 mt-0.5">
+                Engineered around structural double-entry validation constraints.
               </p>
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 border border-slate-200">
-              5 Core Capabilities
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600 border border-slate-200 shrink-0">
+              5 Ledger Modules
             </span>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {actionFeatureCards.map((feat, i) => (
               <div
                 key={i}
-                className={`flex flex-col justify-between rounded-xl border p-4 shadow-2xs ${feat.bg} transition-all duration-150 hover:shadow-md hover:-translate-y-0.5`}
+                className={`flex flex-col justify-between rounded-2xl border p-4.5 shadow-2xs ${feat.bg} hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 bg-white`}
               >
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-slate-200/80">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-100">
                       {feat.icon}
                     </div>
-                    <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${feat.badgeColor}`}>
+                    <span className={`rounded-md border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${feat.badgeColor}`}>
                       {feat.badge}
                     </span>
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900">{feat.title}</h3>
-                  <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+                  <h3 className="text-sm font-black text-slate-950">{feat.title}</h3>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-500">
                     {feat.desc}
                   </p>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="mt-4 pt-3 border-t border-slate-200/70 space-y-1.5">
+                {/* Direct sheet jump links */}
+                <div className="mt-5 pt-4 border-t border-slate-100 space-y-2">
                   {feat.actions.map((act, actIdx) => (
                     <button
                       key={actIdx}
@@ -505,7 +456,7 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
                         e.stopPropagation();
                         onNavigate(act.target);
                       }}
-                      className="w-full flex items-center justify-between rounded-lg bg-white/90 hover:bg-white border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-2xs hover:border-blue-400 hover:text-blue-700 transition-all cursor-pointer"
+                      className="w-full flex items-center justify-between rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:text-slate-900 transition-all cursor-pointer"
                     >
                       <div className="flex items-center gap-1.5">
                         {act.icon}
@@ -520,78 +471,59 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
           </div>
         </div>
 
-        {/* ============================================================ */}
-        {/* 4. PRO-TIPS & FINANCIAL METHODOLOGY FOOTER */}
-        {/* ============================================================ */}
-        <div className="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-emerald-50/70 p-6 shadow-2xs">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="flex items-start gap-3.5 max-w-2xl">
-              <div className="rounded-xl bg-blue-600 p-2.5 text-white shrink-0 mt-0.5 shadow-xs">
+        {/* ========================================== */}
+        {/* ZERO-BASED BUDGET STRATEGY STATEMENT       */}
+        {/* ========================================== */}
+        <div className="rounded-3xl border border-blue-100 bg-linear-to-r from-blue-50/40 via-indigo-50/40 to-emerald-50/40 p-5 sm:p-6 shadow-2xs">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex items-start gap-4 max-w-2xl">
+              <div className="rounded-2xl bg-blue-600 p-3 text-white shrink-0 shadow-md shadow-blue-600/10">
                 <Lightbulb className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 sm:text-base">
-                  Pro Strategy: Zero-Based Budgeting Technique
+                <h3 className="text-sm sm:text-base font-black text-slate-950 tracking-tight">
+                  Pro-Strategy: Enforce Zero-Based Principles
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed mt-1">
-                  Allocate every single dollar of your incoming earnings to essential expenses, discretionary goals, savings, investments, or debt acceleration so that your unallocated balance equals zero. When every dollar is assigned a job, wasteful spending is naturally eliminated.
+                  Zero-based budgeting demands allocating every single dollar of incoming cashflow to specific categories (Wants, Needs, Savings, Debts) until your unallocated surplus equals zero. When all earnings have defined jobs, financial waste drops to near zero.
                 </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 font-medium">
-                  <span className="inline-flex items-center gap-1">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                    Real-time formula calculation
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
+                  <span className="flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Real-time spreadsheet engine
                   </span>
-                  <span>•</span>
-                  <span className="inline-flex items-center gap-1">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                    Dynamic 3-tier variance alerting
-                  </span>
-                  <span>•</span>
-                  <span className="inline-flex items-center gap-1">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                    Full 12-month annual rollup
+                  <span className="hidden xs:inline">•</span>
+                  <span className="flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Active variance calculations
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2.5 shrink-0">
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onNavigate('dashboard');
-                }}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#0c325c] hover:bg-blue-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:shadow transition-all cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); onNavigate('dashboard'); }}
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-950 hover:bg-slate-800 px-4 py-2.5 text-xs font-black text-white shadow-sm hover:shadow transition-all cursor-pointer"
               >
-                <span>Explore Dashboard</span>
+                <span>Launch Dashboard</span>
                 <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onNavigate('settings');
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-700 shadow-2xs transition-colors cursor-pointer"
-              >
-                <SettingsIcon className="h-3.5 w-3.5 text-slate-500" />
-                <span>Settings</span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* ============================================================ */}
-        {/* 5. LANDING PAGE FOOTER */}
-        {/* ============================================================ */}
-        <footer className="border-t border-slate-200 pt-6 text-center text-xs text-slate-500">
-          <p>
-            Personal Monthly Budget Planner • Built for disciplined personal wealth management.
+      </div>
+
+      {/* FOOTER METRICS AND NOTES */}
+      <footer className="border-t border-slate-200 bg-white py-6 mt-12 text-center text-xs text-slate-400">
+        <div className="mx-auto max-w-7xl px-4">
+          <p className="font-semibold text-slate-500">
+            BudgetPlanner Ledger System • Plan • Track • Review
           </p>
           <p className="mt-1 text-[11px] text-slate-400">
-            Click &quot;Launch Dashboard&quot; or any step above to enter the Excel workbook sheets.
+            Use the app switcher above or navigation sidebar to transition tabs cleanly.
           </p>
-        </footer>
-      </div>
+        </div>
+      </footer>
     </div>
   );
 };
