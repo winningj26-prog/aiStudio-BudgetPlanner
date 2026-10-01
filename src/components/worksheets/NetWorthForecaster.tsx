@@ -88,7 +88,7 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
     const amount = parseFloat(newAssetAmount);
     if (isNaN(amount) || amount <= 0) return;
 
-    const newAsset: AssetVal = {
+    const newAsset: FinancialAsset = {
       id: Date.now().toString(),
       name: newAssetName.trim(),
       amount,
@@ -336,6 +336,26 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
             </div>
 
             {/* Asset Table list */}
+            <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-blue-700 block">
+                Opening Cash Balance
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={openingCashBalance}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  if (Number.isFinite(value) && value >= 0) onUpdateOpeningCashBalance(value);
+                }}
+                className="mt-1 w-full rounded border border-blue-200 bg-white px-2 py-1.5 text-xs font-mono font-bold text-slate-800 focus:border-blue-500 focus:outline-hidden"
+              />
+              <p className="mt-1 text-[9px] text-blue-700">
+                Current cash is recalculated from this opening balance plus income minus expenses and goal allocations.
+              </p>
+            </div>
+
             <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1">
               {financialAssets.map((asset) => (
                 <div
