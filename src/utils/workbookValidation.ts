@@ -55,16 +55,23 @@ const isDebt = (value: unknown): value is Debt =>
   && (value.notes == null || typeof value.notes === 'string')
   && (value.color == null || typeof value.color === 'string');
 
-const isRecurring = (value: unknown): value is RecurringTransaction =>
-  isRecord(value) && typeof value.id === 'string'
-  && (value.type === 'income' || value.type === 'expense')
-  && typeof value.description === 'string' && isNonNegativeNumber(value.amount)
-  && typeof value.category === 'string' && Number.isInteger(value.dayOfMonth)
-  && value.dayOfMonth >= 1 && value.dayOfMonth <= 31
-  && (value.paymentMethod == null || typeof value.paymentMethod === 'string')
-  && ['monthly','bi-weekly','weekly','yearly'].includes(String(value.frequency))
-  && typeof value.isActive === 'boolean'
-  && (value.notes == null || typeof value.notes === 'string');
+const isRecurring = (value: unknown): value is RecurringTransaction => {
+  if (!isRecord(value)
+    || typeof value.id !== 'string'
+    || (value.type !== 'income' && value.type !== 'expense')
+    || typeof value.description !== 'string'
+    || !isNonNegativeNumber(value.amount)
+    || typeof value.category !== 'string'
+    || !isFiniteNumber(value.dayOfMonth)
+    || !Number.isInteger(value.dayOfMonth)
+    || value.dayOfMonth < 1
+    || value.dayOfMonth > 31
+    || (value.paymentMethod != null && typeof value.paymentMethod !== 'string')
+    || !['monthly','bi-weekly','weekly','yearly'].includes(String(value.frequency))
+    || typeof value.isActive !== 'boolean'
+    || (value.notes != null && typeof value.notes !== 'string')) return false;
+  return true;
+};
 
 const isSettings = (value: unknown): value is SettingsState => {
   if (!isRecord(value)
