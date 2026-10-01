@@ -170,6 +170,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
     'app-4': false,
   });
   const [manageSaving, setManageSaving] = useState(false);
+  const [manageReason, setManageReason] = useState('');
 
   // New Action States
   const [manageMode, setManageMode] = useState<'view' | 'edit' | 'override' | 'suspend' | 'delete'>('view');
@@ -225,6 +226,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
           planId: managePlanId,
           onboardingCompleted: manageOnboardingCompleted,
           appAccess: manageAppAccess,
+          reason: manageReason,
         }),
       });
       const body = await response.json();
@@ -1474,6 +1476,19 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                       </select>
                     </div>
 
+                    <div className="space-y-1.5">
+                      <label className="block font-bold text-slate-700">Override Reason (required)</label>
+                      <textarea
+                        rows={3}
+                        maxLength={500}
+                        value={manageReason}
+                        onChange={(e) => setManageReason(e.target.value)}
+                        placeholder="Explain why this manual subscription or entitlement override is needed."
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-medium text-slate-900 focus:border-cyan-500 focus:outline-hidden"
+                      />
+                      <p className="text-[10px] text-slate-400">Stored in the administrator audit log.</p>
+                    </div>
+
                     {/* App Entitlements Toggle privileges */}
                     <div className="space-y-2">
                       <label className="block font-bold text-slate-700">Launcher Application Access</label>
@@ -1503,7 +1518,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                     <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 mt-4">
                       <button
                         type="button"
-                        disabled={manageSaving}
+                        disabled={manageSaving || manageReason.trim().length < 5}
                         onClick={() => void handleSaveUserOverride()}
                         className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
