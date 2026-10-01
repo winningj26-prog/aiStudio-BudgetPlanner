@@ -13,6 +13,7 @@ import {
   hasToolkitFeature,
 } from '../src/types/toolkit.ts';
 import { createLocalWorkbookRepository } from '../src/services/workbookRepository.ts';
+import { getAuthSessionState } from '../src/services/supabaseAuth.ts';
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -186,3 +187,19 @@ test('Google Sheets credentials and configuration setting validation mapping', (
   assert.equal(validConfig.credentialsConfigured, true);
 });
 
+
+
+test('auth session state restores identity and clears cleanly on signed-out state', () => {
+  const signedOut = getAuthSessionState(null);
+  assert.deepEqual(signedOut, { authenticated: false, userId: null, providerToken: null });
+
+  const signedIn = getAuthSessionState({
+    user: { id: 'user-123' },
+    provider_token: 'google-provider-token',
+  } as any);
+  assert.deepEqual(signedIn, {
+    authenticated: true,
+    userId: 'user-123',
+    providerToken: 'google-provider-token',
+  });
+});
