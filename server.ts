@@ -7,6 +7,7 @@ import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 import { isPlatformAdminEmail, normalizePlatformAdminEmails } from './src/utils/platformAdmin.ts';
 import { isValidCloudWorkbookPayload } from './src/utils/cloudWorkbook.ts';
+import { isValidWorkbookData } from './src/utils/workbookValidation.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from './src/utils/billing.ts';
 
 dotenv.config();
@@ -985,6 +986,9 @@ app.put('/api/workbook', async (req, res) => {
 
     if (!isValidCloudWorkbookPayload(req.body)) {
       return res.status(400).json({ error: 'Workbook data must be an object.' });
+    }
+    if (!isValidWorkbookData(data)) {
+      return res.status(400).json({ error: 'Workbook data failed validation.' });
     }
 
     // user_id is the primary key, so this is a deterministic account-scoped
