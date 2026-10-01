@@ -265,3 +265,15 @@ Updated after each completed implementation/verification task.
 - [x] Net Worth and Advanced Analytics consume debt payment accounting
 - [x] Debt payment acceptance tests added
 - [ ] Live acceptance: record a real debt payment and verify account, debt, expense, and net worth changes together
+
+
+## R. Savings goal account linkage
+- [x] Savings goals support an optional real cash/bank account link
+- [x] Savings goal funding-account selector added to the goal editor
+- [x] Goal contributions remain internal earmarks rather than separate assets or expenses
+- [x] Linked goal allocations reduce available cash only within the referenced account
+- [x] Multiple goals linked to one account are aggregated and clamped to that account's balance
+- [x] Goals linked across multiple accounts earmark each account independently
+- [x] Savings goal allocations never inflate or reduce total assets or net worth
+- [x] Workbook validation accepts linked savings goal account IDs
+- [x] Acceptance tests cover single-account, multi-goal, multi-account, and post-transaction goal accounting
