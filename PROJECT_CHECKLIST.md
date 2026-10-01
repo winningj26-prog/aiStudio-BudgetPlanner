@@ -233,3 +233,12 @@ Updated after each completed implementation/verification task.
 - [ ] Live acceptance: enter a pre-existing household financial position and verify opening net worth
 - [ ] Live acceptance: record first income/expense after setup and verify opening position plus activity
 - [ ] Live acceptance: update debt and asset balances and verify current net worth propagation
+
+## O. Starting Financial Position entry experience
+- [x] Starting asset entry now supports explicit Cash and Bank Account categories alongside investments, property, vehicles, businesses, retirement, receivables, and other assets
+- [x] Starting asset labels guide users to enter pre-existing accounts/assets rather than treating them as new income
+- [x] Debt records support an explicit opening balance for pre-existing liabilities
+- [x] Workbook validation accepts the structured starting-position categories and opening balances
+- [x] Acceptance tests aligned with the structured Bank Account category
+- [ ] Live acceptance: enter multiple pre-existing asset/account types and verify opening net worth
+- [ ] Live acceptance: enter pre-existing debts and verify opening liabilities
