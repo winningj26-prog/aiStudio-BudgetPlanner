@@ -190,6 +190,13 @@ Updated after each completed implementation/verification task.
 - [x] Annual summary grouping reviewed across calendar-year boundaries
 - [x] Export budget calculations aligned with the workbook's category-name budget keys
 - [x] Module 4 transaction and budget calculation acceptance tests added
+- [x] Savings goal progress calculations hardened for zero/oversaved/invalid-value edge cases
+- [x] Savings goal contributions reject zero, negative, and non-finite amounts
+- [x] Debt interest, minimum-payment shortfall, and payoff edge cases covered by acceptance tests
+- [x] Recurring transaction posting now honors monthly, weekly, bi-weekly, and yearly frequencies
+- [x] Recurring transaction date generation clamps day-of-month safely to shorter months
+- [x] Module 4 savings goals, debts, and recurring transaction acceptance tests added
+- [x] V1 validation run #299 passed TypeScript, acceptance tests, production build, production smoke, Docker build, and Docker smoke
 - [ ] Module 4 live acceptance: create/edit/delete income and expense transactions
 - [ ] Module 4 live acceptance: monthly budget planning and variance calculations
 - [ ] Module 4 live acceptance: savings goals, debts, and recurring transactions
