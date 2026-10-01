@@ -13,6 +13,7 @@ import {
   hasToolkitFeature,
 } from '../src/types/toolkit.ts';
 import { createLocalWorkbookRepository } from '../src/services/workbookRepository.ts';
+import { isToolkitPlanId, normalizeDisplayName } from '../src/services/accountValidation.ts';
 import {
   extractSpreadsheetId,
   parseSheetAmount,
@@ -166,6 +167,18 @@ test('Google Sheets amount parser accepts normal currency values and rejects mal
   assert.throws(() => parseSheetAmount('1,2,3.00', 'test'), /Invalid amount/);
   assert.throws(() => parseSheetAmount('25 USD', 'test'), /Invalid amount/);
   assert.throws(() => parseSheetAmount('', 'test'), /Invalid amount/);
+});
+
+test('onboarding validation normalizes display names and accepts only supported plans', () => {
+  assert.equal(normalizeDisplayName('  Jane   Doe  '), 'Jane Doe');
+  assert.equal(normalizeDisplayName(''), '');
+  assert.equal(normalizeDisplayName(null), '');
+  assert.equal(normalizeDisplayName('x'.repeat(100)).length, 80);
+  assert.equal(isToolkitPlanId('free'), true);
+  assert.equal(isToolkitPlanId('plus'), true);
+  assert.equal(isToolkitPlanId('pro'), true);
+  assert.equal(isToolkitPlanId('enterprise'), false);
+  assert.equal(isToolkitPlanId(null), false);
 });
 
 test('Google Sheets date parser normalizes valid dates and rejects impossible dates', () => {
