@@ -2,6 +2,18 @@ import type { User } from '@supabase/supabase-js';
 import { getAuthAccessToken } from './supabaseAuth';
 import type { ToolkitEntitlementResponse } from '../types/toolkit';
 
+export class ToolkitAccountSuspendedError extends Error {
+  code = 'ACCOUNT_SUSPENDED' as const;
+  support: { email: string | null; phone: string | null };
+  reason: string | null;
+  constructor(support: { email: string | null; phone: string | null }, reason: string | null) {
+    super('Your account is suspended.');
+    this.name = 'ToolkitAccountSuspendedError';
+    this.support = support;
+    this.reason = reason;
+  }
+}
+
 export async function loadToolkitAccountSession(
   user: User,
 ): Promise<ToolkitEntitlementResponse | null> {
@@ -11,12 +23,16 @@ export async function loadToolkitAccountSession(
       headers: { Authorization: `Bearer ${idToken}` },
     });
 
+    const body = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (body?.code === 'ACCOUNT_SUSPENDED') {
+        throw new ToolkitAccountSuspendedError(body.support ?? { email: null, phone: null }, body.reason ?? null);
+      }
       console.warn('Toolkit account session unavailable:', response.status);
       return null;
     }
 
-    return (await response.json()) as ToolkitEntitlementResponse;
+    return body as ToolkitEntitlementResponse;
   } catch (error) {
     console.warn('Toolkit account session could not be loaded:', error);
     return null;
