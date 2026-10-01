@@ -816,6 +816,10 @@ export default function App() {
             savingsGoals={savingsGoals}
             onUpdateSavingsGoals={setSavingsGoals}
             debts={debts}
+            financialAssets={financialAssets}
+            openingCashBalance={openingCashBalance}
+            onUpdateFinancialAssets={setFinancialAssets}
+            onUpdateOpeningCashBalance={setOpeningCashBalance}
             recurringTransactions={recurringTransactions}
             onUpdateIncomeTransactions={setIncomeTransactions}
             onUpdateExpenseTransactions={setExpenseTransactions}
