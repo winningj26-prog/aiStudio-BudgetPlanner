@@ -19,6 +19,7 @@ import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
 import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
 import { isValidWorkbookData, normalizeWorkbookData } from '../src/utils/workbookValidation.ts';
 import { buildAnnualSummary, calculateBudgetItem, calculateBudgetStatus, sumExpensesByCategory, sumIncomeByCategory, sumExpenseTransactions, sumIncomeTransactions } from '../src/utils/formulas.ts';
+import { calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates } from '../src/utils/financialPlanning.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 
 class MemoryStorage {
@@ -423,3 +424,41 @@ test('financial impact module correctly projects annual savings from percentage 
   assert.equal(newAnnualOutlay, 12960);
 });
 
+
+
+test('savings goal progress clamps invalid/oversaved states safely', () => {
+  assert.deepEqual(calculateSavingsGoalProgress({
+    id: 'g1', name: 'Emergency Fund', targetAmount: 1000, currentAmount: 250,
+  }), {
+    targetAmount: 1000, currentAmount: 250, remainingAmount: 750, percentComplete: 25, isComplete: false,
+  });
+  assert.deepEqual(calculateSavingsGoalProgress({
+    id: 'g2', name: 'Completed', targetAmount: 1000, currentAmount: 1200,
+  }), {
+    targetAmount: 1000, currentAmount: 1200, remainingAmount: 0, percentComplete: 100, isComplete: true,
+  });
+  assert.equal(calculateSavingsGoalProgress({
+    id: 'g3', name: 'Invalid', targetAmount: 0, currentAmount: -10,
+  }).percentComplete, 0);
+});
+
+test('debt calculations handle interest, payment shortfalls, and payoff edge cases', () => {
+  const debt = { id: 'd1', name: 'Card', balance: 1200, interestRate: 12, minimumPayment: 100 };
+  assert.equal(calculateDebtMonthlyInterest(debt), 12);
+  assert.equal(calculateDebtMinimumPaymentShortfall(debt), 0);
+  assert.equal(calculateDebtPayoffMonths(debt), 14);
+  assert.equal(calculateDebtPayoffMonths({ ...debt, minimumPayment: 5 }), null);
+  assert.equal(calculateDebtPayoffMonths({ ...debt, balance: 0 }), 0);
+});
+
+test('recurring date generation respects frequency and month length', () => {
+  assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 31, frequency: 'monthly' }), ['2026-02-28']);
+  assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 1, frequency: 'weekly' }), [
+    '2026-02-01', '2026-02-08', '2026-02-15', '2026-02-22',
+  ]);
+  assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 1, frequency: 'bi-weekly' }), [
+    '2026-02-01', '2026-02-15',
+  ]);
+  assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 31, frequency: 'yearly' }), ['2026-02-28']);
+  assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 0, frequency: 'monthly' }), []);
+});
