@@ -14,6 +14,7 @@ import {
 } from '../src/types/toolkit.ts';
 import { createLocalWorkbookRepository } from '../src/services/workbookRepository.ts';
 import { isToolkitPlanId, normalizeDisplayName } from '../src/services/accountValidation.ts';
+import { isValidAuthEmail, isValidAuthPassword, normalizeAuthEmail } from '../src/services/authValidation.ts';
 import {
   extractSpreadsheetId,
   parseSheetAmount,
@@ -167,6 +168,17 @@ test('Google Sheets amount parser accepts normal currency values and rejects mal
   assert.throws(() => parseSheetAmount('1,2,3.00', 'test'), /Invalid amount/);
   assert.throws(() => parseSheetAmount('25 USD', 'test'), /Invalid amount/);
   assert.throws(() => parseSheetAmount('', 'test'), /Invalid amount/);
+});
+
+test('authentication validation normalizes email and rejects invalid credentials locally', () => {
+  assert.equal(normalizeAuthEmail('  USER@Example.COM '), 'user@example.com');
+  assert.equal(isValidAuthEmail('user@example.com'), true);
+  assert.equal(isValidAuthEmail('user@example'), false);
+  assert.equal(isValidAuthEmail(''), false);
+  assert.equal(isValidAuthEmail(null), false);
+  assert.equal(isValidAuthPassword('123456'), true);
+  assert.equal(isValidAuthPassword('12345'), false);
+  assert.equal(isValidAuthPassword(null), false);
 });
 
 test('onboarding validation normalizes display names and accepts only supported plans', () => {
