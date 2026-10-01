@@ -824,6 +824,7 @@ export default function App() {
             savingsGoals={savingsGoals}
             onUpdateSavingsGoals={setSavingsGoals}
             debts={debts}
+            debtPayments={debtPayments}
             financialAssets={financialAssets}
             openingCashBalance={openingCashBalance}
             onUpdateFinancialAssets={setFinancialAssets}
@@ -909,6 +910,7 @@ export default function App() {
             expenseTransactions={expenseTransactions}
             savingsGoals={savingsGoals}
             debts={debts}
+            debtPayments={debtPayments}
             financialAssets={financialAssets}
             openingCashBalance={openingCashBalance}
             settings={settings}
