@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, ShieldCheck, ArrowRight } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ToolkitPlanId, ToolkitEntitlementResponse } from '../types/toolkit';
@@ -21,6 +21,48 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
   const [planId, setPlanId] = useState<ToolkitPlanId>('free');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [paymentPending, setPaymentPending] = useState(() => new URLSearchParams(window.location.search).get('billing') === 'success');
+
+  useEffect(() => {
+    if (!paymentPending || planId === 'free') return;
+
+    let cancelled = false;
+    let attempts = 0;
+    const poll = async () => {
+      attempts += 1;
+      try {
+        const latest = await loadToolkitAccountSession(user);
+        if (cancelled) return;
+        if (latest?.session.user.onboardingComplete) {
+          window.history.replaceState({}, '', window.location.pathname);
+          onComplete(latest);
+          return;
+        }
+      } catch {
+        // Keep polling while the provider webhook finishes processing.
+      }
+
+      if (!cancelled && attempts < 15) {
+        window.setTimeout(poll, 2000);
+      } else if (!cancelled) {
+        setPaymentPending(false);
+        setErrorMessage('Payment was returned successfully, but account activation is still pending. Please refresh in a moment.');
+      }
+    };
+
+    void poll();
+    return () => {
+      cancelled = true;
+    };
+  }, [paymentPending, planId, user, onComplete]);
+
+  useEffect(() => {
+    const billing = new URLSearchParams(window.location.search).get('billing');
+    if (billing === 'cancelled') {
+      setErrorMessage('Checkout was cancelled. Your subscription was not changed.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   const handleContinue = async () => {
     if (!displayName.trim()) {
@@ -29,6 +71,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
     }
     setLoading(true);
     setErrorMessage(null);
+    setPaymentPending(false);
     try {
       await completeToolkitOnboarding(user, displayName.trim(), planId);
       if (planId === 'free') {
@@ -85,9 +128,20 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
         </div>
 
         {errorMessage && <p className="mt-5 text-center text-sm font-medium text-rose-300">{errorMessage}</p>}
+        {paymentPending && (
+          <p className="mt-5 text-center text-sm font-medium text-amber-300">
+            We’re confirming your payment. This can take a few seconds.
+          </p>
+        )}
         <div className="mt-8 flex justify-center">
-          <button type="button" onClick={handleContinue} disabled={loading} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-60">
-            {loading ? 'Setting up your workspace…' : planId === 'free' ? 'Start with Free' : `Continue to ${planId === 'plus' ? 'Plus' : 'Pro'} checkout`}
+          <button type="button" onClick={handleContinue} disabled={loading || paymentPending} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-60">
+            {loading
+              ? 'Setting up your workspace…'
+              : paymentPending
+                ? 'Confirming your payment…'
+                : planId === 'free'
+                  ? 'Start with Free'
+                  : `Continue to ${planId === 'plus' ? 'Plus' : 'Pro'} checkout`}
             {!loading && <ArrowRight className="h-4 w-4" />}
           </button>
         </div>
