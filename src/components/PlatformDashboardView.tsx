@@ -33,6 +33,10 @@ type PlatformConfig = {
   mobileMoneyAccountName: string;
   mobileMoneyAccountNumber: string;
   mobileMoneyInstructions: string;
+  paymentMethods: string[];
+  mobileMoneyProviders: Array<{ id: string; name: string; accountName: string; accountNumber: string; instructions: string; enabled: boolean }>;
+  supportEmail: string;
+  supportPhone: string;
   monimeApiVersion: string;
   appBaseUrl: string;
   integrationSettings: Record<string, unknown>;
