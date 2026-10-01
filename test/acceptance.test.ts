@@ -16,6 +16,7 @@ import { createLocalWorkbookRepository } from '../src/services/workbookRepositor
 import { getAuthSessionState } from '../src/services/supabaseAuth.ts';
 import { isPlatformAdminEmail, normalizePlatformAdminEmails } from '../src/utils/platformAdmin.ts';
 import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
+import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -136,25 +137,20 @@ test('supported plan prices accept positive values with up to two decimals', () 
 });
 
 // Additional Acceptance Coverage scenarios aligning with the V1 Checklist
-test('Cloud save/load schema validates malformed payload shapes gracefully', () => {
+test('Cloud save payload validation rejects malformed outer shapes and accepts workbook objects', () => {
   const malformedPayloads = [
     null,
     undefined,
     {},
-    { settings: null },
-    { settings: {} }
+    { data: null },
+    { data: [] },
+    { data: 'not-an-object' },
   ];
   for (const payload of malformedPayloads) {
-    const isPayloadValid = Boolean(
-      payload &&
-      typeof payload === 'object' &&
-      'settings' in payload &&
-      payload.settings !== null &&
-      typeof payload.settings === 'object' &&
-      'currency' in payload.settings
-    );
-    assert.equal(isPayloadValid, false);
+    assert.equal(isValidCloudWorkbookPayload(payload), false);
   }
+  assert.equal(isValidCloudWorkbookPayload({ data: {} }), true);
+  assert.equal(isValidCloudWorkbookPayload({ data: { settings: { currency: 'USD' } } }), true);
 });
 
 test('AI Insights entitlement rules matches Pro tier users and rejects Free/Plus users', () => {
