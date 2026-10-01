@@ -1054,6 +1054,7 @@ app.post('/api/billing/mobile-money/submit', async (req, res) => {
     const authUser = await verifySupabaseRequest(req);
     const profile = await getToolkitProfile(authUser.id);
     const billing = await getPlatformBillingConfig();
+    if (!billing.paymentMethods.includes('mobile_money')) return res.status(503).json({ error: 'Mobile Money payments are currently unavailable.' });
     const planId = req.body?.planId;
     const plan = isValidBillingPlanId(planId) ? billing.plans[planId] : null;
     const transactionId = normalizeTransactionId(req.body?.transactionId);
@@ -1260,6 +1261,8 @@ app.post('/api/billing/checkout', async (req, res) => {
   try {
     const authUser = await verifySupabaseRequest(req);
     const profile = await getToolkitProfile(authUser.id);
+    const billingConfig = await getPlatformConfig();
+    if (!billingConfig.paymentMethods.includes('monime')) return res.status(503).json({ error: 'Monime payments are currently unavailable.' });
     const config = await getMonimeRuntimeConfig();
     const planId = req.body?.planId as keyof typeof monimePlanConfig;
     const plan = monimePlanConfig[planId];
