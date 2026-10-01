@@ -132,6 +132,7 @@ Updated after each completed implementation/verification task.
 
 ## I. Module review
 - [x] Accounts & onboarding implementation review completed
+- [x] Onboarding subscription prices now load from server billing configuration
 - [x] Accounts & onboarding server input hardening (display-name validation and exact email identity matching)
 - [x] Accounts & onboarding session-refresh failure handling
 - [ ] Accounts & onboarding live acceptance: new Free account
