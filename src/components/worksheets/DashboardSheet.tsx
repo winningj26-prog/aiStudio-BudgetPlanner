@@ -1236,6 +1236,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   ) : (
     <NetWorthForecaster
       debts={debts}
+      debtPayments={debtPayments}
       financialAssets={financialAssets}
       openingCashBalance={openingCashBalance}
       onUpdateFinancialAssets={onUpdateFinancialAssets}
