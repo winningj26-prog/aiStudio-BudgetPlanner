@@ -184,6 +184,12 @@ Updated after each completed implementation/verification task.
 - [x] Invalid cloud workbook snapshots now fall back to the trusted local workbook before hydration
 - [x] Cloud workbook writes reject malformed or invalid workbook snapshots server-side
 - [x] Module 4 acceptance coverage added for malformed workbook data and safe fallback behavior
+- [x] Transaction editors reviewed for positive-amount enforcement and stable edit/delete behavior
+- [x] Income and expense category aggregation reviewed for case/whitespace normalization
+- [x] Budget variance/status logic reviewed for income targets, expense limits, and zero-plan edge cases
+- [x] Annual summary grouping reviewed across calendar-year boundaries
+- [x] Export budget calculations aligned with the workbook's category-name budget keys
+- [x] Module 4 transaction and budget calculation acceptance tests added
 - [ ] Module 4 live acceptance: create/edit/delete income and expense transactions
 - [ ] Module 4 live acceptance: monthly budget planning and variance calculations
 - [ ] Module 4 live acceptance: savings goals, debts, and recurring transactions
