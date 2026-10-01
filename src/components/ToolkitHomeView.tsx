@@ -6,6 +6,7 @@ interface ToolkitHomeViewProps {
   session: ToolkitEntitlementResponse;
   onOpenBudgetPlanner: () => void;
   onLogout: () => void;
+  onManageSubscription: () => void;
 }
 
 const apps = [
@@ -39,6 +40,7 @@ export const ToolkitHomeView: React.FC<ToolkitHomeViewProps> = ({
   session,
   onOpenBudgetPlanner,
   onLogout,
+  onManageSubscription,
 }) => {
   const { user, subscription, entitlements } = session.session;
 
@@ -55,6 +57,13 @@ export const ToolkitHomeView: React.FC<ToolkitHomeViewProps> = ({
             <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold uppercase text-emerald-300">
               {subscription.planId}
             </span>
+            <button
+              type="button"
+              onClick={onManageSubscription}
+              className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-400/15"
+            >
+              {subscription.planId === 'free' ? 'Upgrade subscription' : 'Manage subscription'}
+            </button>
             <button
               type="button"
               onClick={onLogout}
