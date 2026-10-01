@@ -282,7 +282,7 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
       {/* ---------------------------------------------------- */}
       {/* 2. Top Overview: Assets, Liabilities, Net Worth Cards */}
       {/* ---------------------------------------------------- */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Assets card */}
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-3xs flex flex-col justify-between">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Current Assets Balance</span>
@@ -294,7 +294,18 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
           </p>
         </div>
 
-        {/* Liabilities card */}
+        {/* Opening net worth card */}
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-3xs flex flex-col justify-between">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-700 block">Opening Net Worth</span>
+          <span className="text-xl sm:text-2xl font-black text-blue-800 font-mono mt-1">
+            {formatCurrency(financialSnapshot.openingNetWorth, settings.currency)}
+          </span>
+          <p className="text-[10px] text-blue-700 mt-2 font-medium">
+            Assets minus liabilities when you started tracking.
+          </p>
+        </div>
+
+      {/* Liabilities card */}
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-3xs flex flex-col justify-between">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Liabilities (Amortized Debt)</span>
           <span className="text-xl sm:text-2xl font-black text-rose-600 font-mono mt-1">
