@@ -24,7 +24,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
   const [paymentPending, setPaymentPending] = useState(() => new URLSearchParams(window.location.search).get('billing') === 'success');
 
   useEffect(() => {
-    if (!paymentPending || planId === 'free') return;
+    if (!paymentPending) return;
 
     let cancelled = false;
     let attempts = 0;
