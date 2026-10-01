@@ -7,6 +7,7 @@ Updated after each completed implementation/verification task.
 - [x] Account-scoped local storage
 - [x] Workbook repository abstraction
 - [x] Cloud persistence foundation
+- [x] Cloud endpoint authorization/data-path review
 - [x] Render deployment
 - [x] Google Sheets foundation
 - [x] Gemini integration foundation
@@ -100,8 +101,10 @@ Updated after each completed implementation/verification task.
 - Real Mobile Money verification requires the user's actual provider/account details.
 - Production auth email confirmation requires an owned sending domain/custom SMTP.
 - Current Supabase Security Advisor warning: leaked-password protection is disabled. Current Supabase documentation says this feature is available on Pro and above.
+- Cloud save/load still needs a real authenticated Plus/Pro session test; outbound DNS is unavailable in this execution environment, so live HTTP smoke testing could not be performed here.
 
 ## Latest verification
 - Supabase project status: ACTIVE_HEALTHY
 - Postgres: 17.6.1
 - Security Advisor: intentional RLS notices plus leaked-password protection warning; no unexpected public-access finding.
+- Cloud API path reviewed: authenticated request → Supabase identity → account profile → cloudSync entitlement → account-scoped workbook snapshot.
