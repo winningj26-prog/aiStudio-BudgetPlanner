@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Debt, ExpenseTransaction, FinancialAsset, IncomeTransaction, SavingsGoal, SettingsState } from '../../types/budget';
+import { Debt, DebtPayment, ExpenseTransaction, FinancialAsset, IncomeTransaction, SavingsGoal, SettingsState } from '../../types/budget';
 import { calculateFinancialSnapshot } from '../../utils/financialModel';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -8,6 +8,7 @@ interface Props {
   expenseTransactions: ExpenseTransaction[];
   savingsGoals?: SavingsGoal[];
   debts?: Debt[];
+  debtPayments?: DebtPayment[];
   financialAssets?: FinancialAsset[];
   openingCashBalance?: number;
   settings: SettingsState;
@@ -18,6 +19,7 @@ export const AdvancedAnalyticsSheet: React.FC<Props> = ({
   expenseTransactions,
   savingsGoals = [],
   debts = [],
+  debtPayments = [],
   financialAssets = [],
   openingCashBalance = 0,
   settings,
@@ -29,6 +31,7 @@ export const AdvancedAnalyticsSheet: React.FC<Props> = ({
       savingsGoals,
       debts,
       financialAssets,
+      debtPayments,
       openingCashBalance,
     );
     const income = financial.totalIncome;
@@ -49,7 +52,7 @@ export const AdvancedAnalyticsSheet: React.FC<Props> = ({
       .slice(0, 5);
 
     return { income, expenses, savings, savingsRate, categories, netWorth: financial.netWorth };
-  }, [incomeTransactions, expenseTransactions, savingsGoals, debts, financialAssets, openingCashBalance]);
+  }, [incomeTransactions, expenseTransactions, savingsGoals, debts, debtPayments, financialAssets, openingCashBalance]);
 
   return (
     <div className="space-y-6 p-6">
