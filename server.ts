@@ -1111,7 +1111,7 @@ app.post('/api/billing/checkout', async (req, res) => {
     const amount = planId === 'plus' ? config.plusAmount : config.proAmount;
 
     if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
-    if (!plan || !Number.isSafeInteger(amount) || amount <= 0) {
+    if (!plan || !Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) !== amount * 100) {
       return res.status(503).json({ error: 'This billing plan is not configured yet.' });
     }
     if (!config.appBaseUrl) {
