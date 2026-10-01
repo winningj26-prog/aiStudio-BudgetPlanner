@@ -196,7 +196,6 @@ Updated after each completed implementation/verification task.
 - [x] Recurring transaction posting now honors monthly, weekly, bi-weekly, and yearly frequencies
 - [x] Recurring transaction date generation clamps day-of-month safely to shorter months
 - [x] Module 4 savings goals, debts, and recurring transaction acceptance tests added
-- [x] V1 validation run #299 passed TypeScript, acceptance tests, production build, production smoke, Docker build, and Docker smoke
 - [ ] Module 4 live acceptance: create/edit/delete income and expense transactions
 - [ ] Module 4 live acceptance: monthly budget planning and variance calculations
 - [ ] Module 4 live acceptance: savings goals, debts, and recurring transactions
