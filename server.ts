@@ -1021,14 +1021,6 @@ app.post('/api/billing/webhook', async (req, res) => {
 
 // Initialize Gemini Client
 const apiKey = process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({
-  apiKey: apiKey,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
 
 // Lightweight production health check for load balancers and deployment smoke tests
 app.get('/healthz', (_req, res) => {
@@ -1078,7 +1070,10 @@ Transactions list:
 ${expenseTransactions.slice(0, 40).map((t: any) => `- ${t.date} ${t.category}: ${t.description} (${t.amount})`).join('\\n')}
 `;
 
-    if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+    const runtimeConfig = await getPlatformConfig();
+    const runtimeApiKey = runtimeConfig.geminiApiKey || apiKey || '';
+
+    if (!runtimeApiKey || runtimeApiKey === "MY_GEMINI_API_KEY" || runtimeApiKey.trim() === "") {
       return res.json({
         insights: `- Review your highest-spend categories and identify one recurring discretionary expense to reduce this month.
 - Check subscriptions and memberships for services you have not used recently.
@@ -1087,7 +1082,10 @@ ${expenseTransactions.slice(0, 40).map((t: any) => `- ${t.date} ${t.category}: $
       });
     }
 
-    const response = await ai.models.generateContent({
+    const response = await new GoogleGenAI({
+      apiKey: runtimeApiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+    }).models.generateContent({
       model: 'gemini-3.8-flash',
       contents: `
 You are a practical financial budgeting assistant. Analyze the following monthly financial snapshot and transactions:
@@ -1128,8 +1126,11 @@ app.post('/api/suggest-category', async (req, res) => {
       }
     }
 
-    // Graceful fallback if apiKey is missing
-    if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+    const runtimeConfig = await getPlatformConfig();
+    const runtimeApiKey = runtimeConfig.geminiApiKey || apiKey || '';
+
+    // Graceful fallback if no Gemini key is configured.
+    if (!runtimeApiKey || runtimeApiKey === "MY_GEMINI_API_KEY" || runtimeApiKey.trim() === "") {
       const desc = description.toLowerCase();
       let matched = categories[0]?.name || '';
       for (const cat of categories) {
