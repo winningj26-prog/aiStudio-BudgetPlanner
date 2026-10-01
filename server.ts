@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 import { isPlatformAdminEmail, normalizePlatformAdminEmails } from './src/utils/platformAdmin.ts';
+import { isValidCloudWorkbookPayload } from './src/utils/cloudWorkbook.ts';
 
 dotenv.config();
 
@@ -887,7 +888,7 @@ app.put('/api/workbook', async (req, res) => {
     const profile = await requireCloudSync(authUser.id);
     const data = req.body?.data;
 
-    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    if (!isValidCloudWorkbookPayload(req.body)) {
       return res.status(400).json({ error: 'Workbook data must be an object.' });
     }
 
