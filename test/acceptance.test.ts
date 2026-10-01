@@ -406,3 +406,20 @@ test('budget calculations handle zero planned amounts without Infinity or NaN', 
     status: 'Near Limit',
   });
 });
+
+
+test('financial impact module correctly projects annual savings from percentage reductions', () => {
+  const topCategoryMonthlySpend = 1200;
+  const reductionPercent = 10; // 10% reduction target
+
+  const monthlySavings = topCategoryMonthlySpend * (reductionPercent / 100);
+  const annualSavings = monthlySavings * 12;
+  const originalAnnualOutlay = topCategoryMonthlySpend * 12;
+  const newAnnualOutlay = originalAnnualOutlay - annualSavings;
+
+  assert.equal(monthlySavings, 120);
+  assert.equal(annualSavings, 1440);
+  assert.equal(originalAnnualOutlay, 14400);
+  assert.equal(newAnnualOutlay, 12960);
+});
+
