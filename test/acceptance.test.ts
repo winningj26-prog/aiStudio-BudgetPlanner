@@ -13,6 +13,11 @@ import {
   hasToolkitFeature,
 } from '../src/types/toolkit.ts';
 import { createLocalWorkbookRepository } from '../src/services/workbookRepository.ts';
+import {
+  extractSpreadsheetId,
+  parseSheetAmount,
+  parseSheetDate,
+} from '../src/services/googleSheetsService.ts';
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -130,4 +135,41 @@ test('supported plan prices accept positive values with up to two decimals', () 
   for (const amount of invalidAmounts) {
     assert.equal(Number.isFinite(amount) && amount > 0 && Math.round(amount * 100) === amount * 100, false);
   }
+});
+
+
+test('local storage fails safely on malformed JSON and unavailable storage', () => {
+  const storage = installStorage();
+  storage.setItem(STORAGE_KEYS.SETTINGS, '{not-json');
+  assert.deepEqual(loadFromAccountStorage(STORAGE_KEYS.SETTINGS, 'user-a', { currency: 'SLE' }), { currency: 'SLE' });
+
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { localStorage: null },
+  });
+  assert.equal(saveToAccountStorage(STORAGE_KEYS.USER_EMAIL, 'user-a', 'a@example.com'), false);
+  assert.equal(loadFromAccountStorage(STORAGE_KEYS.USER_EMAIL, 'user-a', 'fallback@example.com'), 'fallback@example.com');
+  void storage;
+});
+
+test('Google Sheets spreadsheet IDs normalize URLs without altering raw IDs', () => {
+  assert.equal(
+    extractSpreadsheetId('https://docs.google.com/spreadsheets/d/1AbC_-xyz123/edit#gid=0'),
+    '1AbC_-xyz123',
+  );
+  assert.equal(extractSpreadsheetId('  1AbC_-xyz123  '), '1AbC_-xyz123');
+});
+
+test('Google Sheets amount parser accepts normal currency values and rejects malformed values', () => {
+  assert.equal(parseSheetAmount('SLE 1,250.50', 'test'), 1250.5);
+  assert.equal(parseSheetAmount('-25', 'test'), -25);
+  assert.throws(() => parseSheetAmount('1,2,3.00', 'test'), /Invalid amount/);
+  assert.throws(() => parseSheetAmount('25 USD', 'test'), /Invalid amount/);
+  assert.throws(() => parseSheetAmount('', 'test'), /Invalid amount/);
+});
+
+test('Google Sheets date parser normalizes valid dates and rejects impossible dates', () => {
+  assert.equal(parseSheetDate('2026-02-28', 'test'), '2026-02-28');
+  assert.equal(parseSheetDate('02/28/2026', 'test'), '2026-02-28');
+  assert.throws(() => parseSheetDate('31/02/2026', 'test'), /Invalid date/);
 });
