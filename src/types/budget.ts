@@ -47,6 +47,13 @@ export interface SavingsGoal {
   notes?: string;
 }
 
+export interface FinancialAsset {
+  id: string;
+  name: string;
+  amount: number;
+  category: 'Liquid' | 'Investment' | 'Real Estate' | 'Other';
+}
+
 export interface Debt {
   id: string;
   name: string;
