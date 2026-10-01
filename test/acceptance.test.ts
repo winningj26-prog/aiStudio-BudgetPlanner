@@ -566,7 +566,7 @@ test('legacy financial assets and debts remain valid when opening balances are o
     [],
     [],
     [{ id: 'd1', name: 'Card', balance: 2000, interestRate: 20, minimumPayment: 100 }],
-    [{ id: 'a1', name: 'Savings', amount: 5000, category: 'Liquid' }],
+    [{ id: 'a1', name: 'Savings', amount: 5000, category: 'Bank' }],
     1000,
   );
 
