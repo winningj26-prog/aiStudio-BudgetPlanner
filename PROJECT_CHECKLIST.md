@@ -170,3 +170,25 @@ Updated after each completed implementation/verification task.
 - [x] V1 validation passed after the quick fixes (#275)
 - [x] Supabase schema verified for account suspension and payment configuration fields
 - [x] Suspension and payment configuration fixes deployed to Render and reached live (`dep-davcca3m8hqs73bt34pg`)
+
+
+## L. Module 4 — Budget / Workbook
+- [x] Workbook data model and repository boundary reviewed
+- [x] Account-scoped local workbook persistence reviewed
+- [x] Local workbook round-trip acceptance coverage reviewed
+- [x] Cloud workbook authorization and account-derived persistence path reviewed
+- [x] Workbook calculations and annual summary formulas reviewed
+- [x] Workbook export paths reviewed for Excel, CSV, and JSON backup
+- [x] Workbook snapshot schema validation added for settings, ledgers, budgets, goals, debts, recurring rules, and navigation state
+- [x] Invalid local workbook snapshots now fall back to trusted defaults
+- [x] Invalid cloud workbook snapshots now fall back to the trusted local workbook before hydration
+- [x] Cloud workbook writes reject malformed or invalid workbook snapshots server-side
+- [x] Module 4 acceptance coverage added for malformed workbook data and safe fallback behavior
+- [ ] Module 4 live acceptance: create/edit/delete income and expense transactions
+- [ ] Module 4 live acceptance: monthly budget planning and variance calculations
+- [ ] Module 4 live acceptance: savings goals, debts, and recurring transactions
+- [ ] Module 4 live acceptance: account switching preserves workbook isolation
+- [ ] Module 4 live acceptance: Plus/Pro cloud save/load round-trip
+- [ ] Module 4 live acceptance: export/download verification
+- [ ] Module 4 production validation pipeline
+- [ ] Module 4 deployment verification
