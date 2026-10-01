@@ -526,7 +526,7 @@ app.post('/api/billing/mobile-money/review', async (req, res) => {
     if (!requestId || !decision) return res.status(400).json({ error: 'Request ID and a valid review decision are required.' });
 
     const rows = await supabaseRequest(
-      `manual_payment_requests?select=id,user_id,plan_id,status& id=eq.${encodeURIComponent(requestId)}&limit=1`.replace('?select=', '?select=').replace('& id=', '&id='),
+      `manual_payment_requests?select=id,user_id,plan_id,status&id=eq.${encodeURIComponent(requestId)}&limit=1`,
     );
     const request = rows?.[0];
     if (!request) return res.status(404).json({ error: 'Payment request not found.' });
