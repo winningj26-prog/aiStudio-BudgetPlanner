@@ -427,20 +427,26 @@ app.post('/api/platform/users/action', async (req, res) => {
 
     if (action === 'suspend') {
       const live = await supabaseRequest(`subscriptions?select=id&user_id=eq.${encodeURIComponent(userId)}&status=in.(active,trialing,past_due,incomplete,suspended)&limit=1`);
-      
-      const nextStatus = status === 'suspended' ? 'suspended' : 'active';
+      const accountStatus = req.body?.accountStatus === 'suspended' ? 'suspended' : 'active';
+      const subscriptionStatus = req.body?.subscriptionStatus === 'suspended' ? 'suspended' : 'active';
+
+      await supabaseRequest(`profiles?id=eq.${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          account_status: accountStatus,
+          suspension_reason: accountStatus === 'suspended' ? 'Suspended by platform administrator.' : null,
+          updated_at: now,
+        }),
+      });
 
       if (live?.[0]?.id) {
         await supabaseRequest(`subscriptions?id=eq.${live[0].id}`, {
           method: 'PATCH',
           headers: { Prefer: 'return=minimal' },
-          body: JSON.stringify({
-            status: nextStatus,
-            updated_at: now
-          })
+          body: JSON.stringify({ status: subscriptionStatus, updated_at: now }),
         });
       } else {
-        // If they have no subscription, create a suspended subscription to block access
         await supabaseRequest('subscriptions', {
           method: 'POST',
           headers: { Prefer: 'return=minimal' },
@@ -449,23 +455,22 @@ app.post('/api/platform/users/action', async (req, res) => {
             plan_id: 'free',
             provider: 'none',
             provider_subscription_id: 'admin_suspend',
-            status: nextStatus
-          })
+            status: subscriptionStatus,
+          }),
         });
       }
 
-      // Audit log
       await supabaseRequest('platform_config_audit', {
         method: 'POST',
         headers: { Prefer: 'return=minimal' },
         body: JSON.stringify({
           admin_email: authUser.email || 'unknown',
           section: 'user_suspend',
-          changed_fields: { userId, status: nextStatus }
-        })
+          changed_fields: { userId, accountStatus, subscriptionStatus },
+        }),
       });
 
-      return res.json({ ok: true, message: `User subscription status updated to ${nextStatus}.` });
+      return res.json({ ok: true, message: `Account status: ${accountStatus}; subscription status: ${subscriptionStatus}.` });
     }
 
     if (action === 'delete') {
@@ -1059,11 +1064,14 @@ app.post('/api/billing/mobile-money/submit', async (req, res) => {
     const plan = isValidBillingPlanId(planId) ? billing.plans[planId] : null;
     const transactionId = normalizeTransactionId(req.body?.transactionId);
     const payerName = normalizeOptionalText(req.body?.payerName, 120);
+    const providerId = typeof req.body?.providerId === 'string' ? req.body.providerId.trim() : '';
+    const selectedProvider = billing.mobileMoneyProviders.find((provider: any) => provider.id === providerId && provider.enabled !== false);
 
     if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
     if (!isValidBillingPlanId(planId) || !plan || !isValidBillingAmount(plan.amount)) return res.status(400).json({ error: 'Invalid billing plan.' });
     if (!transactionId) return res.status(400).json({ error: 'A valid Mobile Money transaction ID is required.' });
     if (req.body?.payerName != null && req.body?.payerName !== '' && payerName == null) return res.status(400).json({ error: 'Payer name must be 120 characters or fewer.' });
+    if (!selectedProvider && billing.mobileMoneyProviders.length > 0) return res.status(400).json({ error: 'Select a valid Mobile Money provider.' });
 
     const existing = await supabaseRequest(
       `manual_payment_requests?select=id,plan_id,status,transaction_id,payer_name&user_id=eq.${encodeURIComponent(profile.id)}&status=in.(pending,approved)&order=created_at.desc&limit=1`,
@@ -1089,6 +1097,7 @@ app.post('/api/billing/mobile-money/submit', async (req, res) => {
         amount_value: plan.amount,
         currency: billing.currency,
         payment_method: 'mobile_money',
+        payment_provider: selectedProvider?.id || billing.provider,
         transaction_id: transactionId,
         payer_name: payerName || null,
         status: 'pending',
@@ -1113,6 +1122,7 @@ app.get('/api/billing/mobile-money/status', async (req, res) => {
     const authUser = await verifySupabaseRequest(req);
     const profile = await getToolkitProfile(authUser.id);
     const billing = await getPlatformBillingConfig();
+    if (!billing.paymentMethods.includes('mobile_money')) return res.status(503).json({ error: 'Mobile Money payments are currently unavailable.' });
     const planId = req.query.planId;
     if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
     if (!isValidBillingPlanId(planId)) return res.status(400).json({ error: 'Invalid billing plan.' });
