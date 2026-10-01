@@ -216,6 +216,7 @@ export default function App() {
       plannedExpenses,
       savingsGoals,
       debts,
+      debtPayments,
       financialAssets,
       openingCashBalance,
       recurringTransactions,
@@ -322,6 +323,7 @@ export default function App() {
       loadFromAccountStorage(STORAGE_KEYS.SAVINGS_GOALS, userId, INITIAL_SAVINGS_GOALS),
     );
     setDebts(loadFromAccountStorage(STORAGE_KEYS.DEBTS, userId, INITIAL_DEBTS));
+    setDebtPayments(loadFromAccountStorage(STORAGE_KEYS.DEBT_PAYMENTS, userId, []));
     setFinancialAssets(
       loadFromAccountStorage(STORAGE_KEYS.FINANCIAL_ASSETS, userId, INITIAL_FINANCIAL_ASSETS),
     );
@@ -418,6 +420,7 @@ export default function App() {
             plannedExpenses,
             savingsGoals,
             debts,
+            debtPayments,
             financialAssets,
             openingCashBalance,
             recurringTransactions,
@@ -473,6 +476,7 @@ export default function App() {
         plannedExpenses,
         savingsGoals,
         debts,
+        debtPayments,
         financialAssets,
         openingCashBalance,
         recurringTransactions,
@@ -1028,7 +1032,6 @@ export default function App() {
           expenseTransactions,
           plannedIncome,
           plannedExpenses,
-          debtPayments,
           financialAssets,
           openingCashBalance,
           annualData,
