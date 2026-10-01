@@ -608,7 +608,8 @@ app.get('/api/account/session', async (req, res) => {
     }
 
     const planId = subscription?.plan_id || 'free';
-    const entitlementRows = (await supabaseRequest(
+    const suspended = subscription?.status === 'suspended';
+    const entitlementRows = suspended ? [] : (await supabaseRequest(
       `plan_entitlements?select=feature_key,enabled&plan_id=eq.${encodeURIComponent(planId)}&enabled=eq.true`,
     )) as Array<{ feature_key: string; enabled: boolean }> | null;
     const overrideRows = (await supabaseRequest(
@@ -616,12 +617,14 @@ app.get('/api/account/session', async (req, res) => {
     )) as Array<{ app_id: string; enabled: boolean }> | null;
 
     const appAccess: Record<string, boolean> = {
-      'budget-planner': true,
+      'budget-planner': !suspended,
       'app-2': false,
       'app-3': false,
       'app-4': false,
     };
-    for (const row of overrideRows ?? []) appAccess[row.app_id] = Boolean(row.enabled);
+    if (!suspended) {
+      for (const row of overrideRows ?? []) appAccess[row.app_id] = Boolean(row.enabled);
+    }
 
     return res.json({
       version: 1,
@@ -654,6 +657,45 @@ app.get('/api/account/session', async (req, res) => {
     return res.status(status).json({
       error: status === 401 ? 'Invalid authentication session.' : 'Unable to load toolkit account session.',
     });
+  }
+});
+
+app.post('/api/account/subscription', async (req, res) => {
+  try {
+    const authUser = await verifySupabaseRequest(req);
+    const planId = req.body?.planId;
+    if (planId !== 'free') {
+      return res.status(400).json({ error: 'Only a Free downgrade is supported through this endpoint.' });
+    }
+
+    const profile = await getToolkitProfile(authUser.id);
+    if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
+
+    const live = await supabaseRequest(
+      `subscriptions?select=id,status&user_id=eq.${profile.id}&status=in.(active,trialing,past_due,incomplete,suspended)&limit=1`,
+    );
+    if (!live?.[0]?.id) return res.json({ ok: true, planId: 'free' });
+
+    const now = new Date().toISOString();
+    await supabaseRequest(`subscriptions?id=eq.${live[0].id}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        plan_id: 'free',
+        provider: 'none',
+        provider_customer_id: null,
+        provider_subscription_id: null,
+        status: 'active',
+        current_period_end: null,
+        updated_at: now,
+      }),
+    });
+
+    return res.json({ ok: true, planId: 'free' });
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
+    console.error('Subscription downgrade error:', error);
+    return res.status(status).json({ error: 'Unable to change subscription plan.' });
   }
 });
 
