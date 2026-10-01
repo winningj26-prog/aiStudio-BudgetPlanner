@@ -95,7 +95,7 @@ Updated after each completed implementation/verification task.
 - [x] AI Insights acceptance test
 - [x] Advanced Analytics acceptance test
 - [x] Google Sheets create/read/write acceptance test
-- [ ] Admin/non-admin acceptance test
+- [x] Admin/non-admin acceptance test (authorization allow-list coverage; V1 validation #213 passed)
 - [ ] Admin account edit/suspend/delete live acceptance test
 - [x] Auth/session acceptance test (signed-in/signed-out session-state contract; V1 validation #209 passed)
 - [ ] Full production smoke/acceptance pass
