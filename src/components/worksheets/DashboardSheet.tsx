@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getAuthAccessToken } from '../../services/supabaseAuth';
+import { getAuthAccessToken } from '../../services/supabaseAuth';
 import {
   CategoryItem,
   Debt,
