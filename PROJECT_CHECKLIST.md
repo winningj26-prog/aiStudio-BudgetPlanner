@@ -25,6 +25,7 @@ Updated after each completed implementation/verification task.
 
 ## C. Paid features
 - [x] AI Insights foundation/enforcement/usage tracking
+- [x] AI Insights authenticated request + Pro UI gating
 - [ ] AI UI acceptance testing
 - [x] Advanced Analytics + gating
 - [ ] Free/Plus/Pro acceptance testing
@@ -99,6 +100,9 @@ Updated after each completed implementation/verification task.
 - [ ] Auth/session acceptance test
 - [ ] Full production smoke/acceptance pass
 
+- [x] V1 validation TypeScript blocker fixed (duplicate auth import)
+- [x] V1 validation pipeline passed (#200)
+
 ## Current blocker / dependency
 - Real Mobile Money verification requires the user's actual provider/account details.
 - Production auth email confirmation requires an owned sending domain/custom SMTP.
@@ -107,6 +111,7 @@ Updated after each completed implementation/verification task.
 - Cloud save/load still needs a real authenticated Plus/Pro session test; outbound DNS is unavailable in this execution environment, so live HTTP smoke testing could not be performed here.
 
 ## Latest verification
+- V1 validation pipeline #200: passed (user-reported).
 - Supabase project status: ACTIVE_HEALTHY
 - Postgres: 17.6.1
 - Security Advisor: intentional RLS notices plus leaked-password protection warning; no unexpected public-access finding.

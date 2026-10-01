@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getAuthAccessToken } from '../../services/supabaseAuth';
 import {
   CategoryItem,
   Debt,
@@ -69,6 +70,7 @@ interface DashboardSheetProps {
   recurringTransactions?: RecurringTransaction[];
   onUpdateIncomeTransactions?: (transactions: IncomeTransaction[]) => void;
   onUpdateExpenseTransactions?: (transactions: ExpenseTransaction[]) => void;
+  aiInsightsEnabled?: boolean;
 }
 
 export const DashboardSheet: React.FC<DashboardSheetProps> = ({
@@ -89,6 +91,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   recurringTransactions = [],
   onUpdateIncomeTransactions,
   onUpdateExpenseTransactions,
+  aiInsightsEnabled = false,
 }) => {
   const [isLocalExportModalOpen, setIsLocalExportModalOpen] = useState(false);
 
@@ -221,9 +224,15 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
     setAiError(null);
     setIsAiFallback(false);
     try {
+      if (!aiInsightsEnabled) return;
+      const accessToken = await getAuthAccessToken();
       const response = await fetch('/api/insights', {
+
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
           incomeTransactions,
           expenseTransactions,
@@ -267,8 +276,8 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
 
   // Fetch on mount and when transaction lists or month changes
   useEffect(() => {
-    fetchAiInsights();
-  }, [incomeTransactions.length, expenseTransactions.length, settings.month]);
+    if (aiInsightsEnabled) fetchAiInsights();
+  }, [aiInsightsEnabled, incomeTransactions.length, expenseTransactions.length, settings.month]);
 
   // Budget Alerts logic: Warning if spent is >= 90% of budget
   const budgetAlerts = useMemo(() => {
