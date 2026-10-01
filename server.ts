@@ -157,6 +157,44 @@ app.get('/api/platform/config', async (req, res) => {
   }
 });
 
+app.get('/api/platform/users', async (req, res) => {
+  try {
+    await requirePlatformAdmin(req);
+    const profiles = await supabaseRequest('profiles?select=id,email,display_name,photo_url,onboarding_completed,created_at');
+    const subscriptions = await supabaseRequest('subscriptions?select=user_id,plan_id,provider,status,current_period_end');
+    return res.json({ profiles, subscriptions });
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
+    console.error('Platform users fetch error:', error);
+    return res.status(status).json({ error: 'Unable to load platform users.' });
+  }
+});
+
+app.get('/api/platform/payment-requests', async (req, res) => {
+  try {
+    await requirePlatformAdmin(req);
+    const requests = await supabaseRequest('manual_payment_requests?select=id,user_id,plan_id,amount_value,currency,payment_method,transaction_id,payer_name,status,reviewed_at,reviewed_by,reviewer_note,created_at&order=created_at.desc');
+    const profiles = await supabaseRequest('profiles?select=id,email,display_name');
+    return res.json({ requests, profiles });
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
+    console.error('Platform payment requests load error:', error);
+    return res.status(status).json({ error: 'Unable to load payment requests.' });
+  }
+});
+
+app.get('/api/platform/audit-logs', async (req, res) => {
+  try {
+    await requirePlatformAdmin(req);
+    const logs = await supabaseRequest('platform_config_audit?select=id,admin_email,section,changed_fields,created_at&order=created_at.desc');
+    return res.json({ logs });
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status ?? 500;
+    console.error('Platform audit logs load error:', error);
+    return res.status(status).json({ error: 'Unable to load audit logs.' });
+  }
+});
+
 app.put('/api/platform/config', async (req, res) => {
   try {
     const authUser = await requirePlatformAdmin(req);
