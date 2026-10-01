@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { ArrowLeft, Check, Smartphone } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { ToolkitEntitlementResponse, ToolkitPlanId } from '../types/toolkit';
-import { downgradeToolkitSubscriptionToFree, getMobileMoneyPaymentInfo, loadToolkitAccountSession } from '../services/toolkitAccount';
+import { createBillingCheckout, downgradeToolkitSubscriptionToFree, getMobileMoneyPaymentInfo, loadToolkitAccountSession } from '../services/toolkitAccount';
 import { MobileMoneyPaymentView } from './MobileMoneyPaymentView';
 
 interface SubscriptionViewProps {
@@ -21,6 +21,8 @@ const planDetails: Record<ToolkitPlanId, { name: string; description: string; fe
 export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, session, onBack, onSessionUpdated }) => {
   const currentPlan = session.session.subscription.planId;
   const [paymentPlan, setPaymentPlan] = useState<'plus' | 'pro' | null>(null);
+  const [paymentMethods, setPaymentMethods] = useState<string[]>(['mobile_money']);
+  const [billingError, setBillingError] = useState<string | null>(null);
   const [planPrices, setPlanPrices] = useState<Record<'plus' | 'pro', string>>({ plus: 'Loading…', pro: 'Loading…' });
   const [downgrading, setDowngrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,10 +31,13 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
     let cancelled = false;
     void Promise.all([getMobileMoneyPaymentInfo('plus'), getMobileMoneyPaymentInfo('pro')])
       .then(([plus, pro]) => {
-        if (!cancelled) setPlanPrices({
+        if (!cancelled) {
+          setPaymentMethods(plus.paymentMethods ?? ['mobile_money']);
+          setPlanPrices({
           plus: `${plus.currency} ${plus.amount.toLocaleString()}`,
           pro: `${pro.currency} ${pro.amount.toLocaleString()}`,
-        });
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setPlanPrices({ plus: 'Price unavailable', pro: 'Price unavailable' });
@@ -54,6 +59,24 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
     } finally {
       setDowngrading(false);
     }
+  };
+
+  const handlePayment = async (planId: 'plus' | 'pro', method: string) => {
+    setBillingError(null);
+    if (method === 'mobile_money') {
+      setPaymentPlan(planId);
+      return;
+    }
+    if (method === 'monime') {
+      try {
+        const checkout = await createBillingCheckout(user, planId);
+        window.location.assign(checkout.checkoutUrl);
+      } catch (error) {
+        setBillingError(error instanceof Error ? error.message : 'Unable to start Monime checkout.');
+      }
+      return;
+    }
+    setBillingError('This payment method is not available yet.');
   };
 
   const handleApproved = useCallback(async () => {
@@ -105,13 +128,14 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, sessio
                   <ul className="mt-5 space-y-2">
                     {plan.features.map((feature) => <li key={feature} className="flex gap-2 text-xs text-slate-300"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />{feature}</li>)}
                   </ul>
-                  <button type="button" disabled={!canPay && !canDowngrade || downgrading} onClick={canDowngrade ? handleDowngrade : canPay ? () => setPaymentPlan(plan.id as 'plus' | 'pro') : undefined} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">
-                    {current ? 'Current plan' : canDowngrade ? (downgrading ? 'Switching…' : 'Switch to Free') : plan.id === 'free' ? 'Included' : <><Smartphone className="h-4 w-4" />Pay with Mobile Money</>}
+                  <button type="button" disabled={!canPay && !canDowngrade || downgrading} onClick={canDowngrade ? handleDowngrade : canPay ? () => void handlePayment(plan.id as 'plus' | 'pro', paymentMethods[0] ?? 'mobile_money') : undefined} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500">
+                    {current ? 'Current plan' : canDowngrade ? (downgrading ? 'Switching…' : 'Switch to Free') : plan.id === 'free' ? 'Included' : <><Smartphone className="h-4 w-4" />Pay with {paymentMethods[0] === 'monime' ? 'Monime' : 'Mobile Money'}</>}
                   </button>
                 </article>
               );
             })}
           </div>
+          {billingError && <p className="mt-4 rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-center text-xs text-rose-200">{billingError}</p>}
           {error && <p className="mt-4 rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-center text-xs text-rose-200">{error}</p>}
           <p className="mt-6 text-center text-xs text-slate-500">Mobile Money payments are verified manually. Your plan is not activated until the transaction is confirmed.</p>
         </main>
