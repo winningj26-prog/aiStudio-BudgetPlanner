@@ -446,7 +446,7 @@ test('debt calculations handle interest, payment shortfalls, and payoff edge cas
   const debt = { id: 'd1', name: 'Card', balance: 1200, interestRate: 12, minimumPayment: 100 };
   assert.equal(calculateDebtMonthlyInterest(debt), 12);
   assert.equal(calculateDebtMinimumPaymentShortfall(debt), 0);
-  assert.equal(calculateDebtPayoffMonths(debt), 14);
+  assert.equal(calculateDebtPayoffMonths(debt), 13);
   assert.equal(calculateDebtPayoffMonths({ ...debt, minimumPayment: 5 }), null);
   assert.equal(calculateDebtPayoffMonths({ ...debt, balance: 0 }), 0);
 });
