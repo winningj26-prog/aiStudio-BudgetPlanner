@@ -28,7 +28,7 @@ export function calculateFinancialSnapshot(
   savingsGoals: SavingsGoal[],
   debts: Debt[],
   assets: FinancialAsset[],
-  debtPayments: DebtPayment[] = [], FinancialAsset[],
+  debtPayments: DebtPayment[] = [],
   openingCashBalance = 0,
 ): FinancialSnapshot {
   const totalIncome = incomeTransactions.reduce((sum, tx) => sum + positive(tx.amount), 0);
@@ -45,6 +45,9 @@ export function calculateFinancialSnapshot(
   }
   for (const tx of expenseTransactions) {
     if (tx.accountId) expenseByAccount.set(tx.accountId, (expenseByAccount.get(tx.accountId) ?? 0) + positive(tx.amount));
+  }
+  for (const payment of debtPayments) {
+    if (payment.accountId) expenseByAccount.set(payment.accountId, (expenseByAccount.get(payment.accountId) ?? 0) + positive(payment.amount));
   }
 
   const accountBalances: Record<string, number> = {};
