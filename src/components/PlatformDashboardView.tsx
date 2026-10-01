@@ -177,6 +177,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [isSuspended, setIsSuspended] = useState(false);
+  const [isSubscriptionSuspended, setIsSubscriptionSuspended] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleUserAction = async (action: 'edit' | 'suspend' | 'delete') => {
@@ -194,7 +195,9 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
           action,
           displayName: editDisplayName,
           email: editEmail,
-          status: action === 'suspend' ? (isSuspended ? 'active' : 'suspended') : undefined,
+          status: action === 'suspend' ? (isSubscriptionSuspended ? 'suspended' : 'active') : undefined,
+          accountStatus: action === 'suspend' ? (isSuspended ? 'suspended' : 'active') : undefined,
+          subscriptionStatus: action === 'suspend' ? (isSubscriptionSuspended ? 'suspended' : 'active') : undefined,
         }),
       });
       const body = await response.json();
@@ -839,7 +842,8 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                               });
                               setEditDisplayName(u.display_name || '');
                               setEditEmail(u.email || '');
-                              setIsSuspended(subStatus === 'suspended');
+                              setIsSuspended(u.account_status === 'suspended');
+                              setIsSubscriptionSuspended(subStatus === 'suspended');
                               setManageMode('view');
                               setShowDeleteConfirm(false);
                             }}
@@ -1545,25 +1549,19 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                     <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 text-amber-950">
                       <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
                       <div>
-                        <p className="font-bold text-xs">Subscription Suspension Status</p>
-                        <p className="mt-1 text-[10px] text-amber-800 leading-4">Suspension flags the user's active plan subscription status as "suspended". When active, this blocks their account launcher access securely.</p>
+                        <p className="font-bold text-xs">Account and subscription controls</p>
+                        <p className="mt-1 text-[10px] text-amber-800 leading-4">Account suspension blocks sign-in and all application access. Subscription suspension only suspends the subscription entitlement.</p>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between p-3.5 border border-slate-200 rounded-xl bg-white shadow-2xs">
-                      <div>
-                        <h4 className="font-bold text-slate-800">Suspend Subscription</h4>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Toggle to lock down premium plan functions.</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={isSuspended}
-                          onChange={(e) => setIsSuspended(e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
-                      </label>
+                      <div><h4 className="font-bold text-slate-800">Suspend account</h4><p className="text-[10px] text-slate-400 mt-0.5">Prevent the user from accessing the account.</p></div>
+                      <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={isSuspended} onChange={(e) => setIsSuspended(e.target.checked)} className="sr-only peer" /><div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-500"></div></label>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3.5 border border-slate-200 rounded-xl bg-white shadow-2xs">
+                      <div><h4 className="font-bold text-slate-800">Suspend subscription</h4><p className="text-[10px] text-slate-400 mt-0.5">Suspend the subscription without blocking account login.</p></div>
+                      <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={isSubscriptionSuspended} onChange={(e) => setIsSubscriptionSuspended(e.target.checked)} className="sr-only peer" /><div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div></label>
                     </div>
 
                     <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 mt-4">
@@ -1578,7 +1576,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                         ) : (
                           <Ban className="h-4 w-4" />
                         )}
-                        {isSuspended ? 'Lift Suspension' : 'Suspend Account'}
+                        {isSuspended || isSubscriptionSuspended ? 'Save suspension changes' : 'Apply suspension settings'}
                       </button>
                     </div>
                   </div>
