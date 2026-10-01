@@ -90,7 +90,7 @@ async function setPlatformSecret(name: string, value: string, description: strin
 
 async function getPlatformConfig() {
   const rows = await supabaseRequest(
-    'platform_settings?select=id,currency,plus_amount,pro_amount,mobile_money_provider,mobile_money_account_name,mobile_money_account_number,mobile_money_instructions,monime_api_version,app_base_url,integration_settings,updated_by,updated_at&limit=1',
+    'platform_settings?select=id,currency,plus_amount,pro_amount,mobile_money_provider,mobile_money_account_name,mobile_money_account_number,mobile_money_instructions,monime_api_version,app_base_url,integration_settings,support_email,support_phone,payment_methods,mobile_money_providers,updated_by,updated_at&limit=1',
   );
   const row = rows?.[0] || {};
   const [monimeAccessToken, monimeSpaceId, monimeWebhookSecret, geminiApiKey, resendSmtpPassword] =
@@ -113,6 +113,10 @@ async function getPlatformConfig() {
     monimeApiVersion: row.monime_api_version || process.env.MONIME_API_VERSION || 'caph.2025-08-23',
     appBaseUrl: row.app_base_url || (process.env.APP_BASE_URL || '').replace(/\/$/, ''),
     integrationSettings: row.integration_settings || {},
+    supportEmail: row.support_email || '',
+    supportPhone: row.support_phone || '',
+    paymentMethods: Array.isArray(row.payment_methods) ? row.payment_methods : ['mobile_money'],
+    mobileMoneyProviders: Array.isArray(row.mobile_money_providers) ? row.mobile_money_providers : [],
     monimeAccessToken: monimeAccessToken || process.env.MONIME_ACCESS_TOKEN || '',
     monimeSpaceId: monimeSpaceId || process.env.MONIME_SPACE_ID || '',
     monimeWebhookSecret: monimeWebhookSecret || process.env.MONIME_WEBHOOK_SECRET || '',
@@ -184,6 +188,10 @@ app.get('/api/platform/config', async (req, res) => {
         mobileMoneyAccountName: config.mobileMoneyAccountName,
         mobileMoneyAccountNumber: config.mobileMoneyAccountNumber,
         mobileMoneyInstructions: config.mobileMoneyInstructions,
+        paymentMethods: config.paymentMethods,
+        mobileMoneyProviders: config.mobileMoneyProviders,
+        supportEmail: config.supportEmail,
+        supportPhone: config.supportPhone,
         monimeApiVersion: config.monimeApiVersion,
         appBaseUrl: config.appBaseUrl,
         integrationSettings: config.integrationSettings,
@@ -508,6 +516,20 @@ app.put('/api/platform/config', async (req, res) => {
     }
 
     const current = await getPlatformConfig();
+    const allowedPaymentMethods = ['mobile_money', 'monime', 'bank_transfer'];
+    const paymentMethods = Array.isArray(body.paymentMethods)
+      ? body.paymentMethods.filter((method: unknown) => typeof method === 'string' && allowedPaymentMethods.includes(method))
+      : current.paymentMethods;
+    const mobileMoneyProviders = Array.isArray(body.mobileMoneyProviders)
+      ? body.mobileMoneyProviders.slice(0, 20).map((provider: any) => ({
+          id: typeof provider?.id === 'string' ? provider.id.trim().slice(0, 80) : '',
+          name: typeof provider?.name === 'string' ? provider.name.trim().slice(0, 120) : '',
+          accountName: typeof provider?.accountName === 'string' ? provider.accountName.trim().slice(0, 160) : '',
+          accountNumber: typeof provider?.accountNumber === 'string' ? provider.accountNumber.trim().slice(0, 120) : '',
+          instructions: typeof provider?.instructions === 'string' ? provider.instructions.trim().slice(0, 1000) : '',
+          enabled: provider?.enabled !== false,
+        })).filter((provider: any) => provider.id && provider.name)
+      : current.mobileMoneyProviders;
     const next = {
       currency: typeof body.currency === 'string' && body.currency.trim() ? body.currency.trim().toUpperCase() : current.currency,
       plusAmount,
@@ -516,6 +538,10 @@ app.put('/api/platform/config', async (req, res) => {
       mobileMoneyAccountName: typeof body.mobileMoneyAccountName === 'string' ? body.mobileMoneyAccountName.trim() : current.mobileMoneyAccountName,
       mobileMoneyAccountNumber: typeof body.mobileMoneyAccountNumber === 'string' ? body.mobileMoneyAccountNumber.trim() : current.mobileMoneyAccountNumber,
       mobileMoneyInstructions: typeof body.mobileMoneyInstructions === 'string' && body.mobileMoneyInstructions.trim() ? body.mobileMoneyInstructions.trim() : current.mobileMoneyInstructions,
+      supportEmail: typeof body.supportEmail === 'string' ? body.supportEmail.trim().slice(0, 160) : current.supportEmail,
+      supportPhone: typeof body.supportPhone === 'string' ? body.supportPhone.trim().slice(0, 80) : current.supportPhone,
+      paymentMethods,
+      mobileMoneyProviders,
       monimeApiVersion: typeof body.monimeApiVersion === 'string' && body.monimeApiVersion.trim() ? body.monimeApiVersion.trim() : current.monimeApiVersion,
       appBaseUrl: typeof body.appBaseUrl === 'string' ? body.appBaseUrl.trim().replace(/\/$/, '') : current.appBaseUrl,
       integrationSettings: typeof body.integrationSettings === 'object' && body.integrationSettings !== null ? body.integrationSettings : current.integrationSettings,
@@ -535,6 +561,10 @@ app.put('/api/platform/config', async (req, res) => {
         monime_api_version: next.monimeApiVersion,
         app_base_url: next.appBaseUrl,
         integration_settings: next.integrationSettings,
+        support_email: next.supportEmail,
+        support_phone: next.supportPhone,
+        payment_methods: next.paymentMethods,
+        mobile_money_providers: next.mobileMoneyProviders,
         updated_by: authUser.email || null,
         updated_at: new Date().toISOString(),
       }),
@@ -578,6 +608,16 @@ app.get('/api/account/session', async (req, res) => {
     const profile = await getOrCreateToolkitProfile(authUser);
 
     if (!profile?.id) throw new Error('Could not create or load toolkit profile.');
+    if (profile.account_status === 'suspended') {
+      const config = await getPlatformConfig();
+      return res.status(403).json({
+        code: 'ACCOUNT_SUSPENDED',
+        error: 'Your account is suspended.',
+        message: 'Please contact an administrator to restore access.',
+        support: { email: config.supportEmail || null, phone: config.supportPhone || null },
+        reason: profile.suspension_reason || null,
+      });
+    }
 
     const subscriptionRows = await supabaseRequest(
       `subscriptions?select=plan_id,provider,status,current_period_end&user_id=eq.${profile.id}&order=created_at.desc&limit=20`,
@@ -628,6 +668,7 @@ app.get('/api/account/session', async (req, res) => {
 
     return res.json({
       version: 1,
+      accountStatus: profile.account_status || 'active',
       session: {
         user: {
           id: profile.id,
@@ -771,7 +812,7 @@ app.post('/api/account/onboarding', async (req, res) => {
 async function getOrCreateToolkitProfile(authUser: { id: string; email?: string | null; user_metadata?: Record<string, any> | null }) {
   const userId = encodeURIComponent(authUser.id);
   let profiles = await supabaseRequest(
-    `profiles?select=id,email,display_name,photo_url,onboarding_completed,auth_user_id&auth_user_id=eq.${userId}&limit=1`,
+    `profiles?select=id,email,display_name,photo_url,onboarding_completed,auth_user_id,account_status,suspension_reason&auth_user_id=eq.${userId}&limit=1`,
   );
   let profile = profiles?.[0];
 
@@ -780,7 +821,7 @@ async function getOrCreateToolkitProfile(authUser: { id: string; email?: string 
   if (!profile && authUser.email) {
     const email = encodeURIComponent(authUser.email);
     profiles = await supabaseRequest(
-      `profiles?select=id,email,display_name,photo_url,onboarding_completed,auth_user_id,auth_provider&email=eq.${email}&limit=1`,
+      `profiles?select=id,email,display_name,photo_url,onboarding_completed,auth_user_id,auth_provider,account_status,suspension_reason&email=eq.${email}&limit=1`,
     );
     const legacyProfile = profiles?.[0];
     if (legacyProfile && !legacyProfile.auth_user_id) {
@@ -809,6 +850,7 @@ async function getOrCreateToolkitProfile(authUser: { id: string; email?: string 
         auth_subject: authUser.id,
         auth_user_id: authUser.id,
         email: authUser.email ?? null,
+        account_status: 'active',
         display_name: authUser.user_metadata?.full_name ?? null,
         photo_url: authUser.user_metadata?.avatar_url ?? null,
       }),
