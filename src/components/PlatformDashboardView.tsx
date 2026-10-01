@@ -143,6 +143,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
     'app-4': false,
   });
   const [manageSaving, setManageSaving] = useState(false);
+  const [manageReason, setManageReason] = useState('');
 
   const handleSaveUserOverride = async () => {
     if (!selectedUserForManage) return;
@@ -159,6 +160,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
           planId: managePlanId,
           onboardingCompleted: manageOnboardingCompleted,
           appAccess: manageAppAccess,
+          reason: manageReason,
         }),
       });
       const body = await response.json();
@@ -768,6 +770,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                                 'app-3': false,
                                 'app-4': false,
                               });
+                              setManageReason('');
                             }}
                             className="px-2.5 py-1 text-cyan-600 hover:bg-cyan-50 font-bold rounded cursor-pointer transition-colors"
                           >
@@ -1218,6 +1221,20 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                   </select>
                 </div>
 
+                {/* Required audit reason */}
+                <div className="space-y-1.5">
+                  <label className="block font-bold text-slate-700">Override Reason (required)</label>
+                  <textarea
+                    rows={3}
+                    maxLength={500}
+                    value={manageReason}
+                    onChange={(e) => setManageReason(e.target.value)}
+                    placeholder="Explain why this account needs a manual entitlement or subscription override."
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-medium text-slate-900 focus:border-cyan-500 focus:outline-hidden"
+                  />
+                  <p className="text-[10px] leading-4 text-slate-400">This reason is stored with the administrator audit record.</p>
+                </div>
+
                 {/* App Entitlements Toggle privileges */}
                 <div className="space-y-2">
                   <label className="block font-bold text-slate-700">Launcher Application Access</label>
@@ -1256,7 +1273,7 @@ export const PlatformDashboardView: React.FC<Props> = ({ onBack }) => {
                 </button>
                 <button
                   type="button"
-                  disabled={manageSaving}
+                  disabled={manageSaving || manageReason.trim().length < 5}
                   onClick={() => void handleSaveUserOverride()}
                   className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
