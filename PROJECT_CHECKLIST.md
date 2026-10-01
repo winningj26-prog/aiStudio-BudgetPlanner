@@ -28,7 +28,7 @@ Updated after each completed implementation/verification task.
 - [x] AI Insights authenticated request + Pro UI gating
 - [ ] AI UI acceptance testing
 - [x] Advanced Analytics + gating
-- [ ] Free/Plus/Pro acceptance testing
+- [x] Free/Plus/Pro acceptance testing (automated entitlement coverage; V1 validation #204 passed)
 
 ## D. Toolkit/account
 - [x] Shared account schema
