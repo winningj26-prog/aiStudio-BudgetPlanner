@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Debt, SettingsState } from '../../types/budget';
+import { Debt, ExpenseTransaction, FinancialAsset, IncomeTransaction, SavingsGoal, SettingsState } from '../../types/budget';
 import { formatCurrency } from '../../utils/formatters';
+import { calculateFinancialSnapshot } from '../../utils/financialModel';
 import {
   Coins,
   TrendingUp,
@@ -18,35 +19,48 @@ import {
   Info
 } from 'lucide-react';
 
-interface AssetVal {
-  id: string;
-  name: string;
-  amount: number;
-  category: 'Liquid' | 'Investment' | 'Real Estate' | 'Other';
-}
-
 interface NetWorthForecasterProps {
   debts: Debt[];
+  financialAssets: FinancialAsset[];
+  openingCashBalance: number;
+  onUpdateFinancialAssets: (assets: FinancialAsset[]) => void;
+  onUpdateOpeningCashBalance: (amount: number) => void;
+  incomeTransactions: IncomeTransaction[];
+  expenseTransactions: ExpenseTransaction[];
+  savingsGoals: SavingsGoal[];
   settings: SettingsState;
-  currentMonthlySavings: number; // calculated as Income - Expenses
+  currentMonthlySavings: number;
   currentMonthlyExpenses: number;
   onSelectCell?: (info: { reference: string; value: string; formula?: string; isCalculated: boolean }) => void;
 }
 
 export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
   debts,
+  financialAssets,
+  openingCashBalance,
+  onUpdateFinancialAssets,
+  onUpdateOpeningCashBalance,
+  incomeTransactions,
+  expenseTransactions,
+  savingsGoals,
   settings,
   currentMonthlySavings,
   currentMonthlyExpenses,
   onSelectCell,
 }) => {
-  // 1. Custom Asset Ledger State
-  const [assets, setAssets] = useState<AssetVal[]>([
-    { id: '1', name: 'Savings & Checking Accounts', amount: 12500, category: 'Liquid' },
-    { id: '2', name: 'Stock Brokerage Portfolio', amount: 28400, category: 'Investment' },
-    { id: '3', name: 'Primary Residence (Equity)', amount: 185000, category: 'Real Estate' },
-    { id: '4', name: 'Retirement Account (401k/IRA)', amount: 45000, category: 'Investment' },
-  ]);
+  // Shared financial snapshot: every income, expense, savings goal, and debt change
+  // now flows through the same calculation used by the rest of the workbook.
+  const financialSnapshot = useMemo(
+    () => calculateFinancialSnapshot(
+      incomeTransactions,
+      expenseTransactions,
+      savingsGoals,
+      debts,
+      financialAssets,
+      openingCashBalance,
+    ),
+    [incomeTransactions, expenseTransactions, savingsGoals, debts, financialAssets, openingCashBalance],
+  );
 
   // Form states for adding custom asset
   const [newAssetName, setNewAssetName] = useState('');
@@ -63,17 +77,9 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
   const [inflationRate, setInflationRate] = useState<number>(3.5);
 
   // 2. Net Worth Calculation
-  const totalAssets = useMemo(() => {
-    return assets.reduce((sum, a) => sum + a.amount, 0);
-  }, [assets]);
-
-  const totalLiabilities = useMemo(() => {
-    return debts.reduce((sum, d) => sum + d.balance, 0);
-  }, [debts]);
-
-  const netWorth = useMemo(() => {
-    return totalAssets - totalLiabilities;
-  }, [totalAssets, totalLiabilities]);
+  const totalAssets = financialSnapshot.totalAssets;
+  const totalLiabilities = financialSnapshot.totalLiabilities;
+  const netWorth = financialSnapshot.netWorth;
 
   // 3. Asset Ledger Handlers
   const handleAddAsset = (e: React.FormEvent) => {
@@ -88,13 +94,13 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
       amount,
       category: newAssetCat,
     };
-    setAssets([...assets, newAsset]);
+    onUpdateFinancialAssets([...financialAssets, newAsset]);
     setNewAssetName('');
     setNewAssetAmount('');
   };
 
   const handleDeleteAsset = (id: string) => {
-    setAssets(assets.filter((a) => a.id !== id));
+    onUpdateFinancialAssets(financialAssets.filter((a) => a.id !== id));
   };
 
   // 4. Generate 12-Month Historical Net Worth Growth (Shaded Area Chart)
@@ -331,7 +337,7 @@ export const NetWorthForecaster: React.FC<NetWorthForecasterProps> = ({
 
             {/* Asset Table list */}
             <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1">
-              {assets.map((asset) => (
+              {financialAssets.map((asset) => (
                 <div
                   key={asset.id}
                   onClick={() => {
