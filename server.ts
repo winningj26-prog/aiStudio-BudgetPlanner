@@ -50,8 +50,13 @@ async function supabaseRequest(path: string, init: RequestInit = {}) {
     const body = await response.text();
     throw new Error(`Supabase request failed (${response.status}): ${body}`);
   }
-  if (response.status === 204) return null;
-  return response.json();
+
+  // PostgREST writes using Prefer: return=minimal can return a successful
+  // 2xx response with an empty body (commonly 201/204). Do not attempt to
+  // JSON-parse an empty response.
+  const responseBody = await response.text();
+  if (!responseBody.trim()) return null;
+  return JSON.parse(responseBody);
 }
 
 function isPlatformAdmin(authUser: { email?: string | null }) {
