@@ -58,6 +58,7 @@ export interface ToolkitSession {
   user: ToolkitUser;
   subscription: ToolkitSubscription;
   entitlements: ToolkitEntitlements;
+  platformAdmin?: boolean;
 }
 
 export interface ToolkitEntitlementResponse {
