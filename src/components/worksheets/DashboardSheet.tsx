@@ -935,7 +935,7 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
         </div>
 
         {showAiInsights && (
-        {/* Card 2: AI-Powered Spending Insights */}
+        
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-6 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
