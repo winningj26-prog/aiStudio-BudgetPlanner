@@ -455,8 +455,9 @@ app.put('/api/platform/config', async (req, res) => {
     const body = req.body || {};
     const plusAmount = Number(body.plusAmount);
     const proAmount = Number(body.proAmount);
-    if (!Number.isSafeInteger(plusAmount) || plusAmount <= 0 || !Number.isSafeInteger(proAmount) || proAmount <= 0) {
-      return res.status(400).json({ error: 'Plus and Pro amounts must be positive whole numbers.' });
+    const hasValidCurrencyAmount = (value: number) => Number.isFinite(value) && value > 0 && Math.round(value * 100) === value * 100;
+    if (!hasValidCurrencyAmount(plusAmount) || !hasValidCurrencyAmount(proAmount)) {
+      return res.status(400).json({ error: 'Plus and Pro amounts must be positive numbers with up to two decimal places.' });
     }
 
     const current = await getPlatformConfig();
@@ -881,7 +882,7 @@ app.get('/api/billing/mobile-money', async (req, res) => {
   const billing = await getPlatformBillingConfig();
   const planId = req.query.planId as keyof typeof billing.plans;
   const plan = billing.plans[planId];
-  if (!plan || !Number.isSafeInteger(plan.amount) || plan.amount <= 0) {
+  if (!plan || !Number.isFinite(plan.amount) || plan.amount <= 0 || Math.round(plan.amount * 100) !== plan.amount * 100) {
     return res.status(400).json({ error: 'Invalid billing plan.' });
   }
   return res.json({
@@ -905,7 +906,7 @@ app.post('/api/billing/mobile-money/submit', async (req, res) => {
     const payerName = typeof req.body?.payerName === 'string' ? req.body.payerName.trim() : null;
 
     if (!profile?.id) return res.status(404).json({ error: 'Toolkit profile not found.' });
-    if (!plan || !Number.isSafeInteger(plan.amount) || plan.amount <= 0) return res.status(400).json({ error: 'Invalid billing plan.' });
+    if (!plan || !Number.isFinite(plan.amount) || plan.amount <= 0 || Math.round(plan.amount * 100) !== plan.amount * 100) return res.status(400).json({ error: 'Invalid billing plan.' });
     if (!transactionId || transactionId.length > 120) return res.status(400).json({ error: 'A valid Mobile Money transaction ID is required.' });
 
     const existing = await supabaseRequest(
