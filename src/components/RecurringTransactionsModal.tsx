@@ -7,6 +7,7 @@ import {
   SettingsState,
 } from '../types/budget';
 import { formatCurrency } from '../utils/formatters';
+import { generateRecurringDates } from '../utils/financialPlanning';
 import {
   AlertCircle,
   Calendar,
@@ -217,53 +218,52 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
     let postedCount = 0;
 
     targetRules.forEach((rule) => {
-      const dayPadded = String(Math.min(28, rule.dayOfMonth)).padStart(2, '0');
-      const targetDate = `${settings.year}-${currentMonthNum}-${dayPadded}`;
+      const monthDates = generateRecurringDates(
+        settings.year,
+        Number(currentMonthNum),
+        rule,
+      );
 
-      if (rule.type === 'income') {
-        // Check if already posted for this recurring rule in current month
-        const alreadyExists = incomeTransactions.some(
-          (t) =>
-            t.recurringId === rule.id ||
-            (t.description.toLowerCase() === rule.description.toLowerCase() &&
-              t.date.startsWith(`${settings.year}-${currentMonthNum}`))
-        );
+      monthDates.forEach((targetDate) => {
+        if (rule.type === 'income') {
+          const alreadyExists = incomeTransactions.some(
+            (t) =>
+              t.recurringId === rule.id && t.date === targetDate,
+          );
 
-        if (!alreadyExists) {
-          newIncomes.push({
-            id: `inc_auto_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-            date: targetDate,
-            category: rule.category,
-            description: rule.description,
-            amount: rule.amount,
-            recurringId: rule.id,
-            isRecurring: true,
-          });
-          postedCount++;
+          if (!alreadyExists) {
+            newIncomes.push({
+              id: `inc_auto_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              date: targetDate,
+              category: rule.category,
+              description: rule.description,
+              amount: rule.amount,
+              recurringId: rule.id,
+              isRecurring: true,
+            });
+            postedCount++;
+          }
+        } else {
+          const alreadyExists = expenseTransactions.some(
+            (t) =>
+              t.recurringId === rule.id && t.date === targetDate,
+          );
+
+          if (!alreadyExists) {
+            newExpenses.push({
+              id: `exp_auto_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              date: targetDate,
+              category: rule.category,
+              description: rule.description,
+              paymentMethod: rule.paymentMethod || 'Bank',
+              amount: rule.amount,
+              recurringId: rule.id,
+              isRecurring: true,
+            });
+            postedCount++;
+          }
         }
-      } else {
-        // Expense check
-        const alreadyExists = expenseTransactions.some(
-          (t) =>
-            t.recurringId === rule.id ||
-            (t.description.toLowerCase() === rule.description.toLowerCase() &&
-              t.date.startsWith(`${settings.year}-${currentMonthNum}`))
-        );
-
-        if (!alreadyExists) {
-          newExpenses.push({
-            id: `exp_auto_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-            date: targetDate,
-            category: rule.category,
-            description: rule.description,
-            paymentMethod: rule.paymentMethod || 'Bank',
-            amount: rule.amount,
-            recurringId: rule.id,
-            isRecurring: true,
-          });
-          postedCount++;
-        }
-      }
+      });
     });
 
     if (newIncomes.length > 0) {
