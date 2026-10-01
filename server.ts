@@ -231,7 +231,7 @@ app.post('/api/platform/users/override', async (req, res) => {
     );
     const currentSubscription = currentSubscriptions?.[0] || null;
     const currentEntitlements = await supabaseRequest(
-      `app_entitlements?select=app_id,enabled&user_id=eq.${encodeURIComponent(userId)}`,
+      `app_entitlements?select=id,app_id,enabled&user_id=eq.${encodeURIComponent(userId)}`,
     );
 
     const now = new Date().toISOString();
