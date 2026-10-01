@@ -15,6 +15,7 @@ import type {
 } from '../types/budget';
 import type { GoogleSheetConfig } from '../services/googleSheetsService';
 import { STORAGE_KEYS, loadFromAccountStorage, saveToAccountStorage } from '../utils/storage';
+import { normalizeWorkbookData } from '../utils/workbookValidation';
 
 export interface WorkbookData {
   settings: SettingsState;
@@ -63,70 +64,23 @@ export function createLocalWorkbookRepository(
 ): WorkbookRepository {
   return {
     load(): WorkbookData {
-      return {
+      const raw: WorkbookData = {
         settings: loadFromAccountStorage(STORAGE_KEYS.SETTINGS, userId, defaults.settings),
-        incomeCategories: loadFromAccountStorage(
-          STORAGE_KEYS.INCOME_CATEGORIES,
-          userId,
-          defaults.incomeCategories,
-        ),
-        expenseCategories: loadFromAccountStorage(
-          STORAGE_KEYS.EXPENSE_CATEGORIES,
-          userId,
-          defaults.expenseCategories,
-        ),
-        paymentMethods: loadFromAccountStorage(
-          STORAGE_KEYS.PAYMENT_METHODS,
-          userId,
-          defaults.paymentMethods,
-        ),
-        incomeTransactions: loadFromAccountStorage(
-          STORAGE_KEYS.INCOME_TRANSACTIONS,
-          userId,
-          defaults.incomeTransactions,
-        ),
-        expenseTransactions: loadFromAccountStorage(
-          STORAGE_KEYS.EXPENSE_TRANSACTIONS,
-          userId,
-          defaults.expenseTransactions,
-        ),
-        plannedIncome: loadFromAccountStorage(
-          STORAGE_KEYS.PLANNED_INCOME,
-          userId,
-          defaults.plannedIncome,
-        ),
-        plannedExpenses: loadFromAccountStorage(
-          STORAGE_KEYS.PLANNED_EXPENSES,
-          userId,
-          defaults.plannedExpenses,
-        ),
-        savingsGoals: loadFromAccountStorage(
-          STORAGE_KEYS.SAVINGS_GOALS,
-          userId,
-          defaults.savingsGoals,
-        ),
+        incomeCategories: loadFromAccountStorage(STORAGE_KEYS.INCOME_CATEGORIES, userId, defaults.incomeCategories),
+        expenseCategories: loadFromAccountStorage(STORAGE_KEYS.EXPENSE_CATEGORIES, userId, defaults.expenseCategories),
+        paymentMethods: loadFromAccountStorage(STORAGE_KEYS.PAYMENT_METHODS, userId, defaults.paymentMethods),
+        incomeTransactions: loadFromAccountStorage(STORAGE_KEYS.INCOME_TRANSACTIONS, userId, defaults.incomeTransactions),
+        expenseTransactions: loadFromAccountStorage(STORAGE_KEYS.EXPENSE_TRANSACTIONS, userId, defaults.expenseTransactions),
+        plannedIncome: loadFromAccountStorage(STORAGE_KEYS.PLANNED_INCOME, userId, defaults.plannedIncome),
+        plannedExpenses: loadFromAccountStorage(STORAGE_KEYS.PLANNED_EXPENSES, userId, defaults.plannedExpenses),
+        savingsGoals: loadFromAccountStorage(STORAGE_KEYS.SAVINGS_GOALS, userId, defaults.savingsGoals),
         debts: loadFromAccountStorage(STORAGE_KEYS.DEBTS, userId, defaults.debts),
-        recurringTransactions: loadFromAccountStorage(
-          STORAGE_KEYS.RECURRING_TRANSACTIONS,
-          userId,
-          defaults.recurringTransactions,
-        ),
-        userEmail: loadFromAccountStorage(
-          STORAGE_KEYS.USER_EMAIL,
-          userId,
-          defaults.userEmail,
-        ),
-        activeTab: loadFromAccountStorage(
-          STORAGE_KEYS.ACTIVE_TAB,
-          userId,
-          defaults.activeTab,
-        ),
-        sheetConfig: loadFromAccountStorage(
-          STORAGE_KEYS.GOOGLE_SHEET_CONFIG,
-          userId,
-          defaults.sheetConfig,
-        ),
+        recurringTransactions: loadFromAccountStorage(STORAGE_KEYS.RECURRING_TRANSACTIONS, userId, defaults.recurringTransactions),
+        userEmail: loadFromAccountStorage(STORAGE_KEYS.USER_EMAIL, userId, defaults.userEmail),
+        activeTab: loadFromAccountStorage(STORAGE_KEYS.ACTIVE_TAB, userId, defaults.activeTab),
+        sheetConfig: loadFromAccountStorage(STORAGE_KEYS.GOOGLE_SHEET_CONFIG, userId, defaults.sheetConfig),
       };
+      return normalizeWorkbookData(raw, defaults);
     },
 
     save(data: WorkbookData): void {
