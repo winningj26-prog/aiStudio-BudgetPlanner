@@ -45,6 +45,8 @@ export interface SavingsGoal {
   categoryName?: string;
   targetAmount: number;
   currentAmount: number;
+  /** Cash/bank account holding the earmarked goal funds. The goal is an internal allocation, not a separate asset. */
+  accountId?: string;
   targetDate?: string;
   monthlyContribution?: number;
   color?: string;
