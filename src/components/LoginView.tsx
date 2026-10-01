@@ -49,7 +49,7 @@ export const LoginView: React.FC = () => {
 
   const handleEmailSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!email.trim() || password.length < 6) {
+    const normalizedEmail = normalizeAuthEmail(email);\n    if (!isValidAuthEmail(normalizedEmail) || !isValidAuthPassword(password)) {
       setErrorMessage('Enter a valid email and a password of at least 6 characters.');
       return;
     }
@@ -75,7 +75,7 @@ export const LoginView: React.FC = () => {
   };
 
   const handleReset = async () => {
-    if (!email.trim()) {
+    const normalizedEmail = normalizeAuthEmail(email);\n    if (!isValidAuthEmail(normalizedEmail)) {
       setErrorMessage('Enter your email address first.');
       return;
     }
@@ -83,7 +83,7 @@ export const LoginView: React.FC = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      await sendPasswordReset(email);
+      await sendPasswordReset(normalizedEmail);
       setSuccessMessage('Password reset instructions have been sent to your email.');
     } catch (error: any) {
       setErrorMessage(error?.message || 'Could not send the password reset email.');
