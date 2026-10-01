@@ -71,7 +71,7 @@ Updated after each completed implementation/verification task.
 - [x] Paid onboarding activation after confirmed payment
 - [ ] End-to-end real Mobile Money payment test
 - [ ] Paid → Free downgrade test
-- [ ] Billing edge-case/error pass
+- [x] Billing edge-case/error pass (centralized plan/amount/text validation and billing configuration error handling)
 - [x] Monime integration explicitly deferred
 
 ## G. Production security
@@ -92,6 +92,7 @@ Updated after each completed implementation/verification task.
 - [x] Free/Plus/Pro entitlement helper tests
 - [x] Mobile Money state transition test
 - [x] Decimal billing acceptance tests
+- [x] Manual billing input edge-case acceptance coverage
 - [x] Cloud save/load acceptance test
 - [x] Cloud save payload shape acceptance coverage
 - [x] AI Insights acceptance test
