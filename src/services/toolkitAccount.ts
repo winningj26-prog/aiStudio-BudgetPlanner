@@ -121,6 +121,7 @@ export async function createManualPaymentRequest(
   planId: 'plus' | 'pro',
   transactionId: string,
   payerName?: string,
+  providerId?: string,
 ): Promise<ManualPaymentStatus> {
   const idToken = await getAuthAccessToken();
   const response = await fetch('/api/billing/mobile-money/submit', {
