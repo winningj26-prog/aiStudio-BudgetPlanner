@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import {
   getAccountStorageKey,
@@ -74,8 +76,19 @@ test('local workbook repository round-trips account-scoped workbook data', () =>
   const data = { ...defaults, userEmail: 'a@example.com', activeTab: 'dashboard' as const };
   repository.save(data);
   assert.deepEqual(repository.load(), data);
-  const otherRepository = createLocalWorkbookRepository('user-b', defaults);
-  assert.equal(otherRepository.load().userEmail, '');
+  const otherRepository = createLocalWorkbookRepositortest('AI category suggestions fail closed on authentication errors', () => {
+  const serverSource = readFileSync(
+    fileURLToPath(new URL('../server.ts', import.meta.url)),
+    'utf8',
+  );
+  const routeStart = serverSource.indexOf("app.post('/api/suggest-category'");
+  assert.ok(routeStart >= 0);
+  const route = serverSource.slice(routeStart, serverSource.indexOf('// Configure Vite integration', routeStart));
+
+  assert.match(route, /await verifySupabaseRequest\(req\)/);
+  assert.match(route, /status === 401 \|\| status === 403/);
+  assert.match(route, /Authentication is required for category suggestions/);
+  assert.doesNotMatch(route, /catch[\\s\\S]*res\.json\(\{ category: categories\[0\]\?\.name/);
 });
 
 test('frontend entitlement helpers fail closed when access is absent', () => {
