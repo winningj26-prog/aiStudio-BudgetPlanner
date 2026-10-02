@@ -82,6 +82,7 @@ Updated after each completed implementation/verification task.
 - [x] Supabase Security Advisor reviewed (2026-10-01, reverified 2026-10-01)
 - [ ] Enable leaked-password protection if available on current Supabase plan
 - [x] Final admin authorization/audit review (server-side admin allow-list + privileged access + audit paths reviewed; Supabase public policy inventory verified empty with RLS enabled)
+- [x] Billing/authentication fail-closed audit completed; authenticated billing routes preserve 401/403 failures and regression coverage passed V1 validation #410
 - [ ] Rotate/remove temporary test credentials
 - [ ] Production auth/email security review
 
@@ -123,6 +124,8 @@ Updated after each completed implementation/verification task.
 
 ## Latest verification
 - V1 validation pipeline #200: passed (user-reported).
+- V1 validation #410 passed after billing authentication fail-closed hardening; merged to main as `cf0e32394b6b9745a1659d4156424e1d5f502279`.
+- V1 validation #411 passed on the resulting main merge commit.
 - AI production hardening merged to main as `5ff118ac6389a88fb93a09af21b2e350a2dfec21`.
 - Render deploy `dep-dav7nvfpn0mc73aitk00` reached `live` for the merged main commit; post-deploy log query was attempted but Render's log backend returned a temporary 503.
 - Supabase project status: ACTIVE_HEALTHY
