@@ -301,7 +301,7 @@ test('workbook schema validation rejects malformed ledger and settings values', 
     incomeTransactions: [{ id: 'i1', date: '2026-01-01', category: 'Salary', description: 'Pay', amount: 1000 }],
     expenseTransactions: [{ id: 'e1', date: '2026-01-02', category: 'Housing', description: 'Rent', paymentMethod: 'Bank', amount: 500 }],
     plannedIncome: { inc_1: 1000 }, plannedExpenses: { exp_1: 500 },
-    savingsGoals: [], debts: [], financialAssets: [], openingCashBalance: 0, recurringTransactions: [],
+    savingsGoals: [], debts: [], debtPayments: [], financialAssets: [], openingCashBalance: 0, recurringTransactions: [],
     userEmail: 'user@example.com', activeTab: 'dashboard' as const, sheetConfig: null,
   };
   assert.equal(isValidWorkbookData(valid), true);
