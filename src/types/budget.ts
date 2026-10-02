@@ -126,6 +126,8 @@ export interface SettingsState {
   dateFormat: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
   secondaryCurrency?: CurrencyCode;
   enableSecondaryCurrency?: boolean;
+  /** When true, the active month/year follows the device's current calendar period. */
+  followCurrentPeriod?: boolean;
 }
 
 export type WorksheetTab =
