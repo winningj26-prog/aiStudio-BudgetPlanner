@@ -21,7 +21,7 @@ import {
   Wallet,
   Zap,
 } from 'lucide-react';
-import { WorksheetTab } from '../../types/budget';
+import type { Debt, FinancialAsset, WorksheetTab } from '../../types/budget';
 
 interface StartHereSheetProps {
   onNavigate: (tab: WorksheetTab) => void;
@@ -29,6 +29,9 @@ interface StartHereSheetProps {
   userEmail?: string;
   onLogout?: () => void;
   onOpenToolkit?: () => void;
+  openingCashBalance?: number;
+  financialAssets?: FinancialAsset[];
+  debts?: Debt[];
 }
 
 export const StartHereSheet: React.FC<StartHereSheetProps> = ({
@@ -37,7 +40,13 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
   userEmail = '',
   onLogout,
   onOpenToolkit,
+  openingCashBalance = 0,
+  financialAssets = [],
+  debts = [],
 }) => {
+  const openingAssetsTotal = Math.max(0, Number(openingCashBalance) || 0) + financialAssets.reduce((sum, asset) => sum + Math.max(0, Number(asset.amount) || 0), 0);
+  const openingDebtsTotal = debts.reduce((sum, debt) => sum + Math.max(0, Number(debt.balance) || 0), 0);
+  const openingNetWorth = openingAssetsTotal - openingDebtsTotal;
   // 6 Sequential Quick Start Steps (Streamlined and responsive)
   const quickStartSteps = [
     {
@@ -339,6 +348,66 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
 
           </div>
         </div>
+
+        {/* ========================================== */}
+        {/* STARTING FINANCIAL POSITION                */}
+        {/* ========================================== */}
+        <section className="rounded-3xl border border-emerald-200 bg-white p-5 sm:p-6 shadow-2xs">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-emerald-600" />
+                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">Starting Financial Position</h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5 max-w-2xl">
+                Enter or update the balances you already had before your first tracked transactions. This is available to existing accounts as well as new users.
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-right shrink-0">
+              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Opening net worth</p>
+              <p className="mt-1 text-lg font-black text-slate-900">{openingNetWorth.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Cash + assets</p>
+              <p className="mt-1 text-lg font-black text-slate-900">{openingAssetsTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+              <p className="mt-1 text-[11px] text-slate-500">{financialAssets.length} asset{financialAssets.length === 1 ? '' : 's'} recorded</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Opening debts</p>
+              <p className="mt-1 text-lg font-black text-slate-900">{openingDebtsTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+              <p className="mt-1 text-[11px] text-slate-500">{debts.length} debt{debts.length === 1 ? '' : 's'} recorded</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">What to do next</p>
+              <p className="mt-1 text-sm font-bold text-slate-900">Set assets/cash, then add liabilities</p>
+              <p className="mt-1 text-[11px] text-slate-500">Changes are saved with your workbook.</p>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onNavigate('net_worth'); }}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 cursor-pointer"
+            >
+              <Wallet className="h-4 w-4" />
+              Edit cash & assets
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onNavigate('debt_payoff'); }}
+              className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-black text-rose-700 transition hover:bg-rose-100 cursor-pointer"
+            >
+              <Scale className="h-4 w-4" />
+              Edit starting debts
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </section>
 
         {/* ========================================== */}
         {/* QUICK START SECTION / PROCESS FLOW        */}
