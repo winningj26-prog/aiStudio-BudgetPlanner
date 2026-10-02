@@ -84,6 +84,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [storageUserId, setStorageUserId] = useState<string | null>(null);
+  const [workbookHydrated, setWorkbookHydrated] = useState(false);
   const [userEmail, setUserEmail] = useState<string>(() =>
     loadFromStorage<string>(STORAGE_KEYS.USER_EMAIL, '')
   );
@@ -184,7 +185,7 @@ export default function App() {
   // localStorage; a future cloud repository can implement the same contract
   // without changing worksheet components.
   useEffect(() => {
-    if (!storageUserId) return;
+    if (!storageUserId || !workbookHydrated) return;
 
     const repository = createLocalWorkbookRepository(storageUserId, {
       settings: INITIAL_SETTINGS,
@@ -244,6 +245,7 @@ export default function App() {
     userEmail,
     activeTab,
     sheetConfig,
+    workbookHydrated,
   ]);
 
   // Keep current-period workbooks aligned with the calendar while the app remains open.
@@ -295,6 +297,7 @@ export default function App() {
   useEffect(() => {
     if (!authUser) {
       setStorageUserId(null);
+      setWorkbookHydrated(false);
       return;
     }
 
@@ -364,6 +367,7 @@ export default function App() {
     );
 
     setStorageUserId(userId);
+    setWorkbookHydrated(true);
   }, [authUser]);
 
   // Load the central toolkit account after Supabase restores authentication.
@@ -619,7 +623,7 @@ export default function App() {
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
           <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
           <p className="text-sm font-semibold text-slate-800">Restoring your workspace…</p>
-          <p className="mt-1 text-xs text-slate-500">Checking your Google account session.</p>
+          <p className="mt-1 text-xs text-slate-500">Checking your account session.</p>
         </div>
       </div>
     );

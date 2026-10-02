@@ -878,3 +878,24 @@ test('workbook exports preserve budget values and sanitize invalid transaction a
   assert.match(csv, /Food,500,200,300/);
   assert.ok(!csv.includes('Infinity'));
 });
+
+
+test('account workbook hydration restores the selected namespace without stale cross-account state', () => {
+  installStorage();
+  const defaults = {
+    settings: { currency: 'USD' as const, month: 'January', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
+    incomeCategories: [], expenseCategories: [], paymentMethods: [], incomeTransactions: [],
+    expenseTransactions: [], plannedIncome: {}, plannedExpenses: {}, savingsGoals: [], debts: [], debtPayments: [], financialAssets: [], openingCashBalance: 0,
+    recurringTransactions: [], userEmail: '', activeTab: 'start_here' as const, sheetConfig: null,
+  };
+
+  const accountA = createLocalWorkbookRepository('user-a', defaults);
+  const accountB = createLocalWorkbookRepository('user-b', defaults);
+  accountA.save({ ...defaults, userEmail: 'a@example.com', activeTab: 'dashboard' as const });
+  accountB.save({ ...defaults, userEmail: 'b@example.com', activeTab: 'monthly_budget' as const });
+
+  const hydratedB = accountB.load();
+  assert.equal(hydratedB.userEmail, 'b@example.com');
+  assert.equal(hydratedB.activeTab, 'monthly_budget');
+  assert.equal(accountA.load().userEmail, 'a@example.com');
+});
