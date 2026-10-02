@@ -923,6 +923,30 @@ test('onboarding exposes and passes through the starting financial position', ()
 });
 
 
+test('existing accounts can reach the starting financial position editors from Start Here', () => {
+  const startHereSource = readFileSync(
+    fileURLToPath(new URL('../src/components/worksheets/StartHereSheet.tsx', import.meta.url)),
+    'utf8',
+  );
+  const appSource = readFileSync(
+    fileURLToPath(new URL('../src/App.tsx', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(startHereSource, /Starting Financial Position/);
+  assert.match(startHereSource, /Edit cash & assets/);
+  assert.match(startHereSource, /Edit starting debts/);
+  assert.match(startHereSource, /onNavigate\('net_worth'\)/);
+  assert.match(startHereSource, /onNavigate\('debt_payoff'\)/);
+  assert.match(startHereSource, /openingCashBalance/);
+  assert.match(startHereSource, /financialAssets/);
+  assert.match(startHereSource, /debts/);
+  assert.match(appSource, /openingCashBalance=\{openingCashBalance\}/);
+  assert.match(appSource, /financialAssets=\{financialAssets\}/);
+  assert.match(appSource, /debts=\{debts\}/);
+});
+
+
 test('AI category suggestions fail closed on authentication errors', () => {
   const serverSource = readFileSync(
     fileURLToPath(new URL('../server.ts', import.meta.url)),
