@@ -36,6 +36,7 @@ import { formatCurrency } from './utils/formatters';
 import { normalizeWorkbookData } from './utils/workbookValidation';
 import { sumIncomeTransactions, sumExpenseTransactions, buildAnnualSummary } from './utils/formulas';
 import { calculateFinancialSnapshot } from './utils/financialModel';
+import { syncSettingsToCurrentPeriod } from './utils/calendarPeriod';
 import {
   STORAGE_KEYS,
   loadFromStorage,
@@ -94,7 +95,7 @@ export default function App() {
 
   // Global persistent settings (Currency, Month, Year, Date Format)
   const [settings, setSettings] = useState<SettingsState>(() =>
-    loadFromStorage<SettingsState>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS)
+    syncSettingsToCurrentPeriod(loadFromStorage<SettingsState>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS))
   );
 
   // Category configurations (persistent)
@@ -245,6 +246,17 @@ export default function App() {
     sheetConfig,
   ]);
 
+  // Keep current-period workbooks aligned with the calendar while the app remains open.
+  // Manual period selections disable this behavior until the user selects the current period again.
+  useEffect(() => {
+    if (settings.followCurrentPeriod === false) return;
+
+    const sync = () => setSettings((prev) => syncSettingsToCurrentPeriod(prev));
+    sync();
+    const timer = window.setInterval(sync, 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [settings.followCurrentPeriod]);
+
   // Listen to Supabase Auth state changes
   useEffect(() => {
     clearLegacyV1Storage();
@@ -289,7 +301,7 @@ export default function App() {
     const userId = authUser.id;
     migrateLegacyV2StorageToAccount(userId);
 
-    setSettings(loadFromAccountStorage(STORAGE_KEYS.SETTINGS, userId, INITIAL_SETTINGS));
+    setSettings(syncSettingsToCurrentPeriod(loadFromAccountStorage(STORAGE_KEYS.SETTINGS, userId, INITIAL_SETTINGS)));
     setIncomeCategories(
       loadFromAccountStorage(STORAGE_KEYS.INCOME_CATEGORIES, userId, INITIAL_INCOME_CATEGORIES),
     );
@@ -428,7 +440,7 @@ export default function App() {
             activeTab,
             sheetConfig,
           });
-          setSettings(cloud.settings);
+          setSettings(syncSettingsToCurrentPeriod(cloud.settings));
           setIncomeCategories(cloud.incomeCategories);
           setExpenseCategories(cloud.expenseCategories);
           setPaymentMethods(cloud.paymentMethods);
