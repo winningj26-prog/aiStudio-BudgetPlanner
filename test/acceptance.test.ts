@@ -22,6 +22,7 @@ import { buildAnnualSummary, calculateBudgetItem, calculateBudgetStatus, sumExpe
 import { calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates } from '../src/utils/financialPlanning.ts';
 import { calculateFinancialSnapshot } from '../src/utils/financialModel.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
+import { getCurrentCalendarPeriod, syncSettingsToCurrentPeriod } from '../src/utils/calendarPeriod.ts';
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -766,4 +767,42 @@ test('budget calculations fail safely for non-finite planned and actual values',
     category: 'Invalid', type: 'income', planned: 0, actual: 0, difference: 0, percentUsed: 0, status: 'Below Target',
   });
   assert.equal(calculateBudgetStatus(Number.NaN), 'On Track');
+});
+
+
+test('current calendar period is derived from the supplied date', () => {
+  assert.deepEqual(getCurrentCalendarPeriod(new Date('2026-10-02T12:00:00')), {
+    month: 'October',
+    year: 2026,
+  });
+  assert.deepEqual(getCurrentCalendarPeriod(new Date('2027-01-05T12:00:00')), {
+    month: 'January',
+    year: 2027,
+  });
+});
+
+test('automatic period tracking advances stale legacy settings to the current month', () => {
+  const stale = {
+    currency: 'USD' as const,
+    month: 'January',
+    year: 2026,
+    dateFormat: 'MM/DD/YYYY' as const,
+  };
+  assert.deepEqual(syncSettingsToCurrentPeriod(stale, new Date('2026-10-02T12:00:00')), {
+    ...stale,
+    month: 'October',
+    year: 2026,
+    followCurrentPeriod: true,
+  });
+});
+
+test('manual period selection is preserved when automatic tracking is disabled', () => {
+  const manual = {
+    currency: 'USD' as const,
+    month: 'March',
+    year: 2026,
+    dateFormat: 'MM/DD/YYYY' as const,
+    followCurrentPeriod: false,
+  };
+  assert.deepEqual(syncSettingsToCurrentPeriod(manual, new Date('2026-10-02T12:00:00')), manual);
 });
