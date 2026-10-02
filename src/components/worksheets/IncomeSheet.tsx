@@ -123,7 +123,7 @@ export const IncomeSheet: React.FC<IncomeSheetProps> = ({
   const handleAddTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = parseFloat(newAmount);
-    if (isNaN(amountNum) || amountNum <= 0) return;
+    if (!Number.isFinite(amountNum) || amountNum <= 0) return;
 
     if (editingId) {
       onUpdateTransactions(transactions.map((tx) =>
