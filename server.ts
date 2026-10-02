@@ -1602,8 +1602,13 @@ If no category fits well, return the first item in the list: "${categories[0]?.n
     
     res.json({ category: finalCategory });
   } catch (error: any) {
+    const status = (error as Error & { status?: number }).status ?? 500;
+    if (status === 401 || status === 403) {
+      return res.status(status).json({ error: 'Authentication is required for category suggestions.' });
+    }
+
     console.warn("Gemini Category Suggester fell back to default category matching due to rate limits or missing keys.");
-    res.json({ category: categories[0]?.name || '' });
+    return res.json({ category: categories[0]?.name || '' });
   }
 });
 
