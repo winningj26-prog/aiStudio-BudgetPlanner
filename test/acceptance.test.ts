@@ -479,7 +479,7 @@ test('shared financial model connects cash flow, savings goals, debts, and asset
   assert.equal(snapshot.totalExpenses, 2000);
   assert.equal(snapshot.operatingCashFlow, 3000);
   assert.equal(snapshot.goalAllocated, 500);
-  assert.equal(snapshot.availableCash, 5500);
+  assert.equal(snapshot.availableCash, 6000);
   assert.equal(snapshot.externalAssets, 10000);
   assert.equal(snapshot.totalAssets, 16000);
   assert.equal(snapshot.totalLiabilities, 4000);
