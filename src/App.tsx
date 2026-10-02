@@ -792,6 +792,9 @@ export default function App() {
         userEmail={userEmail}
         onLogout={handleLogout}
         onOpenToolkit={() => setShowToolkitHome(true)}
+        openingCashBalance={openingCashBalance}
+        financialAssets={financialAssets}
+        debts={debts}
       />
     );
   }
