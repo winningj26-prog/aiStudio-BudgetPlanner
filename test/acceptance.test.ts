@@ -756,3 +756,14 @@ test('financial formula aggregation ignores non-finite and negative transaction 
   assert.equal(sumExpenseTransactions(expenses), 200);
   assert.equal(sumExpensesByCategory(expenses, 'food'), 200);
 });
+
+
+test('budget calculations fail safely for non-finite planned and actual values', () => {
+  assert.deepEqual(calculateBudgetItem('Invalid', 'expense', Number.NaN, Number.POSITIVE_INFINITY), {
+    category: 'Invalid', type: 'expense', planned: 0, actual: 0, difference: 0, percentUsed: 0, status: 'On Track',
+  });
+  assert.deepEqual(calculateBudgetItem('Invalid', 'income', -100, Number.NaN), {
+    category: 'Invalid', type: 'income', planned: 0, actual: 0, difference: 0, percentUsed: 0, status: 'Below Target',
+  });
+  assert.equal(calculateBudgetStatus(Number.NaN), 'On Track');
+});
