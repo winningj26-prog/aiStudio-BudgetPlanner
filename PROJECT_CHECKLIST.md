@@ -185,6 +185,7 @@ Updated after each completed implementation/verification task.
 - [x] Cloud workbook writes reject malformed or invalid workbook snapshots server-side
 - [x] Module 4 acceptance coverage added for malformed workbook data and safe fallback behavior
 - [x] Transaction editors reviewed for positive-amount enforcement and stable edit/delete behavior
+- [x] Income and expense transaction editors reject non-finite amounts such as Infinity
 - [x] Income and expense category aggregation reviewed for case/whitespace normalization
 - [x] Budget variance/status logic reviewed for income targets, expense limits, and zero-plan edge cases
 - [x] Annual summary grouping reviewed across calendar-year boundaries
