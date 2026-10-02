@@ -66,7 +66,7 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
   ];
 
   data.expenseCategories.forEach((cat) => {
-    const planned = safeAmount(data.plannedExpenses[cat.name]);
+    const planned = safeAmount(data.plannedExpenses[cat.name] ?? data.plannedExpenses[cat.id]);
     const actual = data.expenseTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
       .reduce((acc, t) => acc + safeAmount(t.amount), 0);
@@ -184,7 +184,7 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
   budgetRows.push(['EXPENSE BUDGETING', 'PLANNED LIMIT', 'ACTUAL SPENT', 'REMAINING BUFFER', 'STATUS']);
 
   data.expenseCategories.forEach((cat) => {
-    const planned = safeAmount(data.plannedExpenses[cat.id]);
+    const planned = safeAmount(data.plannedExpenses[cat.name] ?? data.plannedExpenses[cat.id]);
     const actual = data.expenseTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
       .reduce((acc, t) => acc + safeAmount(t.amount), 0);
