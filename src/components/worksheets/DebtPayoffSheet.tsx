@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { validateDebtDraftValues } from '../../utils/financialPlanning';
 import {
   Debt,
   DebtPayment,
@@ -88,7 +89,7 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
     const rate = parseFloat(newInterestRate);
     const minPay = parseFloat(newMinimumPayment);
 
-    if (!newDebtName.trim() || isNaN(bal) || bal <= 0 || isNaN(rate) || rate < 0 || isNaN(minPay) || minPay <= 0) {
+    if (!newDebtName.trim() || !validateDebtDraftValues(bal, rate, minPay)) {
       alert('Please fill out all fields with valid positive numbers.');
       return;
     }
