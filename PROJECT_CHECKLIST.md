@@ -191,6 +191,7 @@ Updated after each completed implementation/verification task.
 - [x] Annual summary grouping reviewed across calendar-year boundaries
 - [x] Export budget calculations aligned with the workbook's category-name budget keys
 - [x] Module 4 transaction and budget calculation acceptance tests added
+- [x] Module 4 formula aggregations ignore non-finite/negative transaction amounts and invalid budget numeric inputs
 - [x] Savings goal progress calculations hardened for zero/oversaved/invalid-value edge cases
 - [x] Savings goal contributions reject zero, negative, and non-finite amounts
 - [x] Debt interest, minimum-payment shortfall, and payoff edge cases covered by acceptance tests
