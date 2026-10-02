@@ -57,6 +57,7 @@ export function calculateFinancialSnapshot(
 
   const accountBalances: Record<string, number> = {};
   let trackedAccountAssets = 0;
+  let trackedCashAssets = 0;
   for (const asset of assets) {
     const opening = positive(asset.openingAmount ?? asset.amount);
     const isCashAccount = asset.category === 'Cash' || asset.category === 'Bank';
@@ -65,6 +66,7 @@ export function calculateFinancialSnapshot(
       : positive(asset.amount);
     accountBalances[asset.id] = balance;
     trackedAccountAssets += balance;
+    if (isCashAccount) trackedCashAssets += balance;
   }
 
   const hasStructuredCashAccounts = assets.some((asset) => asset.category === 'Cash' || asset.category === 'Bank');
@@ -100,7 +102,7 @@ export function calculateFinancialSnapshot(
     const balance = positive(accountBalances[accountId] ?? 0);
     linkedGoalAllocated += Math.min(requested, balance);
   }
-  const availableCash = Math.max(0, legacyCash + trackedAccountAssets - linkedGoalAllocated);
+  const availableCash = Math.max(0, legacyCash + trackedCashAssets - linkedGoalAllocated);
   const externalAssets = trackedAccountAssets;
   const totalAssets = Math.max(0, legacyCash + trackedAccountAssets);
   const totalLiabilities = debts.reduce((sum, debt) => sum + positive(debt.balance), 0);
