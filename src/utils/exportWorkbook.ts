@@ -66,7 +66,7 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
   ];
 
   data.expenseCategories.forEach((cat) => {
-    const planned = data.plannedExpenses[cat.name] || 0;
+    const planned = safeAmount(data.plannedExpenses[cat.name]);
     const actual = data.expenseTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
       .reduce((acc, t) => acc + safeAmount(t.amount), 0);
@@ -102,7 +102,7 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
       t.date,
       t.category,
       t.description || '',
-      t.amount as any,
+      safeAmount(t.amount) as any,
     ]);
   });
 
@@ -166,10 +166,10 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
   ];
 
   data.incomeCategories.forEach((cat) => {
-    const planned = data.plannedIncome[cat.name] || 0;
+    const planned = safeAmount(data.plannedIncome[cat.name]);
     const actual = data.incomeTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
-      .reduce((acc, t) => acc + t.amount, 0);
+      .reduce((acc, t) => acc + safeAmount(t.amount), 0);
     const variance = actual - planned;
     budgetRows.push([
       cat.name,
@@ -184,7 +184,7 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
   budgetRows.push(['EXPENSE BUDGETING', 'PLANNED LIMIT', 'ACTUAL SPENT', 'REMAINING BUFFER', 'STATUS']);
 
   data.expenseCategories.forEach((cat) => {
-    const planned = data.plannedExpenses[cat.id] || 0;
+    const planned = safeAmount(data.plannedExpenses[cat.id]);
     const actual = data.expenseTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
       .reduce((acc, t) => acc + t.amount, 0);
@@ -349,7 +349,7 @@ export function generateStructuredCSV(data: WorkbookExportData): Blob {
   lines.push('=== 2. INCOME TRANSACTIONS LEDGER ===');
   lines.push('Record #,Date,Category,Description,Amount');
   data.incomeTransactions.forEach((t, idx) => {
-    lines.push(`${idx + 1},${escapeCsv(t.date)},${escapeCsv(t.category)},${escapeCsv(t.description || '')},${t.amount}`);
+    lines.push(`${idx + 1},${escapeCsv(t.date)},${escapeCsv(t.category)},${escapeCsv(t.description || '')},${safeAmount(t.amount)}`);
   });
   lines.push(`,,,TOTAL INCOME,${totalIncome}`);
   lines.push('');
@@ -358,7 +358,7 @@ export function generateStructuredCSV(data: WorkbookExportData): Blob {
   lines.push('=== 3. EXPENSE TRANSACTIONS LEDGER ===');
   lines.push('Record #,Date,Category,Description,Payment Method,Amount');
   data.expenseTransactions.forEach((t, idx) => {
-    lines.push(`${idx + 1},${escapeCsv(t.date)},${escapeCsv(t.category)},${escapeCsv(t.description || '')},${escapeCsv(t.paymentMethod || 'Other')},${t.amount}`);
+    lines.push(`${idx + 1},${escapeCsv(t.date)},${escapeCsv(t.category)},${escapeCsv(t.description || '')},${escapeCsv(t.paymentMethod || 'Other')},${safeAmount(t.amount)}`);
   });
   lines.push(`,,,,TOTAL EXPENSES,${totalExpenses}`);
   lines.push('');
