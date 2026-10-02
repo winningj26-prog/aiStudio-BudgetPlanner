@@ -22,7 +22,7 @@ export function sumIncomeByCategory(transactions: IncomeTransaction[], category:
 export function sumExpensesByCategory(transactions: ExpenseTransaction[], category: string): number {
   return transactions
     .filter((tx) => tx.category.toLowerCase().trim() === category.toLowerCase().trim())
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    .reduce((acc, curr) => acc + safeAmount(curr.amount), 0);
 }
 
 export function calculateBudgetStatus(percentUsed: number): BudgetStatus {
