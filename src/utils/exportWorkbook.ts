@@ -137,7 +137,7 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
       t.category,
       t.description || '',
       t.paymentMethod || 'Other',
-      t.amount as any,
+      safeAmount(t.amount) as any,
     ]);
   });
 
@@ -187,7 +187,7 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
     const planned = safeAmount(data.plannedExpenses[cat.id]);
     const actual = data.expenseTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
-      .reduce((acc, t) => acc + t.amount, 0);
+      .reduce((acc, t) => acc + safeAmount(t.amount), 0);
     const variance = planned - actual;
     budgetRows.push([
       cat.name,
@@ -367,7 +367,7 @@ export function generateStructuredCSV(data: WorkbookExportData): Blob {
   lines.push('=== 4. MONTHLY BUDGET PLAN VS ACTUAL ===');
   lines.push('Type,Category,Planned,Actual,Variance,Status');
   data.incomeCategories.forEach((cat) => {
-    const planned = data.plannedIncome[cat.id] || 0;
+    const planned = safeAmount(data.plannedIncome[cat.id]);
     const actual = data.incomeTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
       .reduce((acc, t) => acc + t.amount, 0);
@@ -375,7 +375,7 @@ export function generateStructuredCSV(data: WorkbookExportData): Blob {
     lines.push(`Income,${escapeCsv(cat.name)},${planned},${actual},${variance},${variance >= 0 ? 'On Target' : 'Under Target'}`);
   });
   data.expenseCategories.forEach((cat) => {
-    const planned = data.plannedExpenses[cat.id] || 0;
+    const planned = safeAmount(data.plannedExpenses[cat.id]);
     const actual = data.expenseTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
       .reduce((acc, t) => acc + t.amount, 0);
