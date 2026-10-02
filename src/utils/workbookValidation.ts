@@ -101,7 +101,8 @@ const isSettings = (value: unknown): value is SettingsState => {
     || value.year > 2200
     || !DATE_FORMATS.includes(String(value.dateFormat))
     || (value.secondaryCurrency != null && !CURRENCIES.includes(String(value.secondaryCurrency)))
-    || (value.enableSecondaryCurrency != null && typeof value.enableSecondaryCurrency !== 'boolean')) return false;
+    || (value.enableSecondaryCurrency != null && typeof value.enableSecondaryCurrency !== 'boolean')
+    || (value.followCurrentPeriod != null && typeof value.followCurrentPeriod !== 'boolean')) return false;
   return true;
 };
 
