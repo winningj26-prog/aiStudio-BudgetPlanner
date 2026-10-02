@@ -8,6 +8,11 @@ import {
 } from '../types/budget';
 import { formatCurrency } from './formatters';
 
+const safeAmount = (value: unknown): number => {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : 0;
+};
+
 export interface WorkbookExportData {
   settings: SettingsState;
   incomeCategories: CategoryItem[];
@@ -32,11 +37,11 @@ export interface WorkbookExportData {
 export function generateExcelWorkbook(data: WorkbookExportData): Blob {
   const wb = XLSX.utils.book_new();
 
-  const totalIncome = data.incomeTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
-  const totalExpenses = data.expenseTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
+  const totalIncome = data.incomeTransactions.reduce((acc, t) => acc + safeAmount(t.amount), 0);
+  const totalExpenses = data.expenseTransactions.reduce((acc, t) => acc + safeAmount(t.amount), 0);
   const netSavings = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0;
-  const totalPlannedExpenses = Object.values(data.plannedExpenses).reduce((a, b) => a + b, 0);
+  const totalPlannedExpenses = Object.values(data.plannedExpenses).reduce((a, b) => a + safeAmount(b), 0);
   const remainingBudget = totalPlannedExpenses - totalExpenses;
 
   // ----------------------------------------------------
@@ -64,7 +69,7 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
     const planned = data.plannedExpenses[cat.name] || 0;
     const actual = data.expenseTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
-      .reduce((acc, t) => acc + t.amount, 0);
+      .reduce((acc, t) => acc + safeAmount(t.amount), 0);
     const variance = planned - actual;
     const util = planned > 0 ? ((actual / planned) * 100).toFixed(1) + '%' : 'N/A';
     dashboardRows.push([cat.name, planned as any, actual as any, variance as any, util]);
@@ -314,11 +319,11 @@ function escapeCsv(value: any): string {
 export function generateStructuredCSV(data: WorkbookExportData): Blob {
   const lines: string[] = [];
 
-  const totalIncome = data.incomeTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
-  const totalExpenses = data.expenseTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
+  const totalIncome = data.incomeTransactions.reduce((acc, t) => acc + safeAmount(t.amount), 0);
+  const totalExpenses = data.expenseTransactions.reduce((acc, t) => acc + safeAmount(t.amount), 0);
   const netSavings = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0;
-  const totalPlannedExpenses = Object.values(data.plannedExpenses).reduce((a, b) => a + b, 0);
+  const totalPlannedExpenses = Object.values(data.plannedExpenses).reduce((a, b) => a + safeAmount(b), 0);
   const remainingBudget = totalPlannedExpenses - totalExpenses;
 
   // Header & Metadata
