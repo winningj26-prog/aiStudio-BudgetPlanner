@@ -903,6 +903,26 @@ test('account workbook hydration restores the selected namespace without stale c
 });
 
 
+
+test('onboarding exposes and passes through the starting financial position', () => {
+  const onboardingSource = readFileSync(
+    fileURLToPath(new URL('../src/components/OnboardingView.tsx', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(onboardingSource, /openingCashBalance/);
+  assert.match(onboardingSource, /financialAssets/);
+  assert.match(onboardingSource, /debts/);
+  assert.match(onboardingSource, /Existing assets/);
+  assert.match(onboardingSource, /Existing debts/);
+  assert.match(onboardingSource, /Cash on hand/);
+  assert.match(onboardingSource, /onComplete\(session, \{/);
+  assert.match(onboardingSource, /openingCashBalance:/);
+  assert.match(onboardingSource, /financialAssets:/);
+  assert.match(onboardingSource, /debts:/);
+});
+
+
 test('AI category suggestions fail closed on authentication errors', () => {
   const serverSource = readFileSync(
     fileURLToPath(new URL('../server.ts', import.meta.url)),

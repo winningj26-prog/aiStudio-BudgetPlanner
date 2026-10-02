@@ -49,7 +49,7 @@ import { loadCloudWorkbook, saveCloudWorkbook } from './services/cloudWorkbookRe
 import type { User } from '@supabase/supabase-js';
 import { initAuth, supabaseSignOut } from './services/supabaseAuth';
 import { loadToolkitAccountSession, ToolkitAccountSuspendedError } from './services/toolkitAccount';
-import { OnboardingView } from './components/OnboardingView';
+import { OnboardingView, OnboardingFinancialPosition } from './components/OnboardingView';
 import { hasToolkitFeature } from './types/toolkit';
 import type { ToolkitEntitlementResponse } from './types/toolkit';
 import {
@@ -718,7 +718,10 @@ export default function App() {
       <OnboardingView
         user={authUser!}
         session={toolkitSession}
-        onComplete={(session) => {
+        onComplete={(session, financialPosition: OnboardingFinancialPosition) => {
+          setOpeningCashBalance(financialPosition.openingCashBalance);
+          setFinancialAssets(financialPosition.financialAssets);
+          setDebts(financialPosition.debts);
           if (session) {
             setToolkitSession(session);
             setShowToolkitHome(true);
