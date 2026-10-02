@@ -219,18 +219,22 @@ export function generateExcelWorkbook(data: WorkbookExportData): Blob {
   ];
 
   data.annualData.forEach((m) => {
+    const income = safeAmount(m.income);
+    const expenses = safeAmount(m.expenses);
+    const savings = income - expenses;
+    const savingsRate = income > 0 ? (savings / income) * 100 : 0;
     annualRows.push([
       m.month,
       m.fullName,
-      m.income as any,
-      m.expenses as any,
-      m.savings as any,
-      `${m.savingsRate.toFixed(1)}%`,
+      income as any,
+      expenses as any,
+      savings as any,
+      `${savingsRate.toFixed(1)}%`,
     ]);
   });
 
-  const totalAnnualIncome = data.annualData.reduce((acc, m) => acc + m.income, 0);
-  const totalAnnualExpenses = data.annualData.reduce((acc, m) => acc + m.expenses, 0);
+  const totalAnnualIncome = data.annualData.reduce((acc, m) => acc + safeAmount(m.income), 0);
+  const totalAnnualExpenses = data.annualData.reduce((acc, m) => acc + safeAmount(m.expenses), 0);
   const totalAnnualSavings = totalAnnualIncome - totalAnnualExpenses;
   const annualSavingsRate = totalAnnualIncome > 0 ? (totalAnnualSavings / totalAnnualIncome) * 100 : 0;
 
@@ -388,7 +392,11 @@ export function generateStructuredCSV(data: WorkbookExportData): Blob {
   lines.push('=== 5. ANNUAL SUMMARY ===');
   lines.push('Month,Full Month,Income,Expenses,Net Savings,Savings Rate %');
   data.annualData.forEach((m) => {
-    lines.push(`${escapeCsv(m.month)},${escapeCsv(m.fullName)},${m.income},${m.expenses},${m.savings},${m.savingsRate.toFixed(1)}%`);
+    const income = safeAmount(m.income);
+    const expenses = safeAmount(m.expenses);
+    const savings = income - expenses;
+    const savingsRate = income > 0 ? (savings / income) * 100 : 0;
+    lines.push(`${escapeCsv(m.month)},${escapeCsv(m.fullName)},${income},${expenses},${savings},${savingsRate.toFixed(1)}%`);
   });
   lines.push('');
 
