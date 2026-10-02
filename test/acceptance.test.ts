@@ -65,7 +65,7 @@ test('local workbook repository round-trips account-scoped workbook data', () =>
   const defaults = {
     settings: { currency: 'USD', month: 'January', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
     incomeCategories: [], expenseCategories: [], paymentMethods: [], incomeTransactions: [],
-    expenseTransactions: [], plannedIncome: {}, plannedExpenses: {}, savingsGoals: [], debts: [], financialAssets: [], openingCashBalance: 0,
+    expenseTransactions: [], plannedIncome: {}, plannedExpenses: {}, savingsGoals: [], debts: [], debtPayments: [], financialAssets: [], openingCashBalance: 0,
     recurringTransactions: [], userEmail: '', activeTab: 'start_here' as const, sheetConfig: null,
   };
   const repository = createLocalWorkbookRepository('user-a', defaults);
