@@ -5,6 +5,7 @@ import {
   SettingsState,
 } from '../../types/budget';
 import { CURRENCIES, MONTHS } from '../../utils/formatters';
+import { getCurrentCalendarPeriod } from '../../utils/calendarPeriod';
 import {
   ArrowDown,
   ArrowDownAZ,
@@ -669,7 +670,13 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
                 value={settings.month}
                 onChange={(e) =>
                   handleUpdateSettingField(
-                    { month: e.target.value },
+                    {
+                      month: e.target.value,
+                      followCurrentPeriod: (() => {
+                        const current = getCurrentCalendarPeriod();
+                        return e.target.value === current.month && settings.year === current.year;
+                      })(),
+                    },
                     `Active month (${e.target.value})`
                   )
                 }
@@ -681,7 +688,7 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
                   </option>
                 ))}
               </select>
-              <p className="text-[10px] text-slate-400">Controls Monthly Budget and Dashboard views</p>
+              <p className="text-[10px] text-slate-400">Follows the current calendar month automatically until you choose a different period.</p>
             </div>
 
             {/* Start / Active Year */}
@@ -703,7 +710,13 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
                 value={settings.year}
                 onChange={(e) =>
                   handleUpdateSettingField(
-                    { year: parseInt(e.target.value, 10) || 2026 },
+                    {
+                      year: parseInt(e.target.value, 10) || 2026,
+                      followCurrentPeriod: (() => {
+                        const current = getCurrentCalendarPeriod();
+                        return settings.month === current.month && (parseInt(e.target.value, 10) || 2026) === current.year;
+                      })(),
+                    },
                     `Active year (${e.target.value})`
                   )
                 }
