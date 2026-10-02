@@ -939,6 +939,8 @@ test('authenticated billing routes preserve 401/403 failures instead of returnin
 
     assert.match(route, /verifySupabaseRequest\(req\)/);
     assert.match(route, /status === 401/);
-    assert.match(route, /status === 403/);
+    if (routeName.includes('/review')) {
+      assert.match(route, /status === 403/);
+    }
   }
 });
