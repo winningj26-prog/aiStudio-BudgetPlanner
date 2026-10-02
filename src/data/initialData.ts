@@ -8,14 +8,18 @@ import {
   SettingsState,
   FinancialAsset,
 } from '../types/budget';
+import { getCurrentCalendarPeriod } from '../utils/calendarPeriod';
+
+const CURRENT_PERIOD = getCurrentCalendarPeriod();
 
 export const INITIAL_SETTINGS: SettingsState = {
   currency: 'USD',
-  month: 'January',
-  year: 2026,
+  month: CURRENT_PERIOD.month,
+  year: CURRENT_PERIOD.year,
   dateFormat: 'MM/DD/YYYY',
   secondaryCurrency: 'EUR',
   enableSecondaryCurrency: false,
+  followCurrentPeriod: true,
 };
 
 export const INITIAL_INCOME_CATEGORIES: CategoryItem[] = [
