@@ -1119,7 +1119,10 @@ app.post('/api/billing/mobile-money/submit', async (req, res) => {
     });
   } catch (error) {
     console.error('Mobile Money payment submission error:', error);
-    return res.status(500).json({ error: 'Unable to submit the Mobile Money payment.' });
+    const status = (error as Error & { status?: number }).status ?? 500;
+    return res.status(status).json({
+      error: status === 401 ? 'Authentication is required to submit a Mobile Money payment.' : 'Unable to submit the Mobile Money payment.',
+    });
   }
 });
 
@@ -1150,7 +1153,10 @@ app.get('/api/billing/mobile-money/status', async (req, res) => {
     });
   } catch (error) {
     console.error('Mobile Money payment status error:', error);
-    return res.status(500).json({ error: 'Unable to load Mobile Money payment status.' });
+    const status = (error as Error & { status?: number }).status ?? 500;
+    return res.status(status).json({
+      error: status === 401 ? 'Authentication is required to load Mobile Money payment status.' : 'Unable to load Mobile Money payment status.',
+    });
   }
 });
 
@@ -1214,7 +1220,10 @@ app.post('/api/billing/mobile-money/review', async (req, res) => {
     return res.json({ ok: true, status: decision });
   } catch (error) {
     console.error('Mobile Money payment review error:', error);
-    return res.status(500).json({ error: 'Unable to review the Mobile Money payment.' });
+    const status = (error as Error & { status?: number }).status ?? 500;
+    return res.status(status).json({
+      error: status === 401 ? 'Authentication is required to review the Mobile Money payment.' : status === 403 ? 'Platform administration access is required.' : 'Unable to review the Mobile Money payment.',
+    });
   }
 });
 
@@ -1339,8 +1348,12 @@ app.post('/api/billing/checkout', async (req, res) => {
     return res.json({ checkoutUrl: session.redirectUrl, sessionId: session.id, planId });
   } catch (error) {
     console.error('Monime checkout error:', error);
+    const status = (error as Error & { status?: number }).status ?? 500;
     const message = error instanceof Error ? error.message : '';
-    return res.status(message.includes('not configured') ? 503 : 500).json({
+    if (status === 401 || status === 403) {
+      return res.status(status).json({ error: 'Authentication is required to start checkout.' });
+    }
+    return res.status(message.includes('not configured') ? 503 : status).json({
       error: message.includes('not configured') ? message : 'Unable to start Monime checkout.',
     });
   }

@@ -916,3 +916,31 @@ test('AI category suggestions fail closed on authentication errors', () => {
   assert.match(route, /status === 401 \|\| status === 403/);
   assert.match(route, /Authentication is required for category suggestions/);
 });
+
+test('authenticated billing routes preserve 401/403 failures instead of returning generic success or 500 responses', () => {
+  const serverSource = readFileSync(
+    fileURLToPath(new URL('../server.ts', import.meta.url)),
+    'utf8',
+  );
+
+  const routes = [
+    "app.post('/api/billing/checkout'",
+    "app.post('/api/billing/mobile-money/submit'",
+    "app.get('/api/billing/mobile-money/status'",
+    "app.post('/api/billing/mobile-money/review'",
+  ];
+
+  for (const routeName of routes) {
+    const routeStart = serverSource.indexOf(routeName);
+    assert.ok(routeStart >= 0, 'Expected route ' + routeName);
+    const routeEnd = serverSource.indexOf('\napp.', routeStart + routeName.length);
+    assert.ok(routeEnd > routeStart, 'Expected next route boundary for ' + routeName);
+    const route = serverSource.slice(routeStart, routeEnd);
+
+    assert.match(route, /verifySupabaseRequest\(req\)/);
+    assert.match(route, /status === 401/);
+    if (routeName.includes('/review')) {
+      assert.match(route, /status === 403/);
+    }
+  }
+});
