@@ -62,6 +62,59 @@ export function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
 
+export interface SavingsGoalDraftValues {
+  targetAmount: number;
+  currentAmount: number;
+  monthlyContribution?: number;
+}
+
+export function normalizeSavingsGoalDraft(
+  targetAmount: unknown,
+  currentAmount: unknown,
+  monthlyContribution?: unknown,
+): SavingsGoalDraftValues | null {
+  const target = Number(targetAmount);
+  const current = Number(currentAmount);
+  const monthly = monthlyContribution === undefined || monthlyContribution === '' ? undefined : Number(monthlyContribution);
+
+  if (!Number.isFinite(target) || target <= 0) return null;
+  if (!Number.isFinite(current) || current < 0) return null;
+  if (monthly !== undefined && (!Number.isFinite(monthly) || monthly < 0)) return null;
+
+  return { targetAmount: target, currentAmount: current, monthlyContribution: monthly };
+}
+
+export function validateDebtDraftValues(
+  balance: unknown,
+  interestRate: unknown,
+  minimumPayment: unknown,
+): boolean {
+  const bal = Number(balance);
+  const rate = Number(interestRate);
+  const minPay = Number(minimumPayment);
+
+  return Number.isFinite(bal)
+    && bal > 0
+    && Number.isFinite(rate)
+    && rate >= 0
+    && Number.isFinite(minPay)
+    && minPay > 0
+    && minPay < bal;
+}
+
+export function normalizeRecurringRuleValues(
+  amount: unknown,
+  dayOfMonth: unknown,
+): { amount: number; dayOfMonth: number } | null {
+  const normalizedAmount = Number(amount);
+  const normalizedDay = Number(dayOfMonth);
+
+  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) return null;
+  if (!Number.isInteger(normalizedDay) || normalizedDay < 1 || normalizedDay > 31) return null;
+
+  return { amount: normalizedAmount, dayOfMonth: normalizedDay };
+}
+
 export function generateRecurringDates(
   year: number,
   month: number,

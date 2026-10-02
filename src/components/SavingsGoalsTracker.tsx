@@ -6,7 +6,7 @@ import {
   SettingsState,
 } from '../types/budget';
 import { formatCurrency } from '../utils/formatters';
-import { calculateSavingsGoalProgress } from '../utils/financialPlanning';
+import { calculateSavingsGoalProgress, normalizeSavingsGoalDraft } from '../utils/financialPlanning';
 import {
   Award,
   Calendar,
@@ -146,11 +146,10 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   // Save Add/Edit Goal
   const handleSaveGoal = (e: React.FormEvent) => {
     e.preventDefault();
-    const target = parseFloat(targetAmount) || 0;
-    const current = parseFloat(currentAmount) || 0;
-    const monthly = monthlyContribution ? parseFloat(monthlyContribution) || 0 : undefined;
+    const normalized = normalizeSavingsGoalDraft(targetAmount, currentAmount, monthlyContribution);
+    if (!goalName.trim() || !normalized) return;
 
-    if (!goalName.trim() || target <= 0) return;
+    const { targetAmount: target, currentAmount: current, monthlyContribution: monthly } = normalized;
 
     if (editingGoal) {
       // Update existing

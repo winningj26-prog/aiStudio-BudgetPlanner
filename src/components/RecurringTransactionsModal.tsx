@@ -7,7 +7,7 @@ import {
   SettingsState,
 } from '../types/budget';
 import { formatCurrency } from '../utils/formatters';
-import { generateRecurringDates } from '../utils/financialPlanning';
+import { generateRecurringDates, normalizeRecurringRuleValues } from '../utils/financialPlanning';
 import {
   AlertCircle,
   Calendar,
@@ -149,8 +149,9 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
   // Save Rule
   const handleSaveRule = (e: React.FormEvent) => {
     e.preventDefault();
-    const amountVal = parseFloat(formAmount) || 0;
-    if (!formDescription.trim() || amountVal <= 0) return;
+    const normalized = normalizeRecurringRuleValues(formAmount, formDayOfMonth);
+    if (!formDescription.trim() || !normalized) return;
+    const { amount: amountVal, dayOfMonth } = normalized;
 
     if (editingRule) {
       const updated = recurringTransactions.map((r) =>
@@ -162,7 +163,7 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
               amount: amountVal,
               category: formCategory,
               paymentMethod: formType === 'expense' ? formPaymentMethod : undefined,
-              dayOfMonth: Math.min(31, Math.max(1, formDayOfMonth)),
+              dayOfMonth,
               frequency: formFrequency,
               isActive: formIsActive,
               notes: formNotes.trim() || undefined,
