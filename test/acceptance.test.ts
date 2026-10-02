@@ -19,7 +19,7 @@ import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
 import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
 import { isValidWorkbookData, normalizeWorkbookData } from '../src/utils/workbookValidation.ts';
 import { buildAnnualSummary, calculateBudgetItem, calculateBudgetStatus, sumExpensesByCategory, sumIncomeByCategory, sumExpenseTransactions, sumIncomeTransactions } from '../src/utils/formulas.ts';
-import { calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates } from '../src/utils/financialPlanning.ts';
+import { calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates, normalizeSavingsGoalDraft, validateDebtDraftValues, normalizeRecurringRuleValues } from '../src/utils/financialPlanning.ts';
 import { calculateFinancialSnapshot } from '../src/utils/financialModel.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 import { getCurrentCalendarPeriod, syncSettingsToCurrentPeriod } from '../src/utils/calendarPeriod.ts';
@@ -442,6 +442,49 @@ test('savings goal progress clamps invalid/oversaved states safely', () => {
   assert.equal(calculateSavingsGoalProgress({
     id: 'g3', name: 'Invalid', targetAmount: 0, currentAmount: -10,
   }).percentComplete, 0);
+});
+
+test('savings goal, debt, and recurring editors reject non-finite or invalid numeric inputs', () => {
+  assert.deepEqual(normalizeSavingsGoalDraft('3000', '500', '250'), {
+    targetAmount: 3000,
+    currentAmount: 500,
+    monthlyContribution: 250,
+  });
+  assert.equal(normalizeSavingsGoalDraft('3000', '-1', '250'), null);
+  assert.equal(normalizeSavingsGoalDraft('Infinity', '0', '250'), null);
+  assert.equal(normalizeSavingsGoalDraft('3000', '0', '-10'), null);
+
+  assert.equal(validateDebtDraftValues('4000', '12', '100'), true);
+  assert.equal(validateDebtDraftValues('Infinity', '12', '100'), false);
+  assert.equal(validateDebtDraftValues('4000', 'NaN', '100'), false);
+  assert.equal(validateDebtDraftValues('4000', '-1', '100'), false);
+  assert.equal(validateDebtDraftValues('4000', '12', '4000'), false);
+
+  assert.deepEqual(normalizeRecurringRuleValues('1000', 31), { amount: 1000, dayOfMonth: 31 });
+  assert.equal(normalizeRecurringRuleValues('Infinity', 31), null);
+  assert.equal(normalizeRecurringRuleValues('1000', 0), null);
+  assert.equal(normalizeRecurringRuleValues('1000', 32), null);
+});
+
+test('savings goal lifecycle preserves internal allocation semantics through create, contribute, edit, and delete', () => {
+  let goals = [{ id: 'g1', name: 'Emergency Fund', targetAmount: 3000, currentAmount: 500, accountId: 'bank1' }];
+  const added = { id: 'g2', name: 'Travel', targetAmount: 2000, currentAmount: 0, accountId: 'bank1' };
+  goals = [...goals, added];
+  goals = goals.map((goal) => goal.id === 'g1' ? { ...goal, currentAmount: goal.currentAmount + 500 } : goal);
+  goals = goals.map((goal) => goal.id === 'g2' ? { ...goal, targetAmount: 2500 } : goal);
+  assert.equal(calculateSavingsGoalProgress(goals[0]).percentComplete, 33.33333333333333);
+  assert.equal(calculateSavingsGoalProgress(goals[1]).remainingAmount, 2500);
+  goals = goals.filter((goal) => goal.id !== 'g2');
+  assert.deepEqual(goals.map((goal) => goal.id), ['g1']);
+
+  const snapshot = calculateFinancialSnapshot(
+    [], [], goals, [],
+    [{ id: 'bank1', name: 'Main Bank', amount: 5000, openingAmount: 5000, category: 'Bank' }],
+    [], 0,
+  );
+  assert.equal(snapshot.goalAllocated, 1000);
+  assert.equal(snapshot.availableCash, 4000);
+  assert.equal(snapshot.netWorth, 5000);
 });
 
 test('debt calculations handle interest, payment shortfalls, and payoff edge cases', () => {
