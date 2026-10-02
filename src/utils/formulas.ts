@@ -26,8 +26,9 @@ export function sumExpensesByCategory(transactions: ExpenseTransaction[], catego
 }
 
 export function calculateBudgetStatus(percentUsed: number): BudgetStatus {
-  if (percentUsed <= 80) return 'On Track';
-  if (percentUsed <= 100) return 'Near Limit';
+  const safePercent = Number.isFinite(percentUsed) && percentUsed >= 0 ? percentUsed : 0;
+  if (safePercent <= 80) return 'On Track';
+  if (safePercent <= 100) return 'Near Limit';
   return 'Over Budget';
 }
 
@@ -79,8 +80,10 @@ export function calculateBudgetItem(
   planned: number,
   actual: number
 ): BudgetItem {
-  const diff = type === 'expense' ? planned - actual : actual - planned;
-  const percentUsed = planned > 0 ? Number(((actual / planned) * 100).toFixed(2)) : actual > 0 ? 100 : 0;
+  const safePlanned = safeAmount(planned);
+  const safeActual = safeAmount(actual);
+  const diff = type === 'expense' ? safePlanned - safeActual : safeActual - safePlanned;
+  const percentUsed = safePlanned > 0 ? Number(((safeActual / safePlanned) * 100).toFixed(2)) : safeActual > 0 ? 100 : 0;
 
   let status: BudgetStatus = 'On Track';
   if (type === 'expense') {
@@ -93,8 +96,8 @@ export function calculateBudgetItem(
   return {
     category,
     type,
-    planned,
-    actual,
+    planned: safePlanned,
+    actual: safeActual,
     difference: diff,
     percentUsed,
     status,
@@ -116,12 +119,12 @@ export function runBudgetTestSuite(
   const remainingBudget = plannedExpenses - totalExpenses;
   const budgetUtilization = (totalExpenses / plannedExpenses) * 100;
   const savings = totalIncome - totalExpenses;
-  const savingsRate = (savings / totalIncome) * 100;
+  const savingsRate = totalIncome > 0 ? (savings / totalIncome) * 100 : 0;
 
   const annualIncome = annualData.reduce((acc, m) => acc + m.income, 0);
   const annualExpenses = annualData.reduce((acc, m) => acc + m.expenses, 0);
   const annualSavings = annualIncome - annualExpenses;
-  const avgSavingsRate = (annualSavings / annualIncome) * 100;
+  const avgSavingsRate = annualIncome > 0 ? (annualSavings / annualIncome) * 100 : 0;
 
   return [
     {
