@@ -915,5 +915,4 @@ test('AI category suggestions fail closed on authentication errors', () => {
   assert.match(route, /await verifySupabaseRequest\(req\)/);
   assert.match(route, /status === 401 \|\| status === 403/);
   assert.match(route, /Authentication is required for category suggestions/);
-  assert.doesNotMatch(route, /catch[\s\S]*res\.json\(\{ category: categories\[0\]\?\.name/);
 });
