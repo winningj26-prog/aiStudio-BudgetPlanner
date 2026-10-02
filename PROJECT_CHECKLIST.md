@@ -204,7 +204,7 @@ Updated after each completed implementation/verification task.
 - [ ] Module 4 live acceptance: export/download verification
 - [x] Module 4 TypeScript validation blocker fixed (`workbookValidation.ts` unknown `dayOfMonth`/`year` narrowing)
 - [x] Module 4 production validation pipeline (V1 validation run #292 passed TypeScript, acceptance tests, production build, production smoke, Docker build, and Docker smoke)
-- [ ] Module 4 deployment verification
+- [x] Module 4 deployment verification (`dep-davf8gvdjqhc73ei9hjg`, latest validated commit live)
 
 ## M. Cross-module financial model
 - [x] Income and expense transactions remain the source of actual cash-flow data used by budget and analytics
@@ -277,3 +277,8 @@ Updated after each completed implementation/verification task.
 - [x] Savings goal allocations never inflate or reduce total assets or net worth
 - [x] Workbook validation accepts linked savings goal account IDs
 - [x] Acceptance tests cover single-account, multi-goal, multi-account, and post-transaction goal accounting
+
+- [x] V1 validation run #373 passed TypeScript, acceptance tests, production build, production smoke, Docker build, and Docker smoke
+- [x] Savings goal linkage and financial-model hardening deployed to Render and reached live (`dep-davf8gvdjqhc73ei9hjg`)
+- [x] Legacy financial snapshot calls remain compatible with the pre-debt-payment opening-cash argument
+- [x] Available cash excludes non-cash assets while total assets/net worth continue to include them
