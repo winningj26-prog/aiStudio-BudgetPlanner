@@ -78,6 +78,30 @@ test('local workbook repository round-trips account-scoped workbook data', () =>
   assert.equal(otherRepository.load().userEmail, '');
 });
 
+test('account switching restores each user workbook without cross-account leakage', () => {
+  installStorage();
+  const defaults = {
+    settings: { currency: 'USD', month: 'January', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
+    incomeCategories: [], expenseCategories: [], paymentMethods: [], incomeTransactions: [],
+    expenseTransactions: [], plannedIncome: {}, plannedExpenses: {}, savingsGoals: [], debts: [], debtPayments: [], financialAssets: [], openingCashBalance: 0,
+    recurringTransactions: [], userEmail: '', activeTab: 'start_here' as const, sheetConfig: null,
+  };
+
+  const accountA = createLocalWorkbookRepository('user-a', defaults);
+  const accountB = createLocalWorkbookRepository('user-b', defaults);
+
+  accountA.save({ ...defaults, userEmail: 'a@example.com', activeTab: 'dashboard' as const });
+  accountB.save({ ...defaults, userEmail: 'b@example.com', activeTab: 'monthly_budget' as const });
+
+  // Simulate A -> B -> A account switching by reloading each account namespace.
+  assert.equal(accountB.load().userEmail, 'b@example.com');
+  assert.equal(accountB.load().activeTab, 'monthly_budget');
+  assert.equal(accountA.load().userEmail, 'a@example.com');
+  assert.equal(accountA.load().activeTab, 'dashboard');
+  assert.equal(accountA.load().userEmail.includes('b@example.com'), false);
+  assert.equal(accountB.load().userEmail.includes('a@example.com'), false);
+});
+
 test('frontend entitlement helpers fail closed when access is absent', () => {
   const free = { apps: { 'budget-planner': true }, features: { 'budget.core': true, 'budget.localPersistence': true } };
   assert.equal(hasToolkitAppAccess(free, 'budget-planner'), true);
