@@ -23,6 +23,7 @@ import { calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, cal
 import { calculateFinancialSnapshot } from '../src/utils/financialModel.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 import { getCurrentCalendarPeriod, syncSettingsToCurrentPeriod } from '../src/utils/calendarPeriod.ts';
+import { generateExcelWorkbook, generateStructuredCSV } from '../src/utils/exportWorkbook.ts';
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -848,4 +849,32 @@ test('manual period selection is preserved when automatic tracking is disabled',
     followCurrentPeriod: false,
   };
   assert.deepEqual(syncSettingsToCurrentPeriod(manual, new Date('2026-10-02T12:00:00')), manual);
+});
+
+
+test('workbook exports preserve budget values and sanitize invalid transaction amounts', async () => {
+  const data = {
+    settings: { currency: 'USD' as const, month: 'October', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
+    incomeCategories: [{ id: 'salary', name: 'Salary', isActive: true, color: '' }],
+    expenseCategories: [{ id: 'food', name: 'Food', isActive: true, color: '' }],
+    paymentMethods: ['Cash'],
+    incomeTransactions: [{ id: 'i1', date: '2026-10-01', category: 'Salary', description: 'Pay', amount: 1000 }],
+    expenseTransactions: [
+      { id: 'e1', date: '2026-10-02', category: 'Food', description: 'Groceries', paymentMethod: 'Cash', amount: 200 },
+      { id: 'e2', date: '2026-10-03', category: 'Food', description: 'Invalid', paymentMethod: 'Cash', amount: Number.POSITIVE_INFINITY },
+    ],
+    plannedIncome: { Salary: 1000 },
+    plannedExpenses: { food: 500 },
+    annualData: [{ month: '10', fullName: 'October', income: 1000, expenses: 200 }],
+  };
+
+  const xlsx = generateExcelWorkbook(data);
+  assert.equal(xlsx.type, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  assert.ok(xlsx.size > 1000);
+
+  const csv = await generateStructuredCSV(data).text();
+  assert.match(csv, /Total Income,1000/);
+  assert.match(csv, /Total Expenses,200/);
+  assert.match(csv, /Food,500,200,300/);
+  assert.ok(!csv.includes('Infinity'));
 });
