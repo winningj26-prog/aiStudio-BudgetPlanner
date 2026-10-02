@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import {
   getAccountStorageKey,
@@ -898,4 +900,19 @@ test('account workbook hydration restores the selected namespace without stale c
   assert.equal(hydratedB.userEmail, 'b@example.com');
   assert.equal(hydratedB.activeTab, 'monthly_budget');
   assert.equal(accountA.load().userEmail, 'a@example.com');
+});
+
+
+test('AI category suggestions fail closed on authentication errors', () => {
+  const serverSource = readFileSync(
+    fileURLToPath(new URL('../server.ts', import.meta.url)),
+    'utf8',
+  );
+  const routeStart = serverSource.indexOf("app.post('/api/suggest-category'");
+  assert.ok(routeStart >= 0);
+  const route = serverSource.slice(routeStart, serverSource.indexOf('// Configure Vite integration', routeStart));
+
+  assert.match(route, /await verifySupabaseRequest\(req\)/);
+  assert.match(route, /status === 401 \|\| status === 403/);
+  assert.match(route, /Authentication is required for category suggestions/);
 });
