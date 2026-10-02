@@ -933,8 +933,8 @@ test('authenticated billing routes preserve 401/403 failures instead of returnin
   for (const routeName of routes) {
     const routeStart = serverSource.indexOf(routeName);
     assert.ok(routeStart >= 0, 'Expected route ' + routeName);
-    const routeEnd = serverSource.indexOf('\n});', routeStart);
-    assert.ok(routeEnd > routeStart, 'Expected route terminator for ' + routeName);
+    const routeEnd = serverSource.indexOf('\napp.', routeStart + routeName.length);
+    assert.ok(routeEnd > routeStart, 'Expected next route boundary for ' + routeName);
     const route = serverSource.slice(routeStart, routeEnd);
 
     assert.match(route, /verifySupabaseRequest\(req\)/);
