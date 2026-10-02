@@ -735,3 +735,24 @@ test('goal allocation remains separate from cash-flow and net-worth accounting a
   assert.equal(snapshot.totalExpenses, 1000);
   assert.equal(snapshot.netWorth, 7000);
 });
+
+
+test('financial formula aggregation ignores non-finite and negative transaction amounts', () => {
+  const income = [
+    { id: 'i1', date: '2026-10-01', category: 'Salary', description: 'Valid', amount: 1000 },
+    { id: 'i2', date: '2026-10-02', category: 'Salary', description: 'Infinity', amount: Number.POSITIVE_INFINITY },
+    { id: 'i3', date: '2026-10-03', category: 'Salary', description: 'NaN', amount: Number.NaN },
+    { id: 'i4', date: '2026-10-04', category: 'Salary', description: 'Negative', amount: -50 },
+  ];
+  const expenses = [
+    { id: 'e1', date: '2026-10-01', category: 'Food', description: 'Valid', paymentMethod: 'Cash', amount: 200 },
+    { id: 'e2', date: '2026-10-02', category: 'Food', description: 'Infinity', paymentMethod: 'Cash', amount: Number.POSITIVE_INFINITY },
+    { id: 'e3', date: '2026-10-03', category: 'Food', description: 'NaN', paymentMethod: 'Cash', amount: Number.NaN },
+    { id: 'e4', date: '2026-10-04', category: 'Food', description: 'Negative', paymentMethod: 'Cash', amount: -25 },
+  ];
+
+  assert.equal(sumIncomeTransactions(income), 1000);
+  assert.equal(sumIncomeByCategory(income, 'salary'), 1000);
+  assert.equal(sumExpenseTransactions(expenses), 200);
+  assert.equal(sumExpensesByCategory(expenses, 'food'), 200);
+});
