@@ -1539,8 +1539,12 @@ Provide exactly 3 actionable, highly specific bullet points based on the transac
 
 // AI Category Suggestion Endpoint
 app.post('/api/suggest-category', async (req, res) => {
-  const { description = '', categories = [] } = req.body || {};
   try {
+    // Category suggestions can invoke Gemini and read privileged runtime configuration.
+    // Require an authenticated Supabase session before doing either operation.
+    await verifySupabaseRequest(req);
+
+    const { description = '', categories = [] } = req.body || {};
     if (!description.trim() || categories.length === 0) {
       return res.json({ category: categories[0]?.name || '' });
     }
