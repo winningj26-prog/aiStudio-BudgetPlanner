@@ -1,17 +1,22 @@
 import { BudgetItem, BudgetStatus, ExpenseTransaction, IncomeTransaction, MonthSummary, TestResultItem } from '../types/budget';
 
+const safeAmount = (value: unknown): number => {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : 0;
+};
+
 export function sumIncomeTransactions(transactions: IncomeTransaction[]): number {
-  return transactions.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  return transactions.reduce((acc, curr) => acc + safeAmount(curr.amount), 0);
 }
 
 export function sumExpenseTransactions(transactions: ExpenseTransaction[]): number {
-  return transactions.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  return transactions.reduce((acc, curr) => acc + safeAmount(curr.amount), 0);
 }
 
 export function sumIncomeByCategory(transactions: IncomeTransaction[], category: string): number {
   return transactions
     .filter((tx) => tx.category.toLowerCase().trim() === category.toLowerCase().trim())
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    .reduce((acc, curr) => acc + safeAmount(curr.amount), 0);
 }
 
 export function sumExpensesByCategory(transactions: ExpenseTransaction[], category: string): number {
