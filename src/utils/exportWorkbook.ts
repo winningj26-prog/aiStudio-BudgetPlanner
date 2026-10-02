@@ -370,7 +370,7 @@ export function generateStructuredCSV(data: WorkbookExportData): Blob {
     const planned = safeAmount(data.plannedIncome[cat.id]);
     const actual = data.incomeTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
-      .reduce((acc, t) => acc + t.amount, 0);
+      .reduce((acc, t) => acc + safeAmount(t.amount), 0);
     const variance = actual - planned;
     lines.push(`Income,${escapeCsv(cat.name)},${planned},${actual},${variance},${variance >= 0 ? 'On Target' : 'Under Target'}`);
   });
@@ -378,7 +378,7 @@ export function generateStructuredCSV(data: WorkbookExportData): Blob {
     const planned = safeAmount(data.plannedExpenses[cat.id]);
     const actual = data.expenseTransactions
       .filter((t) => t.category.toLowerCase() === cat.name.toLowerCase())
-      .reduce((acc, t) => acc + t.amount, 0);
+      .reduce((acc, t) => acc + safeAmount(t.amount), 0);
     const variance = planned - actual;
     lines.push(`Expense,${escapeCsv(cat.name)},${planned},${actual},${variance},${variance >= 0 ? 'Under Budget' : 'Over Budget'}`);
   });
