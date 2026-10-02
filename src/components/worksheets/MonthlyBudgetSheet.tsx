@@ -174,27 +174,21 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
   const endDateStr = formatISO(endDate);
 
   const sumIncomeInPeriod = (category: string) => {
-    return incomeTransactions
-      .filter((tx) => {
-        return (
-          tx.category.toLowerCase().trim() === category.toLowerCase().trim() &&
-          tx.date >= startDateStr &&
-          tx.date <= endDateStr
-        );
-      })
-      .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    return sumIncomeByCategory(
+      incomeTransactions.filter((tx) =>
+        tx.date >= startDateStr && tx.date <= endDateStr
+      ),
+      category
+    );
   };
 
   const sumExpensesInPeriod = (category: string) => {
-    return expenseTransactions
-      .filter((tx) => {
-        return (
-          tx.category.toLowerCase().trim() === category.toLowerCase().trim() &&
-          tx.date >= startDateStr &&
-          tx.date <= endDateStr
-        );
-      })
-      .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    return sumExpensesByCategory(
+      expenseTransactions.filter((tx) =>
+        tx.date >= startDateStr && tx.date <= endDateStr
+      ),
+      category
+    );
   };
 
   // 1. Build Income Budget Items
