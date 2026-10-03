@@ -1,3 +1,30 @@
+import { useEffect, useMemo, useState } from 'react';
+import { BarChart3, CircleDollarSign, CreditCard, LayoutDashboard, Settings, Target, Trash2 } from 'lucide-react';
+import type { DebtAccount, Product2Workbook, SavingsGoal } from './domain/types.js';
+import { calculatePaymentAllocation, projectRepaymentScenario } from './domain/debt.js';
+import { calculateSavingsProgress } from './domain/savings.js';
+import { validateDebt, validateSavingsGoal } from './domain/validation.js';
+import { SupabaseProduct2Repository } from './repository/SupabaseProduct2Repository.js';
+import { clearProduct2Session, loadProduct2Session, saveProduct2Session } from './session/Product2Session.js';
+import { getInitialProduct2AuthState, resolveProduct2Session, signInWithGoogle, signInWithPassword, signOut, signUpWithPassword } from './auth/Product2Auth.js';
+import { supabase } from './lib/supabase.js';
+import { id, today } from './utils/ids.js';
+
+const modules = [
+  ['start', 'Start Here', LayoutDashboard], ['settings', 'Settings', Settings], ['goals', 'Savings Goals', Target],
+  ['contributions', 'Savings Contributions', CircleDollarSign], ['debts', 'Debt Accounts', CreditCard],
+  ['payments', 'Debt Payments', CircleDollarSign], ['planner', 'Repayment Planner', BarChart3], ['dashboard', 'Dashboard', LayoutDashboard],
+] as const;
+
+function emptyWorkbook(accountId: string, displayName: string, currency = 'USD'): Product2Workbook {
+  const now = new Date().toISOString();
+  return {
+    account: { id: accountId, displayName, currency, createdAt: now, updatedAt: now },
+    settings: { accountId, currency, dateFormat: 'YYYY-MM-DD', interestConvention: 'nominal-annual', paymentTiming: 'end-of-period', minimumPaymentPolicy: 'configured-minimum', calculationPreferences: { decimalPlaces: 2 } },
+    savingsGoals: [], savingsContributions: [], debts: [], debtPayments: [],
+  };
+}
+
 export function App() {
   const [session, setSession] = useState(loadProduct2Session());
   const [active, setActive] = useState('start');
