@@ -6,14 +6,6 @@ export async function signInWithPassword(email: string, password: string) {
   return requireSupabase().auth.signInWithPassword({ email, password });
 }
 
-export async function signUpWithPassword(email: string, password: string, displayName: string) {
-  return requireSupabase().auth.signUp({
-    email,
-    password,
-    options: { data: { display_name: displayName.trim() } },
-  });
-}
-
 export async function signInWithGoogle() {
   return requireSupabase().auth.signInWithOAuth({
     provider: 'google',
