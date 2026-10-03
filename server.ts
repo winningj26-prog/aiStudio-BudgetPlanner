@@ -262,7 +262,7 @@ app.post('/api/platform/users/override', async (req, res) => {
     if (typeof reason !== 'string' || reason.trim().length < 5 || reason.trim().length > 500) {
       return res.status(400).json({ error: 'A reason between 5 and 500 characters is required.' });
     }
-    const allowedAppIds = ['budget-planner', 'app-2', 'app-3', 'app-4'];
+    const allowedAppIds = ['budget-planner', 'product2', 'app-2', 'app-3', 'app-4'];
     for (const appId of Object.keys(appAccess)) {
       if (allowedAppIds.indexOf(appId) === -1) {
         return res.status(400).json({ error: 'Unsupported app entitlement: ' + appId });
@@ -664,6 +664,7 @@ app.get('/api/account/session', async (req, res) => {
 
     const appAccess: Record<string, boolean> = {
       'budget-planner': !suspended,
+      'product2': !suspended,
       'app-2': false,
       'app-3': false,
       'app-4': false,
