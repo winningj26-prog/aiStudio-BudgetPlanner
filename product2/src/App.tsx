@@ -138,7 +138,7 @@ export function App() {
       <header><div><p className="eyebrow">Savings Goal and Debt Tracker</p><h1>{modules.find(([idValue]) => idValue === active)?.[1]}</h1><small>{session.email}</small></div><span className="pill">Cloud tenant: {session.tenantId.slice(0, 8)}…</span></header>
       {error && <div className="alert">{error}</div>}
       {active === 'start' && <Start workbook={workbook} savings={savings} debt={debt} payoff={planner.payoffMonth} />}
-      {active === 'settings' && <SettingsView workbook={workbook} onSave={next => persist(next)} />}
+      {active === 'settings' && <SettingsView workbook={workbook} session={session} onSave={next => persist(next)} onSessionChange={next => { saveProduct2Session(next); setSession(next); }} />}
       {active === 'goals' && <GoalsView workbook={workbook} onSave={persist} />}
       {active === 'contributions' && <ContributionsView workbook={workbook} onSave={persist} />}
       {active === 'debts' && <DebtsView workbook={workbook} onSave={persist} />}
@@ -275,6 +275,48 @@ function Dashboard({ workbook }: { workbook: Product2Workbook }) {
   const goalProgress=workbook.savingsGoals.map(g=>calculateSavingsProgress(g,workbook.savingsContributions));const savings=goalProgress.reduce((s,g)=>s+g.currentBalance,0);const debt=workbook.debts.reduce((s,d)=>s+d.balance,0);return <section className="grid"><article className="card"><p className="eyebrow">Savings</p><h2>{savings.toFixed(2)}</h2><p>{workbook.savingsGoals.length} goal(s), {goalProgress.filter(g=>g.completionPercentage===100).length} completed.</p></article><article className="card"><p className="eyebrow">Debt</p><h2>{debt.toFixed(2)}</h2><p>{workbook.debts.length} account(s), {workbook.debts.filter(d=>d.status==='paid').length} paid.</p></article></section>;
 }
 
-function SettingsView({ workbook, onSave }: { workbook: Product2Workbook; onSave: (w: Product2Workbook) => Promise<void> }) {
-  const [currency,setCurrency]=useState(workbook.settings.currency);return <section className="card"><p className="eyebrow">Product 2 settings</p><label>Currency<input value={currency} onChange={e=>setCurrency(e.target.value.toUpperCase())}/></label><p className="muted">Interest convention: nominal annual · Payment timing: end of period · Minimum payment policy: configured minimum.</p><button className="primary" onClick={()=>onSave({...workbook,account:{...workbook.account,currency},settings:{...workbook.settings,currency}})}>Save settings</button></section>;
+function SettingsView({ workbook, session, onSave, onSessionChange }: { workbook: Product2Workbook; session: NonNullable<ReturnType<typeof loadProduct2Session>>; onSave: (w: Product2Workbook) => Promise<void>; onSessionChange: (session: NonNullable<ReturnType<typeof loadProduct2Session>>) => void }) {
+  const [currency,setCurrency]=useState(workbook.settings.currency);
+  const [busyPlan,setBusyPlan]=useState(false);
+  const [message,setMessage]=useState('');
+
+  const choosePlan=async(planId:string)=>{
+    setBusyPlan(true);setMessage('');
+    try{
+      const result=await selectProduct2Plan(session.tenantId,planId);
+      const {user}=await getInitialProduct2AuthState();
+      if(!user) throw new Error('Your authentication session expired. Please sign in again.');
+      const resolved=await resolveProduct2Session(user);
+      onSessionChange(resolved);
+      if(planId!=='free') setMessage(`${result?.plan_id ?? planId} selected. Payment is required before paid access is activated; no paid entitlement was granted.`);
+    }catch(e){setMessage(e instanceof Error?e.message:'Could not save your plan selection.');}
+    finally{setBusyPlan(false);}
+  };
+
+  return <section className="grid">
+    <article className="card">
+      <p className="eyebrow">Product 2 settings</p>
+      <label>Currency<input value={currency} onChange={e=>setCurrency(e.target.value.toUpperCase())}/></label>
+      <p className="muted">Interest convention: nominal annual · Payment timing: end of period · Minimum payment policy: configured minimum.</p>
+      <button className="primary" onClick={()=>onSave({...workbook,account:{...workbook.account,currency},settings:{...workbook.settings,currency}})}>Save settings</button>
+    </article>
+    <article className="card">
+      <p className="eyebrow">Subscription</p>
+      <h2>{session.planId ?? 'No plan selected'}</h2>
+      <p className="muted">Product 2 uses the same Toolkit identity and tenant as your BudgetPlanner account.</p>
+      <div className="plan-grid">
+        {[
+          ['free','Free','Core savings and debt tracking.'],
+          ['plus','Plus','Paid tier selection; billing activation is handled separately.'],
+          ['pro','Pro','Paid tier selection; billing activation is handled separately.'],
+        ].map(([idValue,name,description])=><div className="card plan-card" key={idValue}>
+          <p className="eyebrow">{name}</p><p>{description}</p>
+          <button className="secondary" disabled={busyPlan} onClick={()=>void choosePlan(idValue)}>{session.planId===idValue && session.planSelectionStatus==='selected'?'Selected':`Choose ${name}`}</button>
+        </div>)}
+      </div>
+      {session.planSelectionStatus==='pending_payment'&&<p className="form-message">Current selection: {session.planId}. Paid access remains inactive until billing confirms the subscription.</p>}
+      {message&&<p className="form-message">{message}</p>}
+    </article>
+  </section>;
 }
+
