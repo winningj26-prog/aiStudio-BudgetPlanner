@@ -1,8 +1,13 @@
+export type Product2Access = 'active' | 'setup_required' | 'inactive';
+
 export interface Product2Session {
   userId: string;
   tenantId: string;
   email: string;
   displayName: string;
+  productAccess: Product2Access;
+  planId: string | null;
+  planSelectionStatus: 'selected' | 'pending_payment' | null;
 }
 
 export const KEY = 'budgetplanner.product2.session';
