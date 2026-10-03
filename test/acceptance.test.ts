@@ -947,6 +947,20 @@ test('existing accounts can reach the starting financial position editors from S
 });
 
 
+test('Start Here opening net worth uses explicit opening balances when current balances differ', () => {
+  const source = readFileSync(
+    fileURLToPath(new URL('../src/components/worksheets/StartHereSheet.tsx', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(source, /const openingAmount = asset\.openingAmount \?\? asset\.amount/);
+  assert.match(source, /const openingBalance = debt\.openingBalance \?\? debt\.balance/);
+  assert.match(source, /openingAssetsTotal/);
+  assert.match(source, /openingDebtsTotal/);
+  assert.match(source, /openingNetWorth/);
+});
+
+
 test('AI category suggestions fail closed on authentication errors', () => {
   const serverSource = readFileSync(
     fileURLToPath(new URL('../server.ts', import.meta.url)),
