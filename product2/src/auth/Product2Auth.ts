@@ -38,12 +38,16 @@ export async function resolveProduct2Session(user: User): Promise<Product2Sessio
   if (membershipError) throw membershipError;
 
   let tenantId = membership?.tenant_id as string | undefined;
-  if (!tenantId) {
+  const provision = async () => {
     const { data, error } = await client.rpc('provision_product2_tenant', {
       p_display_name: typeof user.user_metadata?.display_name === 'string' ? user.user_metadata.display_name : null,
     });
     if (error) throw error;
     tenantId = data as string;
+  };
+
+  if (!tenantId) {
+    await provision();
   }
 
   const { data: entitlement, error: entitlementError } = await client
@@ -58,7 +62,9 @@ export async function resolveProduct2Session(user: User): Promise<Product2Sessio
   const active = entitlement?.status === 'active'
     && (!entitlement.expires_at || new Date(entitlement.expires_at).getTime() > Date.now());
 
-  if (!active) {
+  if (!entitlement) {
+    await provision();
+  } else if (!active) {
     throw new Error('Product 2 access is not currently active for this account.');
   }
 
