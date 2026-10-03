@@ -1,12 +1,12 @@
 # BudgetPlanner Product 2 — Savings Goal and Debt Tracker
 
-Product 2 is a standalone application. It owns its own account/session boundary, persistence, workbook model, calculations, entitlements, and exports.
+Product 2 is a standalone product domain inside the Toolkit multi-tenant platform. It owns its workbook model, calculations, product workflows, and exports while using a tenant-scoped persistence boundary.
 
 ## Independence contract
 
 Product 2 must not import or require Product 1 runtime modules, Product 1 storage keys, Product 1 workbook snapshots, Product 1 database rows, Product 1 APIs, or Product 1 entitlement/session state.
 
-The browser foundation uses a Product 2-specific session key and Product 2-specific local persistence namespace. Production authentication and cloud persistence are intentionally separate follow-up infrastructure; they must use a separate Product 2 backend boundary rather than sharing Product 1 runtime state.
+The browser foundation uses a Product 2-specific session key and Product 2-specific local persistence namespace. Production authentication will resolve users to a Toolkit tenant, while Product 2 persistence remains tenant-scoped and product-specific. Product 2 does not require Product 1's runtime or data. A future physical database split remains possible without changing the Product 2 domain contract.
 
 ## Calculation assumptions
 
@@ -29,3 +29,10 @@ The browser foundation uses a Product 2-specific session key and Product 2-speci
 6. Debt Payments
 7. Repayment Planner
 8. Dashboard
+
+
+## Toolkit tenancy
+
+Product 2 uses a tenant boundary rather than a product-specific database requirement. The current workbook model calls this identifier accountId; the Product2TenantContext abstraction makes its platform role explicit.
+
+Initial infrastructure is intended to share the Toolkit Supabase project for cost efficiency, with strict tenant-scoped RLS and product-specific tables. Product 2 must remain portable so it can move to a separate database later if scale or operational requirements justify that split.
