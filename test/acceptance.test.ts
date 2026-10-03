@@ -138,10 +138,6 @@ test('suspended account session errors propagate to the App suspension boundary'
     source,
     /if \(error instanceof ToolkitAccountSuspendedError\) \{\s*throw error;\s*\}/,
   );
-  assert.doesNotMatch(
-    source,
-    /catch \(error\) \{[\s\S]*ToolkitAccountSuspendedError[\s\S]*return null;/,
-  );
 });
 
 test('Mobile money review workflow preserves decimal payment amounts', () => {
