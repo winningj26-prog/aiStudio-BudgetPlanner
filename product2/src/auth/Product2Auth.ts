@@ -2,81 +2,59 @@ import type { Session, User } from '@supabase/supabase-js';
 import { requireSupabase } from '../lib/supabase.js';
 import type { Product2Session } from '../session/Product2Session.js';
 
-export async function signInWithPassword(email: string, password: string) {
-  return requireSupabase().auth.signInWithPassword({ email, password });
-}
-
-export async function signInWithGoogle() {
-  return requireSupabase().auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.origin },
-  });
-}
-
 export async function signOut() {
   return requireSupabase().auth.signOut();
 }
 
-export async function selectProduct2Plan(tenantId: string, planId: string) {
-  const { data, error } = await requireSupabase().rpc('select_product2_plan', {
-    p_tenant_id: tenantId,
-    p_plan_id: planId,
-  });
-  if (error) throw error;
-  return Array.isArray(data) ? data[0] : data;
-}
-
+/**
+ * Product 2 consumes the existing Toolkit account/session.
+ * It deliberately has no Product 2 login, tenant provisioning, or billing flow.
+ */
 export async function resolveProduct2Session(user: User): Promise<Product2Session> {
   const client = requireSupabase();
-  const { data: membership, error: membershipError } = await client
-    .from('tenant_members')
-    .select('tenant_id, role')
-    .eq('user_id', user.id)
-    .order('role', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data: authSession, error: sessionError } = await client.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (!authSession.session) throw new Error('Your Toolkit authentication session has expired.');
 
-  if (membershipError) throw membershipError;
+  const response = await fetch('/api/account/session', {
+    headers: { Authorization: `Bearer ${authSession.session.access_token}` },
+  });
+  const body = await response.json().catch(() => ({}));
 
-  let tenantId = membership?.tenant_id as string | undefined;
-  if (!tenantId) {
-    const { data, error } = await client.rpc('provision_product2_tenant', {
-      p_display_name: typeof user.user_metadata?.display_name === 'string' ? user.user_metadata.display_name : null,
-    });
-    if (error) throw error;
-    tenantId = data as string;
+  if (response.status === 403 && body?.code === 'ACCOUNT_SUSPENDED') {
+    throw new Error(body.message || 'Your Toolkit account is suspended.');
   }
-  if (!tenantId) throw new Error('Could not resolve a Product 2 tenant.');
+  if (!response.ok) {
+    throw new Error(body.error || 'Could not load the shared Toolkit account.');
+  }
 
-  const { data: entitlement, error: entitlementError } = await client
-    .from('tenant_product_entitlements')
-    .select('status, expires_at')
-    .eq('tenant_id', tenantId)
-    .eq('product_id', 'product2')
-    .maybeSingle();
-  if (entitlementError) throw entitlementError;
+  const account = body?.session;
+  const platformUser = account?.user;
+  if (!platformUser?.id) throw new Error('The shared Toolkit account could not be resolved.');
 
-  const { data: selection, error: selectionError } = await client
-    .from('tenant_product_plan_selections')
-    .select('plan_id, status')
-    .eq('tenant_id', tenantId)
-    .eq('product_id', 'product2')
-    .maybeSingle();
-  if (selectionError) throw selectionError;
-
-  const active = entitlement?.status === 'active'
-    && (!entitlement.expires_at || new Date(entitlement.expires_at).getTime() > Date.now());
+  const appAccess = Boolean(account?.entitlements?.apps?.product2);
+  if (!appAccess) {
+    return {
+      userId: user.id,
+      accountId: platformUser.id,
+      email: platformUser.email ?? user.email ?? '',
+      displayName: platformUser.displayName
+        ?? (user.user_metadata?.display_name as string | undefined)
+        ?? user.email?.split('@')[0]
+        ?? 'User',
+      productAccess: 'inactive',
+    };
+  }
 
   return {
     userId: user.id,
-    tenantId,
-    email: user.email ?? '',
-    displayName: typeof user.user_metadata?.display_name === 'string'
-      ? user.user_metadata.display_name
-      : (user.email?.split('@')[0] ?? 'User'),
-    productAccess: active ? 'active' : entitlement ? 'inactive' : 'setup_required',
-    planId: selection?.plan_id ?? (active ? 'free' : null),
-    planSelectionStatus: selection?.status ?? (active ? 'selected' : null),
+    accountId: platformUser.id,
+    email: platformUser.email ?? user.email ?? '',
+    displayName: platformUser.displayName
+      ?? (user.user_metadata?.display_name as string | undefined)
+      ?? user.email?.split('@')[0]
+      ?? 'User',
+    productAccess: 'active',
   };
 }
 
