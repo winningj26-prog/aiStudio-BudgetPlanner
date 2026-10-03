@@ -18,6 +18,8 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
 
 RUN npm run build
+RUN npm install --prefix product2
+RUN npm run build --prefix product2
 
 ENV NODE_ENV=production
 ENV PORT=8080
