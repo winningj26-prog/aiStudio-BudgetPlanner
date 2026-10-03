@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, CircleDollarSign, CreditCard, LayoutDashboard, Settings, Target, Trash2 } from 'lucide-react';
+import { BarChart3, CircleDollarSign, CreditCard, LayoutDashboard, Settings, Target, Trash2, User, Home } from 'lucide-react';
 import type { DebtAccount, Product2Workbook, SavingsGoal } from './domain/types.js';
 import { calculatePaymentAllocation, projectRepaymentScenario } from './domain/debt.js';
 import { calculateSavingsProgress } from './domain/savings.js';
@@ -124,24 +124,64 @@ export function App() {
   const debt = workbook.debts.reduce((sum, item) => sum + item.balance, 0);
   const planner = projectRepaymentScenario(workbook.debts, 'avalanche');
 
+  const activeLabel = modules.find(([idValue]) => idValue === active)?.[1] ?? 'Start Here';
+  const displayName = session.displayName || session.email.split('@')[0];
   return <main className="app-shell">
     <aside className="sidebar">
-      <div className="brand"><div className="brand-mark">P2</div><div><strong>BudgetPlanner</strong><span>Product 2</span></div></div>
-      <nav>{modules.map(([idValue, label, Icon]) => <button key={idValue} className={active === idValue ? 'nav-item active' : 'nav-item'} onClick={() => setActive(idValue)}><Icon size={18} /> {label}</button>)}</nav>
-      <p className="independence">Independent tool<br />Uses the shared Toolkit account and database. Product 1 is not required at runtime.</p>
-      <button className="signout" onClick={async () => { await signOut(); setSession(null); setWorkbook(null); }}>Sign out</button>
+      <div className="brand">
+        <div className="brand-mark">P2</div>
+        <div><strong>Finance Manager</strong><span>Product 2 • Workbook</span></div>
+      </div>
+      <nav>
+        <div className="nav-section-label">Workbook Ledger</div>
+        {modules.map(([idValue, label, Icon]) => (
+          <button key={idValue} className={active === idValue ? 'nav-item active' : 'nav-item'} onClick={() => setActive(idValue)}>
+            <Icon size={16} /> <span>{label}</span>
+          </button>
+        ))}
+        <button className="nav-item nav-home" onClick={() => window.location.assign('/')}>
+          <Home size={16} /> <span>Return to Toolkit</span>
+        </button>
+      </nav>
+      <div className="sidebar-footer">
+        <p className="independence">Independent tool · uses the shared Toolkit account and database. Product 1 is not required at runtime.</p>
+        <div className="profile-row">
+          <div className="profile">
+            <div className="profile-icon"><User size={15} /></div>
+            <div className="profile-copy"><strong>{displayName}</strong><span>{session.email}</span></div>
+          </div>
+          <button className="signout" title="Sign out" onClick={async () => { await signOut(); setSession(null); setWorkbook(null); }}>Sign out</button>
+        </div>
+      </div>
     </aside>
     <section className="content">
-      <header><div><p className="eyebrow">Savings Goal and Debt Tracker</p><h1>{modules.find(([idValue]) => idValue === active)?.[1]}</h1><small>{session.email}</small></div><span className="pill">Shared account: {session.accountId.slice(0, 8)}…</span></header>
-      {error && <div className="alert">{error}</div>}
-      {active === 'start' && <Start workbook={workbook} savings={savings} debt={debt} payoff={planner.payoffMonth} />}
-      {active === 'settings' && <SettingsView workbook={workbook} onSave={persist} />}
-      {active === 'goals' && <GoalsView workbook={workbook} onSave={persist} />}
-      {active === 'contributions' && <ContributionsView workbook={workbook} onSave={persist} />}
-      {active === 'debts' && <DebtsView workbook={workbook} onSave={persist} />}
-      {active === 'payments' && <PaymentsView workbook={workbook} onRecordPayment={recordDebtPayment} />}
-      {active === 'planner' && <PlannerView debts={workbook.debts} />}
-      {active === 'dashboard' && <Dashboard workbook={workbook} />}
+      <div className="topbar">
+        <div className="topbar-left">
+          <div className="fx-badge">P2</div>
+          <div className="cell-ref">{activeLabel.replace(/ /g, '_').toUpperCase()}</div>
+          <div className="topbar-title"><strong>Product 2 · Savings & Debt Workbook</strong><span>Independent workbook namespace · shared platform authentication</span></div>
+        </div>
+        <div className="topbar-actions">
+          <span className="period-pill">LIVE WORKBOOK</span>
+          <span className="account-pill">Shared account · {session.accountId.slice(0, 8)}…</span>
+        </div>
+      </div>
+      <div className="viewport">
+        <div className="page">
+          <div className="page-heading">
+            <div><p className="eyebrow">Savings Goals & Debt Management</p><h1>{activeLabel}</h1><p>{session.email}</p></div>
+          </div>
+          {error && <div className="alert">{error}</div>}
+          {active === 'start' && <Start workbook={workbook} savings={savings} debt={debt} payoff={planner.payoffMonth} />}
+          {active === 'settings' && <SettingsView workbook={workbook} onSave={persist} />}
+          {active === 'goals' && <GoalsView workbook={workbook} onSave={persist} />}
+          {active === 'contributions' && <ContributionsView workbook={workbook} onSave={persist} />}
+          {active === 'debts' && <DebtsView workbook={workbook} onSave={persist} />}
+          {active === 'payments' && <PaymentsView workbook={workbook} onRecordPayment={recordDebtPayment} />}
+          {active === 'planner' && <PlannerView debts={workbook.debts} />}
+          {active === 'dashboard' && <Dashboard workbook={workbook} />}
+        </div>
+      </div>
     </section>
   </main>;
 }
