@@ -6,7 +6,6 @@ import { validateDebt, validateSavingsGoal } from '../src/domain/validation.js';
 import { InMemoryProduct2Repository } from '../src/repository/Product2Repository.js';
 import type { Product2Workbook } from '../src/domain/types.js';
 import { exportProduct2Workbook, importProduct2Workbook } from '../src/utils/workbookTransfer.js';
-import { assertProduct2Tenant, createProduct2TenantContext } from '../src/tenant/Product2Tenant.js';
 
 const workbook = (): Product2Workbook => ({
   account: { id: 'p2-a', displayName: 'Product 2 Test', currency: 'USD', createdAt: '2026-10-03T00:00:00Z', updatedAt: '2026-10-03T00:00:00Z' },
@@ -121,11 +120,10 @@ test('Product 2 export/import round-trips without Product 1 dependencies', () =>
 });
 
 
-test('Product 2 tenant context isolates repository ownership', () => {
-  const context = createProduct2TenantContext('tenant-a');
-  assert.equal(context.tenantId, 'tenant-a');
-  assert.equal(context.productId, 'product2');
-  assert.doesNotThrow(() => assertProduct2Tenant('tenant-a', context));
-  assert.throws(() => assertProduct2Tenant('tenant-b', context), /tenant ownership mismatch/);
-  assert.throws(() => createProduct2TenantContext('   '), /tenant id is required/);
+test('Product 2 domain identity is the shared platform account id', () => {
+  const source = workbook();
+  assert.equal(source.account.id, source.settings.accountId);
+  source.savingsGoals.push({ id: 'g-shared', accountId: source.account.id, name: 'Shared account goal', targetAmount: 100, openingBalance: 0, status: 'active' });
+  assert.equal(source.savingsGoals[0].accountId, source.account.id);
+  assert.equal(source.savingsGoals[0].accountId, 'p2-a');
 });
