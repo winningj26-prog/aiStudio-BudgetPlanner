@@ -731,8 +731,8 @@ export default function App() {
     );
   }
 
-  // 4. Existing accounts always return to the Toolkit launcher after login.
-  // The workbook is only opened by the explicit BudgetPlanner app selection.
+  // 4. Existing accounts enter the Toolkit launcher. Product 1 is one peer tool in that launcher;
+  // its workbook opens only after the user explicitly selects Product 1.
 
   // 5. If the Toolkit session is available, render the dedicated Toolkit launcher
   // (Completely outside the Excel dashboard shell and dashboard header)
