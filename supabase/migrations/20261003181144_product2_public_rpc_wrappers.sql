@@ -1,16 +1,16 @@
--- Expose Product 2 RPC entry points through the public PostgREST schema
--- while keeping authorization in the existing toolkit_internal security-definer functions.
+-- Expose Product 2 RPC entry points through the public PostgREST schema.
+-- The public wrappers are security-invoker functions; authorization remains in
+-- the existing toolkit_internal security-definer functions.
+
+grant usage on schema toolkit_internal to authenticated;
 
 create or replace function public.provision_product2_tenant(p_display_name text default null)
 returns uuid
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 begin
-  if auth.uid() is null then
-    raise exception 'Authentication required';
-  end if;
   return toolkit_internal.provision_product2_tenant(p_display_name);
 end;
 $$;
@@ -25,13 +25,10 @@ create or replace function public.select_product2_plan(
 )
 returns table(plan_id text, selection_status text, entitlement_status text)
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 begin
-  if auth.uid() is null then
-    raise exception 'Authentication required';
-  end if;
   return query
     select * from toolkit_internal.select_product2_plan(p_tenant_id, p_plan_id);
 end;
@@ -51,13 +48,10 @@ create or replace function public.record_product2_debt_payment(
 )
 returns void
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 begin
-  if auth.uid() is null then
-    raise exception 'Authentication required';
-  end if;
   perform toolkit_internal.record_product2_debt_payment(
     p_tenant_id,
     p_debt_id,
