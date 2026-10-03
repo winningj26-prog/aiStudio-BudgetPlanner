@@ -86,7 +86,7 @@ export class SupabaseProduct2Repository implements Product2Repository {
   }
 
   async saveSettings(settings: Product2Settings): Promise<void> {
-    this.assertTenant(settings.accountId);
+    this.assertAccount(settings.accountId);
     const result = await requireSupabase().from('product2_settings').upsert({
       account_id: this.accountId,
       currency: settings.currency,
@@ -100,7 +100,7 @@ export class SupabaseProduct2Repository implements Product2Repository {
   }
 
   async upsertSavingsGoal(goal: SavingsGoal): Promise<void> {
-    this.assertTenant(goal.accountId);
+    this.assertAccount(goal.accountId);
     const result = await requireSupabase().from('product2_savings_goals').upsert(toGoal(goal), { onConflict: 'id' });
     if (result.error) throw result.error;
   }
@@ -114,13 +114,13 @@ export class SupabaseProduct2Repository implements Product2Repository {
   }
 
   async appendSavingsContribution(contribution: SavingsContribution): Promise<void> {
-    this.assertTenant(contribution.accountId);
+    this.assertAccount(contribution.accountId);
     const result = await requireSupabase().from('product2_savings_contributions').insert(toContribution(contribution));
     if (result.error) throw result.error;
   }
 
   async upsertDebt(debt: DebtAccount): Promise<void> {
-    this.assertTenant(debt.accountId);
+    this.assertAccount(debt.accountId);
     const result = await requireSupabase().from('product2_debt_accounts').upsert(toDebt(debt), { onConflict: 'id' });
     if (result.error) throw result.error;
   }
@@ -134,7 +134,7 @@ export class SupabaseProduct2Repository implements Product2Repository {
   }
 
   async appendDebtPayment(payment: DebtPayment): Promise<void> {
-    this.assertTenant(payment.accountId);
+    this.assertAccount(payment.accountId);
     const client = requireSupabase();
     const result = await client.rpc('record_product2_debt_payment_for_account', {
       p_account_id: this.accountId,
@@ -166,7 +166,7 @@ export class SupabaseProduct2Repository implements Product2Repository {
     }
   }
 
-  private assertTenant(accountId: string) {
+  private assertAccount(accountId: string) {
     if (accountId !== this.accountId) throw new Error('Product 2 account ownership mismatch.');
   }
 }
