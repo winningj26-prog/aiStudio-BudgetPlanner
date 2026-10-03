@@ -5,8 +5,8 @@ import { calculatePaymentAllocation, projectRepaymentScenario } from './domain/d
 import { calculateSavingsProgress } from './domain/savings.js';
 import { validateDebt, validateSavingsGoal } from './domain/validation.js';
 import { SupabaseProduct2Repository } from './repository/SupabaseProduct2Repository.js';
-import { clearProduct2Session, loadProduct2Session, saveProduct2Session } from './session/Product2Session.js';
-import { getInitialProduct2AuthState, resolveProduct2Session, selectProduct2Plan, signInWithGoogle, signInWithPassword, signOut } from './auth/Product2Auth.js';
+import type { Product2Session } from './session/Product2Session.js';
+import { getInitialProduct2AuthState, resolveProduct2Session, signOut } from './auth/Product2Auth.js';
 import { supabase } from './lib/supabase.js';
 import { id, today } from './utils/ids.js';
 
@@ -26,7 +26,7 @@ function emptyWorkbook(accountId: string, displayName: string, currency = 'USD')
 }
 
 export function App() {
-  const [session, setSession] = useState(loadProduct2Session());
+  const [session, setSession] = useState<Product2Session | null>(null);
   const [active, setActive] = useState('start');
   const [workbook, setWorkbook] = useState<Product2Workbook | null>(null);
   const [error, setError] = useState('');
@@ -45,16 +45,14 @@ export function App() {
     const hydrate = async () => {
       try {
         const { user } = await getInitialProduct2AuthState();
-        if (user && !cancelled) {
-          const resolved = await resolveProduct2Session(user);
-          saveProduct2Session(resolved);
-          setSession(resolved);
-        } else if (!cancelled) {
-          clearProduct2Session();
-          setSession(null);
+        if (!user) {
+          if (!cancelled) window.location.assign('/');
+          return;
         }
+        const resolved = await resolveProduct2Session(user);
+        if (!cancelled) setSession(resolved);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Could not restore the Product 2 session.');
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Could not restore the shared Toolkit account.');
       } finally {
         if (!cancelled) {
           setAuthLoading(false);
@@ -67,19 +65,18 @@ export function App() {
 
     const { data } = client.auth.onAuthStateChange((_event, authSession) => {
       if (!authSession) {
-        clearProduct2Session();
         setSession(null);
         setWorkbook(null);
+        window.location.assign('/');
         return;
       }
       void client.auth.getUser().then(async ({ data: userData, error: userError }) => {
         if (cancelled || userError || !userData.user) return;
         try {
           const resolved = await resolveProduct2Session(userData.user);
-          saveProduct2Session(resolved);
-          setSession(resolved);
+          if (!cancelled) setSession(resolved);
         } catch (e) {
-          if (!cancelled) setError(e instanceof Error ? e.message : 'Could not resolve Product 2 access.');
+          if (!cancelled) setError(e instanceof Error ? e.message : 'Could not resolve shared account access.');
         }
       });
     });
@@ -92,16 +89,16 @@ export function App() {
 
   useEffect(() => {
     if (!session) return;
-    const repo = new SupabaseProduct2Repository(session.tenantId, session.displayName, session.email);
+    const repo = new SupabaseProduct2Repository(session.accountId, session.displayName, session.email);
     repo.load().then(loaded => {
       if (loaded) setWorkbook(loaded);
+      else setWorkbook(emptyWorkbook(session.accountId, session.displayName));
     }).catch(e => setError(e instanceof Error ? e.message : 'Could not load Product 2.'));
   }, [session]);
-
   const persist = async (next: Product2Workbook) => {
     if (!session) return;
     next.account.updatedAt = new Date().toISOString();
-    const repo = new SupabaseProduct2Repository(session.tenantId, session.displayName, session.email);
+    const repo = new SupabaseProduct2Repository(session.accountId, session.displayName, session.email);
     await repo.save(next);
     setWorkbook(structuredClone(next));
   };
@@ -119,8 +116,8 @@ export function App() {
     return <main className="loading">Checking your account…</main>;
   }
 
-  if (!session) return <AccountSetup />;
-  if (session.productAccess !== 'active') return <PlanSelection session={session} onActivated={next => { saveProduct2Session(next); setSession(next); setError(''); }} />;
+  if (!session) return <AccountRequired />;
+  if (session.productAccess !== 'active') return <ProductAccessRequired />;
   if (!workbook) return <main className="loading">Loading Product 2…</main>;
 
   const savings = workbook.savingsGoals.reduce((sum, goal) => sum + calculateSavingsProgress(goal, workbook.savingsContributions).currentBalance, 0);
@@ -131,11 +128,11 @@ export function App() {
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark">P2</div><div><strong>BudgetPlanner</strong><span>Product 2</span></div></div>
       <nav>{modules.map(([idValue, label, Icon]) => <button key={idValue} className={active === idValue ? 'nav-item active' : 'nav-item'} onClick={() => setActive(idValue)}><Icon size={18} /> {label}</button>)}</nav>
-      <p className="independence">Standalone application<br />Product 1 is not required at runtime.</p>
+      <p className="independence">Independent tool<br />Uses the shared Toolkit account and database. Product 1 is not required at runtime.</p>
       <button className="signout" onClick={async () => { await signOut(); clearProduct2Session(); setSession(null); setWorkbook(null); }}>Sign out</button>
     </aside>
     <section className="content">
-      <header><div><p className="eyebrow">Savings Goal and Debt Tracker</p><h1>{modules.find(([idValue]) => idValue === active)?.[1]}</h1><small>{session.email}</small></div><span className="pill">Cloud tenant: {session.tenantId.slice(0, 8)}…</span></header>
+      <header><div><p className="eyebrow">Savings Goal and Debt Tracker</p><h1>{modules.find(([idValue]) => idValue === active)?.[1]}</h1><small>{session.email}</small></div><span className="pill">Shared account: {session.accountId.slice(0, 8)}…</span></header>
       {error && <div className="alert">{error}</div>}
       {active === 'start' && <Start workbook={workbook} savings={savings} debt={debt} payoff={planner.payoffMonth} />}
       {active === 'settings' && <SettingsView workbook={workbook} session={session} onSave={next => persist(next)} onSessionChange={next => { saveProduct2Session(next); setSession(next); }} />}
@@ -149,89 +146,23 @@ export function App() {
   </main>;
 }
 
-function AccountSetup() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const submit = async () => {
-    setBusy(true);
-    setMessage('');
-    try {
-      const { error } = await signInWithPassword(email.trim(), password);
-      if (error) throw error;
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Authentication failed.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const google = async () => {
-    setBusy(true);
-    setMessage('');
-    try {
-      const { error } = await signInWithGoogle();
-      if (error) throw error;
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Google sign-in failed.');
-      setBusy(false);
-    }
-  };
-
+function AccountRequired() {
   return <main className="setup"><article className="card setup-card">
     <div className="brand-mark">P2</div>
-    <p className="eyebrow">Toolkit account</p>
-    <h1>Sign in with your BudgetPlanner account</h1>
-    <p>Product 2 uses the same Toolkit identity as Product 1. There is no separate Product 2 account or signup.</p>
-    <label>Email<input value={email} onChange={e => setEmail(e.target.value)} type="email" autoComplete="email" /></label>
-    <label>Password<input value={password} onChange={e => setPassword(e.target.value)} type="password" autoComplete="current-password" /></label>
-    <button className="primary" disabled={busy || !email.includes('@') || password.length < 8} onClick={() => void submit()}>{busy ? 'Signing in…' : 'Sign in'}</button>
-    <button className="secondary" disabled={busy} onClick={() => void google()}>Continue with Google</button>
-    {message && <p className="form-message">{message}</p>}
+    <p className="eyebrow">Toolkit account required</p>
+    <h1>Sign in to the Toolkit first</h1>
+    <p>Product 2 is an independent tool, but authentication is owned by the shared Toolkit account. Return to the Toolkit to sign in or complete onboarding.</p>
+    <button className="primary" onClick={() => window.location.assign('/')}>Return to Toolkit</button>
   </article></main>;
 }
 
-function PlanSelection({ session, onActivated }: { session: NonNullable<ReturnType<typeof loadProduct2Session>>; onActivated: (session: NonNullable<ReturnType<typeof loadProduct2Session>>) => void }) {
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const plans = [
-    { id: 'free', name: 'Free', description: 'Core savings and debt tracking with the standalone Product 2 workspace.' },
-    { id: 'plus', name: 'Plus', description: 'Paid tier selection is recorded now; billing activation will be added separately.' },
-    { id: 'pro', name: 'Pro', description: 'Paid tier selection is recorded now; billing activation will be added separately.' },
-  ];
-
-  const choose = async (planId: string) => {
-    setBusy(true);
-    setMessage('');
-    try {
-      const result = await selectProduct2Plan(session.tenantId, planId);
-      if (planId === 'free') {
-        const { user } = await getInitialProduct2AuthState();
-        if (!user) throw new Error('Your authentication session expired. Please sign in again.');
-        onActivated(await resolveProduct2Session(user));
-        return;
-      }
-      setMessage(`${result?.plan_id ?? planId} selected. Payment is required before paid access is activated; no paid entitlement was granted.`);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Could not save your plan selection.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
+function ProductAccessRequired() {
   return <main className="setup"><article className="card setup-card">
     <div className="brand-mark">P2</div>
-    <p className="eyebrow">Choose your Product 2 subscription</p>
-    <h1>Start with the plan that fits your needs</h1>
-    <p>Your selection is tenant-scoped. Free activates immediately. Plus and Pro are recorded as pending payment until billing is connected.</p>
-    <div className="plan-grid">{plans.map(plan => <div className="card plan-card" key={plan.id}>
-      <p className="eyebrow">{plan.name}</p><h2>{plan.id === 'free' ? 'No payment required' : 'Paid plan'}</h2><p>{plan.description}</p>
-      <button className="primary" disabled={busy} onClick={() => void choose(plan.id)}>{busy ? 'Saving…' : `Choose ${plan.name}`}</button>
-    </div>)}</div>
-    {session.planSelectionStatus === 'pending_payment' && <p className="form-message">Current selection: {session.planId}. Paid access remains inactive until billing confirms the subscription.</p>}
-    {message && <p className="form-message">{message}</p>}
+    <p className="eyebrow">Product 2 access</p>
+    <h1>This tool is not enabled for your account</h1>
+    <p>Your authentication and subscription are managed by the Toolkit. Product 2 does not create a separate subscription or account.</p>
+    <button className="primary" onClick={() => window.location.assign('/')}>Return to Toolkit</button>
   </article></main>;
 }
 
@@ -275,48 +206,23 @@ function Dashboard({ workbook }: { workbook: Product2Workbook }) {
   const goalProgress=workbook.savingsGoals.map(g=>calculateSavingsProgress(g,workbook.savingsContributions));const savings=goalProgress.reduce((s,g)=>s+g.currentBalance,0);const debt=workbook.debts.reduce((s,d)=>s+d.balance,0);return <section className="grid"><article className="card"><p className="eyebrow">Savings</p><h2>{savings.toFixed(2)}</h2><p>{workbook.savingsGoals.length} goal(s), {goalProgress.filter(g=>g.completionPercentage===100).length} completed.</p></article><article className="card"><p className="eyebrow">Debt</p><h2>{debt.toFixed(2)}</h2><p>{workbook.debts.length} account(s), {workbook.debts.filter(d=>d.status==='paid').length} paid.</p></article></section>;
 }
 
-function SettingsView({ workbook, session, onSave, onSessionChange }: { workbook: Product2Workbook; session: NonNullable<ReturnType<typeof loadProduct2Session>>; onSave: (w: Product2Workbook) => Promise<void>; onSessionChange: (session: NonNullable<ReturnType<typeof loadProduct2Session>>) => void }) {
-  const [currency,setCurrency]=useState(workbook.settings.currency);
-  const [busyPlan,setBusyPlan]=useState(false);
-  const [message,setMessage]=useState('');
+function SettingsView({ workbook, onSave }: { workbook: Product2Workbook; onSave: (w: Product2Workbook) => Promise<void> }) {
+  const [currency, setCurrency] = useState(workbook.settings.currency);
+  const [message, setMessage] = useState('');
 
-  const choosePlan=async(planId:string)=>{
-    setBusyPlan(true);setMessage('');
-    try{
-      const result=await selectProduct2Plan(session.tenantId,planId);
-      const {user}=await getInitialProduct2AuthState();
-      if(!user) throw new Error('Your authentication session expired. Please sign in again.');
-      const resolved=await resolveProduct2Session(user);
-      onSessionChange(resolved);
-      if(planId!=='free') setMessage(`${result?.plan_id ?? planId} selected. Payment is required before paid access is activated; no paid entitlement was granted.`);
-    }catch(e){setMessage(e instanceof Error?e.message:'Could not save your plan selection.');}
-    finally{setBusyPlan(false);}
-  };
-
-  return <section className="grid">
-    <article className="card">
-      <p className="eyebrow">Product 2 settings</p>
-      <label>Currency<input value={currency} onChange={e=>setCurrency(e.target.value.toUpperCase())}/></label>
-      <p className="muted">Interest convention: nominal annual · Payment timing: end of period · Minimum payment policy: configured minimum.</p>
-      <button className="primary" onClick={()=>onSave({...workbook,account:{...workbook.account,currency},settings:{...workbook.settings,currency}})}>Save settings</button>
-    </article>
-    <article className="card">
-      <p className="eyebrow">Subscription</p>
-      <h2>{session.planId ?? 'No plan selected'}</h2>
-      <p className="muted">Product 2 uses the same Toolkit identity and tenant as your BudgetPlanner account.</p>
-      <div className="plan-grid">
-        {[
-          ['free','Free','Core savings and debt tracking.'],
-          ['plus','Plus','Paid tier selection; billing activation is handled separately.'],
-          ['pro','Pro','Paid tier selection; billing activation is handled separately.'],
-        ].map(([idValue,name,description])=><div className="card plan-card" key={idValue}>
-          <p className="eyebrow">{name}</p><p>{description}</p>
-          <button className="secondary" disabled={busyPlan} onClick={()=>void choosePlan(idValue)}>{session.planId===idValue && session.planSelectionStatus==='selected'?'Selected':`Choose ${name}`}</button>
-        </div>)}
-      </div>
-      {session.planSelectionStatus==='pending_payment'&&<p className="form-message">Current selection: {session.planId}. Paid access remains inactive until billing confirms the subscription.</p>}
-      {message&&<p className="form-message">{message}</p>}
-    </article>
+  return <section className="card">
+    <p className="eyebrow">Product 2 settings</p>
+    <label>Currency<input value={currency} onChange={e => setCurrency(e.target.value.toUpperCase())}/></label>
+    <p className="muted">Interest convention: nominal annual · Payment timing: end of period · Minimum payment policy: configured minimum.</p>
+    <p className="muted">Authentication, subscription, and app access are managed by the shared Toolkit account.</p>
+    <button className="primary" onClick={async () => {
+      try {
+        await onSave({...workbook, account:{...workbook.account,currency}, settings:{...workbook.settings,currency}});
+        setMessage('Settings saved.');
+      } catch (e) {
+        setMessage(e instanceof Error ? e.message : 'Could not save settings.');
+      }
+    }}>Save settings</button>
+    {message && <p className="form-message">{message}</p>}
   </section>;
 }
-
