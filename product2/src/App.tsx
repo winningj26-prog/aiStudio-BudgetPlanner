@@ -105,7 +105,7 @@ export function App() {
 
   const recordDebtPayment = async (payment: Parameters<SupabaseProduct2Repository['appendDebtPayment']>[0]) => {
     if (!session) return;
-    const repo = new SupabaseProduct2Repository(session.tenantId, session.displayName, session.email);
+    const repo = new SupabaseProduct2Repository(session.accountId, session.displayName, session.email);
     await repo.appendDebtPayment(payment);
     const refreshed = await repo.load();
     if (refreshed) setWorkbook(refreshed);
@@ -129,13 +129,13 @@ export function App() {
       <div className="brand"><div className="brand-mark">P2</div><div><strong>BudgetPlanner</strong><span>Product 2</span></div></div>
       <nav>{modules.map(([idValue, label, Icon]) => <button key={idValue} className={active === idValue ? 'nav-item active' : 'nav-item'} onClick={() => setActive(idValue)}><Icon size={18} /> {label}</button>)}</nav>
       <p className="independence">Independent tool<br />Uses the shared Toolkit account and database. Product 1 is not required at runtime.</p>
-      <button className="signout" onClick={async () => { await signOut(); clearProduct2Session(); setSession(null); setWorkbook(null); }}>Sign out</button>
+      <button className="signout" onClick={async () => { await signOut(); setSession(null); setWorkbook(null); }}>Sign out</button>
     </aside>
     <section className="content">
       <header><div><p className="eyebrow">Savings Goal and Debt Tracker</p><h1>{modules.find(([idValue]) => idValue === active)?.[1]}</h1><small>{session.email}</small></div><span className="pill">Shared account: {session.accountId.slice(0, 8)}…</span></header>
       {error && <div className="alert">{error}</div>}
       {active === 'start' && <Start workbook={workbook} savings={savings} debt={debt} payoff={planner.payoffMonth} />}
-      {active === 'settings' && <SettingsView workbook={workbook} session={session} onSave={next => persist(next)} onSessionChange={next => { saveProduct2Session(next); setSession(next); }} />}
+      {active === 'settings' && <SettingsView workbook={workbook} onSave={persist} />}
       {active === 'goals' && <GoalsView workbook={workbook} onSave={persist} />}
       {active === 'contributions' && <ContributionsView workbook={workbook} onSave={persist} />}
       {active === 'debts' && <DebtsView workbook={workbook} onSave={persist} />}
