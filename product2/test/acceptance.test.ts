@@ -88,6 +88,18 @@ test('debt payments remain account-scoped in the repository', async () => {
   const loaded = await repo.load();
   assert.equal(loaded?.debts[0].balance, 70);
   assert.equal(loaded?.debtPayments[0].amount, 30);
+  assert.equal(loaded?.debtPayments[0].principal, 30);
+  assert.equal(loaded?.debtPayments[0].interest, 0);
+});
+
+test('interest-bearing payment persists principal and interest allocation', async () => {
+  const repo = new InMemoryProduct2Repository(workbook());
+  await repo.upsertDebt({ id: 'd2', accountId: 'p2-a', creditor: 'Interest Card', openingBalance: 1000, balance: 1000, interestRate: 12, minimumPayment: 100, paymentFrequency: 'monthly', status: 'active' });
+  await repo.appendDebtPayment({ id: 'p2', accountId: 'p2-a', debtId: 'd2', date: '2026-10-03', amount: 100 });
+  const loaded = await repo.load();
+  assert.equal(loaded?.debtPayments[0].interest, 10);
+  assert.equal(loaded?.debtPayments[0].principal, 90);
+  assert.equal(loaded?.debts[0].balance, 910);
 });
 
 test('validation rejects invalid debt and savings values', () => {
