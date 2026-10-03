@@ -5,6 +5,7 @@ import { calculateSavingsProgress } from '../src/domain/savings.js';
 import { validateDebt, validateSavingsGoal } from '../src/domain/validation.js';
 import { InMemoryProduct2Repository } from '../src/repository/Product2Repository.js';
 import type { Product2Workbook } from '../src/domain/types.js';
+import { exportProduct2Workbook, importProduct2Workbook } from '../src/utils/workbookTransfer.js';
 
 const workbook = (): Product2Workbook => ({
   account: { id: 'p2-a', displayName: 'Product 2 Test', currency: 'USD', createdAt: '2026-10-03T00:00:00Z', updatedAt: '2026-10-03T00:00:00Z' },
@@ -113,7 +114,6 @@ test('validation rejects invalid debt and savings values', () => {
 test('Product 2 export/import round-trips without Product 1 dependencies', () => {
   const source = workbook();
   source.savingsGoals.push({ id: 'g1', accountId: 'p2-a', name: 'Emergency', targetAmount: 1000, openingBalance: 100, status: 'active' });
-  const { exportProduct2Workbook, importProduct2Workbook } = require('../src/utils/workbookTransfer.js');
   const restored = importProduct2Workbook(exportProduct2Workbook(source), 'p2-a');
   assert.deepEqual(restored, source);
   assert.throws(() => importProduct2Workbook(exportProduct2Workbook(source), 'other-account'), /different Product 2 account/);
