@@ -1,4 +1,5 @@
 import type { Product2Settings, Product2Workbook, SavingsContribution, SavingsGoal, DebtAccount, DebtPayment } from '../domain/types.js';
+import { calculatePaymentAllocation } from '../domain/debt.js';
 
 export interface Product2Repository {
   load(): Promise<Product2Workbook | null>;
@@ -68,10 +69,9 @@ export class InMemoryProduct2Repository implements Product2Repository {
     this.requireAccount(payment.accountId);
     const debt = this.workbook!.debts.find(d => d.id === payment.debtId);
     if (!debt) throw new Error('Debt account does not exist.');
-    const amount = Math.max(0, Number.isFinite(payment.amount) ? payment.amount : 0);
-    const applied = Math.min(debt.balance, amount);
-    debt.balance = Math.max(0, Math.round((debt.balance - applied) * 100) / 100);
-    this.workbook!.debtPayments.push(structuredClone({ ...payment, amount: applied }));
+    const allocation = calculatePaymentAllocation(debt, payment.amount);
+    debt.balance = Math.max(0, Math.round((debt.balance - allocation.principal) * 100) / 100);
+    this.workbook!.debtPayments.push(structuredClone({ ...payment, amount: allocation.total, principal: allocation.principal, interest: allocation.interest, fees: allocation.fees }));
     if (debt.balance === 0) debt.status = 'paid';
   }
 
