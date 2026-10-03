@@ -1654,6 +1654,8 @@ if (!isProd) {
     }
   });
 } else {
+  // Serve the standalone Product 2 bundle under the Toolkit launcher route.
+  app.use('/product2', express.static(path.resolve(__dirname, 'product2/dist')));
   // Serve static files in production
   app.use(express.static(path.resolve(__dirname, 'dist')));
   app.get('*', (req, res) => {
