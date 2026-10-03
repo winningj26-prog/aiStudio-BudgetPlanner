@@ -1,5 +1,5 @@
 /**
- * Shared account/entitlement contract for the future four-app toolkit.
+ * Shared account/entitlement contract for the future multi-app toolkit.
  *
  * This module is deliberately provider-agnostic. It defines the shape that
  * BudgetPlanner can consume now and that a future central account service can
@@ -8,6 +8,7 @@
 
 export const TOOLKIT_APP_IDS = [
   'budget-planner',
+  'product2',
   'app-2',
   'app-3',
   'app-4',
