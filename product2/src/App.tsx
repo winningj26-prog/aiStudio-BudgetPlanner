@@ -6,7 +6,7 @@ import { calculateSavingsProgress } from './domain/savings.js';
 import { validateDebt, validateSavingsGoal } from './domain/validation.js';
 import { SupabaseProduct2Repository } from './repository/SupabaseProduct2Repository.js';
 import { clearProduct2Session, loadProduct2Session, saveProduct2Session } from './session/Product2Session.js';
-import { getInitialProduct2AuthState, resolveProduct2Session, signInWithGoogle, signInWithPassword, signOut, signUpWithPassword } from './auth/Product2Auth.js';
+import { getInitialProduct2AuthState, resolveProduct2Session, selectProduct2Plan, signInWithGoogle, signInWithPassword, signOut, signUpWithPassword } from './auth/Product2Auth.js';
 import { supabase } from './lib/supabase.js';
 import { id, today } from './utils/ids.js';
 
@@ -112,6 +112,7 @@ export function App() {
   }
 
   if (!session) return <AccountSetup />;
+  if (session.productAccess !== 'active') return <PlanSelection session={session} onActivated={next => { saveProduct2Session(next); setSession(next); setError(''); }} />;
   if (!workbook) return <main className="loading">Loading Product 2…</main>;
 
   const savings = workbook.savingsGoals.reduce((sum, goal) => sum + calculateSavingsProgress(goal, workbook.savingsContributions).currentBalance, 0);
@@ -191,6 +192,48 @@ function AccountSetup() {
     <button className="primary" disabled={busy || !email.includes('@') || password.length < 8 || (mode === 'signup' && !name.trim())} onClick={() => void submit()}>{busy ? 'Working…' : mode === 'signin' ? 'Sign in' : 'Create account'}</button>
     <button className="secondary" disabled={busy} onClick={() => void google()}>Continue with Google</button>
     <button className="link-button" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setMessage(''); }}>{mode === 'signin' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}</button>
+    {message && <p className="form-message">{message}</p>}
+  </article></main>;
+}
+
+function PlanSelection({ session, onActivated }: { session: NonNullable<ReturnType<typeof loadProduct2Session>>; onActivated: (session: NonNullable<ReturnType<typeof loadProduct2Session>>) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const plans = [
+    { id: 'free', name: 'Free', description: 'Core savings and debt tracking with the standalone Product 2 workspace.' },
+    { id: 'plus', name: 'Plus', description: 'Paid tier selection is recorded now; billing activation will be added separately.' },
+    { id: 'pro', name: 'Pro', description: 'Paid tier selection is recorded now; billing activation will be added separately.' },
+  ];
+
+  const choose = async (planId: string) => {
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await selectProduct2Plan(session.tenantId, planId);
+      if (planId === 'free') {
+        const { user } = await getInitialProduct2AuthState();
+        if (!user) throw new Error('Your authentication session expired. Please sign in again.');
+        onActivated(await resolveProduct2Session(user));
+        return;
+      }
+      setMessage(`${result?.plan_id ?? planId} selected. Payment is required before paid access is activated; no paid entitlement was granted.`);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Could not save your plan selection.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <main className="setup"><article className="card setup-card">
+    <div className="brand-mark">P2</div>
+    <p className="eyebrow">Choose your Product 2 subscription</p>
+    <h1>Start with the plan that fits your needs</h1>
+    <p>Your selection is tenant-scoped. Free activates immediately. Plus and Pro are recorded as pending payment until billing is connected.</p>
+    <div className="plan-grid">{plans.map(plan => <div className="card plan-card" key={plan.id}>
+      <p className="eyebrow">{plan.name}</p><h2>{plan.id === 'free' ? 'No payment required' : 'Paid plan'}</h2><p>{plan.description}</p>
+      <button className="primary" disabled={busy} onClick={() => void choose(plan.id)}>{busy ? 'Saving…' : `Choose ${plan.name}`}</button>
+    </div>)}</div>
+    {session.planSelectionStatus === 'pending_payment' && <p className="form-message">Current selection: {session.planId}. Paid access remains inactive until billing confirms the subscription.</p>}
     {message && <p className="form-message">{message}</p>}
   </article></main>;
 }
