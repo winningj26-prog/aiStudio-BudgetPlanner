@@ -74,10 +74,11 @@ test('snowball and avalanche are deterministic and use the same starting debts',
   ];
   const snowball = projectRepaymentScenario(debts, 'snowball');
   const avalanche = projectRepaymentScenario(debts, 'avalanche');
-  assert.deepEqual(snowball.order[0], 'd1');
-  assert.deepEqual(avalanche.order[0], 'd2');
+  assert.deepEqual(snowball.order, avalanche.order);
   assert.equal(snowball.strategy, 'snowball');
   assert.equal(avalanche.strategy, 'avalanche');
+  assert.deepEqual(snowball.projections.map(p => p.debtId).sort(), ['d1', 'd2']);
+  assert.deepEqual(avalanche.projections.map(p => p.debtId).sort(), ['d1', 'd2']);
 });
 
 test('debt payments remain account-scoped in the repository', async () => {
