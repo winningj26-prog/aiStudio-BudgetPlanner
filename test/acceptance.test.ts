@@ -129,6 +129,21 @@ test('suspended subscriptions fail closed for frontend entitlements', () => {
 });
 
 
+test('suspended account session errors propagate to the App suspension boundary', () => {
+  const source = readFileSync(
+    fileURLToPath(new URL('../src/services/toolkitAccount.ts', import.meta.url)),
+    'utf8',
+  );
+  assert.match(
+    source,
+    /if \(error instanceof ToolkitAccountSuspendedError\) \{\s*throw error;\s*\}/,
+  );
+  assert.doesNotMatch(
+    source,
+    /catch \(error\) \{[\s\S]*ToolkitAccountSuspendedError[\s\S]*return null;/,
+  );
+});
+
 test('Mobile money review workflow preserves decimal payment amounts', () => {
   const mockPendingPayment = {
     id: 'req-12345', plan_id: 'plus', amount_value: 549.99, currency: 'SLE',
