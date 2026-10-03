@@ -44,8 +44,14 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
   financialAssets = [],
   debts = [],
 }) => {
-  const openingAssetsTotal = Math.max(0, Number(openingCashBalance) || 0) + financialAssets.reduce((sum, asset) => sum + Math.max(0, Number(asset.amount) || 0), 0);
-  const openingDebtsTotal = debts.reduce((sum, debt) => sum + Math.max(0, Number(debt.balance) || 0), 0);
+  const openingAssetsTotal = Math.max(0, Number(openingCashBalance) || 0) + financialAssets.reduce((sum, asset) => {
+    const openingAmount = asset.openingAmount ?? asset.amount;
+    return sum + Math.max(0, Number(openingAmount) || 0);
+  }, 0);
+  const openingDebtsTotal = debts.reduce((sum, debt) => {
+    const openingBalance = debt.openingBalance ?? debt.balance;
+    return sum + Math.max(0, Number(openingBalance) || 0);
+  }, 0);
   const openingNetWorth = openingAssetsTotal - openingDebtsTotal;
   // 6 Sequential Quick Start Steps (Streamlined and responsive)
   const quickStartSteps = [
