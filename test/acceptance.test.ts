@@ -134,9 +134,9 @@ test('suspended account session errors propagate to the App suspension boundary'
     fileURLToPath(new URL('../src/services/toolkitAccount.ts', import.meta.url)),
     'utf8',
   );
-  assert.match(
-    source,
-    /if \(error instanceof ToolkitAccountSuspendedError\) \{\s*throw error;\s*\}/,
+  assert.equal(
+    source.includes('if (error instanceof ToolkitAccountSuspendedError) {\n      throw error;'),
+    true,
   );
 });
 
