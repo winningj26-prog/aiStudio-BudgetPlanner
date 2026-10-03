@@ -34,6 +34,9 @@ export async function loadToolkitAccountSession(
 
     return body as ToolkitEntitlementResponse;
   } catch (error) {
+    if (error instanceof ToolkitAccountSuspendedError) {
+      throw error;
+    }
     console.warn('Toolkit account session could not be loaded:', error);
     return null;
   }
