@@ -183,6 +183,7 @@ Updated after each completed implementation/verification task.
 - [x] Invalid local workbook snapshots now fall back to trusted defaults
 - [x] Invalid cloud workbook snapshots now fall back to the trusted local workbook before hydration
 - [x] Cloud workbook writes reject malformed or invalid workbook snapshots server-side
+- [x] Final workbook validation edge cases hardened for impossible dates, blank payment methods, and malformed linked account IDs (PR #67; live `dep-db05iv2vcj2c7390lllg`)
 - [x] Module 4 acceptance coverage added for malformed workbook data and safe fallback behavior
 - [x] Transaction editors reviewed for positive-amount enforcement and stable edit/delete behavior
 - [x] Income and expense transaction editors reject non-finite amounts such as Infinity
