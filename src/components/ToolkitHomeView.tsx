@@ -30,14 +30,14 @@ interface ToolkitHomeViewProps {
 const apps = [
   {
     id: 'budget-planner' as const,
-    name: 'BudgetPlanner',
+    name: 'Product 1 — BudgetPlanner',
     description: 'Plan income, track spending, manage budgets, and review financial performance.',
     icon: <WalletCards className="h-6 w-6" />,
     tierRequired: 'Free / Plus / Pro',
   },
   {
     id: 'product2' as const,
-    name: 'BudgetPlanner Product 2',
+    name: 'Product 2',
     description: 'Track savings goals, contributions, debt accounts, payments, and repayment scenarios in a separate tenant-scoped workspace.',
     icon: <Target className="h-6 w-6" />,
     tierRequired: 'Free / Plus / Pro',
