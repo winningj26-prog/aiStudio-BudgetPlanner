@@ -1,2 +1,2 @@
-export const id = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+export const id = (_prefix: string) => crypto.randomUUID();
 export const today = () => new Date().toISOString().slice(0, 10);
