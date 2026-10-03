@@ -6,7 +6,7 @@ import { calculateSavingsProgress } from './domain/savings.js';
 import { validateDebt, validateSavingsGoal } from './domain/validation.js';
 import { SupabaseProduct2Repository } from './repository/SupabaseProduct2Repository.js';
 import { clearProduct2Session, loadProduct2Session, saveProduct2Session } from './session/Product2Session.js';
-import { getInitialProduct2AuthState, resolveProduct2Session, selectProduct2Plan, signInWithGoogle, signInWithPassword, signOut, signUpWithPassword } from './auth/Product2Auth.js';
+import { getInitialProduct2AuthState, resolveProduct2Session, selectProduct2Plan, signInWithGoogle, signInWithPassword, signOut } from './auth/Product2Auth.js';
 import { supabase } from './lib/supabase.js';
 import { id, today } from './utils/ids.js';
 
@@ -142,10 +142,8 @@ export function App() {
 }
 
 function AccountSetup() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -153,15 +151,8 @@ function AccountSetup() {
     setBusy(true);
     setMessage('');
     try {
-      if (mode === 'signup') {
-        if (!name.trim()) throw new Error('Display name is required.');
-        const { data, error } = await signUpWithPassword(email.trim(), password, name.trim());
-        if (error) throw error;
-        setMessage(data.session ? 'Account created. Loading your Product 2 workspace…' : 'Account created. Check your email to confirm the account, then sign in.');
-      } else {
-        const { error } = await signInWithPassword(email.trim(), password);
-        if (error) throw error;
-      }
+      const { error } = await signInWithPassword(email.trim(), password);
+      if (error) throw error;
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Authentication failed.');
     } finally {
@@ -183,15 +174,13 @@ function AccountSetup() {
 
   return <main className="setup"><article className="card setup-card">
     <div className="brand-mark">P2</div>
-    <p className="eyebrow">Secure Product 2 account</p>
-    <h1>{mode === 'signin' ? 'Sign in to Product 2' : 'Create your Product 2 account'}</h1>
-    <p>Email/password is supported directly. Google is an optional additional sign-in method when enabled for the shared Toolkit project.</p>
-    {mode === 'signup' && <label>Display name<input value={name} onChange={e => setName(e.target.value)} /></label>}
+    <p className="eyebrow">Toolkit account</p>
+    <h1>Sign in with your BudgetPlanner account</h1>
+    <p>Product 2 uses the same Toolkit identity as Product 1. There is no separate Product 2 account or signup.</p>
     <label>Email<input value={email} onChange={e => setEmail(e.target.value)} type="email" autoComplete="email" /></label>
-    <label>Password<input value={password} onChange={e => setPassword(e.target.value)} type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} /></label>
-    <button className="primary" disabled={busy || !email.includes('@') || password.length < 8 || (mode === 'signup' && !name.trim())} onClick={() => void submit()}>{busy ? 'Working…' : mode === 'signin' ? 'Sign in' : 'Create account'}</button>
+    <label>Password<input value={password} onChange={e => setPassword(e.target.value)} type="password" autoComplete="current-password" /></label>
+    <button className="primary" disabled={busy || !email.includes('@') || password.length < 8} onClick={() => void submit()}>{busy ? 'Signing in…' : 'Sign in'}</button>
     <button className="secondary" disabled={busy} onClick={() => void google()}>Continue with Google</button>
-    <button className="link-button" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setMessage(''); }}>{mode === 'signin' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}</button>
     {message && <p className="form-message">{message}</p>}
   </article></main>;
 }
