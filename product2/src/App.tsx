@@ -106,6 +106,14 @@ export function App() {
     setWorkbook(structuredClone(next));
   };
 
+  const recordDebtPayment = async (payment: Parameters<SupabaseProduct2Repository['appendDebtPayment']>[0]) => {
+    if (!session) return;
+    const repo = new SupabaseProduct2Repository(session.tenantId, session.displayName, session.email);
+    await repo.appendDebtPayment(payment);
+    const refreshed = await repo.load();
+    if (refreshed) setWorkbook(refreshed);
+  };
+
   if (!supabase || !authReady || authLoading) {
     if (!supabase) return <main className="setup"><article className="card setup-card"><div className="brand-mark">P2</div><h1>Product 2 cloud configuration required</h1><p>Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> before starting the production app.</p></article></main>;
     return <main className="loading">Checking your account…</main>;
@@ -134,7 +142,7 @@ export function App() {
       {active === 'goals' && <GoalsView workbook={workbook} onSave={persist} />}
       {active === 'contributions' && <ContributionsView workbook={workbook} onSave={persist} />}
       {active === 'debts' && <DebtsView workbook={workbook} onSave={persist} />}
-      {active === 'payments' && <PaymentsView workbook={workbook} onSave={persist} />}
+      {active === 'payments' && <PaymentsView workbook={workbook} onRecordPayment={recordDebtPayment} />}
       {active === 'planner' && <PlannerView debts={workbook.debts} />}
       {active === 'dashboard' && <Dashboard workbook={workbook} />}
     </section>
@@ -253,13 +261,12 @@ function DebtsView({ workbook, onSave }: { workbook: Product2Workbook; onSave: (
   return <section className="card form-grid"><div><p className="eyebrow">New debt</p><label>Creditor<input value={creditor} onChange={e=>setCreditor(e.target.value)}/></label><label>Balance<input type="number" min="0" value={balance} onChange={e=>setBalance(e.target.value)}/></label><label>Annual interest rate %<input type="number" min="0" value={rate} onChange={e=>setRate(e.target.value)} placeholder="Unknown"/></label><label>Minimum payment<input type="number" min="0" value={minimum} onChange={e=>setMinimum(e.target.value)}/></label><button className="primary" onClick={add}>Add debt</button>{message&&<p className="form-message">{message}</p>}</div><div><p className="eyebrow">Debt accounts</p>{workbook.debts.map(d=><div className="list-row" key={d.id}><div><strong>{d.creditor}</strong><small>{d.balance.toFixed(2)} · {d.interestRate == null ? 'Rate unknown' : `${d.interestRate}%`} · min {d.minimumPayment.toFixed(2)}</small></div><button className="icon" onClick={()=>onSave({...workbook,debts:workbook.debts.filter(x=>x.id!==d.id),debtPayments:workbook.debtPayments.filter(p=>p.debtId!==d.id)})}><Trash2 size={16}/></button></div>)}{!workbook.debts.length&&<p className="muted">No debt accounts yet.</p>}</div></section>;
 }
 
-function PaymentsView({ workbook, onSave }: { workbook: Product2Workbook; onSave: (w: Product2Workbook) => Promise<void> }) {
+function PaymentsView({ workbook, onRecordPayment }: { workbook: Product2Workbook; onRecordPayment: (payment: Parameters<SupabaseProduct2Repository['appendDebtPayment']>[0]) => Promise<void> }) {
   const [debtId,setDebtId]=useState(workbook.debts[0]?.id||'');const [amount,setAmount]=useState('');const [message,setMessage]=useState('');
   const debt=workbook.debts.find(d=>d.id===debtId);const preview=debt?calculatePaymentAllocation(debt,Number(amount)||0):null;
-  const add=async()=>{if(!debt||!Number.isFinite(Number(amount))||Number(amount)<=0){setMessage('Select a debt and enter a positive amount.');return;}const allocation=calculatePaymentAllocation(debt,Number(amount));const nextDebt={...debt,balance:Math.max(0,Math.round((debt.balance-allocation.principal)*100)/100),status:allocation.principal>=debt.balance?'paid':debt.status};await onSave({...workbook,debts:workbook.debts.map(d=>d.id===debt.id?nextDebt:d),debtPayments:[...workbook.debtPayments,{id:id('payment'),accountId:workbook.account.id,debtId:debt.id,date:today(),amount:allocation.total,principal:allocation.principal,interest:allocation.interest,fees:allocation.fees}]});setAmount('');setMessage(`Payment recorded: ${allocation.principal.toFixed(2)} principal, ${allocation.interest.toFixed(2)} interest.`);};
+  const add=async()=>{if(!debt||!Number.isFinite(Number(amount))||Number(amount)<=0){setMessage('Select a debt and enter a positive amount.');return;}const allocation=calculatePaymentAllocation(debt,Number(amount));try{await onRecordPayment({id:id('payment'),accountId:workbook.account.id,debtId:debt.id,date:today(),amount:allocation.total,principal:allocation.principal,interest:allocation.interest,fees:allocation.fees});setAmount('');setMessage(`Payment recorded: ${allocation.principal.toFixed(2)} principal, ${allocation.interest.toFixed(2)} interest, ${allocation.fees.toFixed(2)} fees.`);}catch(e){setMessage(e instanceof Error?e.message:'Could not record the debt payment.');}};
   return <section className="card"><p className="eyebrow">Debt payment</p>{workbook.debts.length?<><label>Debt<select value={debtId} onChange={e=>setDebtId(e.target.value)}>{workbook.debts.map(d=><option key={d.id} value={d.id}>{d.creditor}</option>)}</select></label><label>Requested payment<input type="number" min="0" value={amount} onChange={e=>setAmount(e.target.value)}/></label>{preview&&<div className="allocation"><span>Principal {preview.principal.toFixed(2)}</span><span>Interest {preview.interest.toFixed(2)}</span><span>Fees {preview.fees.toFixed(2)}</span><span>Total {preview.total.toFixed(2)}</span></div>}<button className="primary" onClick={add}>Record debt payment</button>{message&&<p className="form-message">{message}</p>}<div className="table">{workbook.debtPayments.map(p=><div className="list-row" key={p.id}><span>{p.date}</span><strong>{p.amount.toFixed(2)}</strong><small>{workbook.debts.find(d=>d.id===p.debtId)?.creditor} · principal {p.principal?.toFixed(2)}</small></div>)}</div></>:<p className="muted">Create a debt account first.</p>}</section>;
 }
-
 function PlannerView({ debts }: { debts: DebtAccount[] }) {
   const scenarios=['minimum','snowball','avalanche'] as const;return <section className="grid">{scenarios.map(strategy=>{const p=projectRepaymentScenario(debts,strategy);return <article className="card" key={strategy}><p className="eyebrow">{strategy}</p><h2>{p.payoffMonth==null?'Beyond horizon':`${p.payoffMonth} periods`}</h2><p>Total interest {p.totalInterest.toFixed(2)}</p><p>Total payments {p.totalPayments.toFixed(2)}</p><small>Payoff order: {p.order.length?p.order.join(' → '):'none'}</small></article>})}</section>;
 }
