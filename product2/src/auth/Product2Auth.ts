@@ -49,6 +49,7 @@ export async function resolveProduct2Session(user: User): Promise<Product2Sessio
   if (!tenantId) {
     await provision();
   }
+  if (!tenantId) throw new Error('Could not resolve a Product 2 tenant.');
 
   const { data: entitlement, error: entitlementError } = await client
     .from('tenant_product_entitlements')
