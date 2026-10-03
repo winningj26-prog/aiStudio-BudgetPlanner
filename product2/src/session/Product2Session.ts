@@ -1,10 +1,11 @@
 export interface Product2Session {
-  accountId: string;
+  userId: string;
+  tenantId: string;
   email: string;
   displayName: string;
 }
 
-const KEY = 'budgetplanner.product2.session';
+export const KEY = 'budgetplanner.product2.session';
 
 export function loadProduct2Session(): Product2Session | null {
   if (typeof window === 'undefined') return null;
