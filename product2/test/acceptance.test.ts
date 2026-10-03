@@ -108,3 +108,13 @@ test('validation rejects invalid debt and savings values', () => {
   assert.ok(validateDebt(debt).length >= 3);
   assert.ok(validateSavingsGoal(goal).length >= 3);
 });
+
+
+test('Product 2 export/import round-trips without Product 1 dependencies', () => {
+  const source = workbook();
+  source.savingsGoals.push({ id: 'g1', accountId: 'p2-a', name: 'Emergency', targetAmount: 1000, openingBalance: 100, status: 'active' });
+  const { exportProduct2Workbook, importProduct2Workbook } = require('../src/utils/workbookTransfer.js');
+  const restored = importProduct2Workbook(exportProduct2Workbook(source), 'p2-a');
+  assert.deepEqual(restored, source);
+  assert.throws(() => importProduct2Workbook(exportProduct2Workbook(source), 'other-account'), /different Product 2 account/);
+});
