@@ -25,6 +25,15 @@ export async function signOut() {
   return requireSupabase().auth.signOut();
 }
 
+export async function selectProduct2Plan(tenantId: string, planId: string) {
+  const { data, error } = await requireSupabase().rpc('select_product2_plan', {
+    p_tenant_id: tenantId,
+    p_plan_id: planId,
+  });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
+}
+
 export async function resolveProduct2Session(user: User): Promise<Product2Session> {
   const client = requireSupabase();
   const { data: membership, error: membershipError } = await client
@@ -38,16 +47,12 @@ export async function resolveProduct2Session(user: User): Promise<Product2Sessio
   if (membershipError) throw membershipError;
 
   let tenantId = membership?.tenant_id as string | undefined;
-  const provision = async () => {
+  if (!tenantId) {
     const { data, error } = await client.rpc('provision_product2_tenant', {
       p_display_name: typeof user.user_metadata?.display_name === 'string' ? user.user_metadata.display_name : null,
     });
     if (error) throw error;
     tenantId = data as string;
-  };
-
-  if (!tenantId) {
-    await provision();
   }
   if (!tenantId) throw new Error('Could not resolve a Product 2 tenant.');
 
@@ -57,17 +62,18 @@ export async function resolveProduct2Session(user: User): Promise<Product2Sessio
     .eq('tenant_id', tenantId)
     .eq('product_id', 'product2')
     .maybeSingle();
-
   if (entitlementError) throw entitlementError;
+
+  const { data: selection, error: selectionError } = await client
+    .from('tenant_product_plan_selections')
+    .select('plan_id, status')
+    .eq('tenant_id', tenantId)
+    .eq('product_id', 'product2')
+    .maybeSingle();
+  if (selectionError) throw selectionError;
 
   const active = entitlement?.status === 'active'
     && (!entitlement.expires_at || new Date(entitlement.expires_at).getTime() > Date.now());
-
-  if (!entitlement) {
-    await provision();
-  } else if (!active) {
-    throw new Error('Product 2 access is not currently active for this account.');
-  }
 
   return {
     userId: user.id,
@@ -76,6 +82,9 @@ export async function resolveProduct2Session(user: User): Promise<Product2Sessio
     displayName: typeof user.user_metadata?.display_name === 'string'
       ? user.user_metadata.display_name
       : (user.email?.split('@')[0] ?? 'User'),
+    productAccess: active ? 'active' : entitlement ? 'inactive' : 'setup_required',
+    planId: selection?.plan_id ?? (active ? 'free' : null),
+    planSelectionStatus: selection?.status ?? (active ? 'selected' : null),
   };
 }
 
