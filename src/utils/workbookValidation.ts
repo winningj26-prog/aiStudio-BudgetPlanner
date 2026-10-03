@@ -35,7 +35,8 @@ const isIncome = (value: unknown): value is IncomeTransaction =>
 const isExpense = (value: unknown): value is ExpenseTransaction =>
   isRecord(value) && typeof value.id === 'string' && isDate(value.date)
   && typeof value.category === 'string' && typeof value.description === 'string'
-  && typeof value.paymentMethod === 'string' && isNonNegativeNumber(value.amount)
+  && typeof value.paymentMethod === 'string' && value.paymentMethod.trim().length > 0 && isNonNegativeNumber(value.amount)
+  && (value.accountId == null || typeof value.accountId === 'string')
   && (value.recurringId == null || typeof value.recurringId === 'string')
   && (value.isRecurring == null || typeof value.isRecurring === 'boolean');
 

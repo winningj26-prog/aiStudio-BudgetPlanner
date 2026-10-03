@@ -1002,3 +1002,32 @@ test('authenticated billing routes preserve 401/403 failures instead of returnin
     }
   }
 });
+
+
+test('workbook validation rejects impossible calendar dates and malformed linked expense accounts', () => {
+  const valid = {
+    settings: { currency: 'USD' as const, month: 'January', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
+    incomeCategories: [], expenseCategories: [], paymentMethods: ['Cash'],
+    incomeTransactions: [], expenseTransactions: [{
+      id: 'e1', date: '2026-01-02', category: 'Food', description: 'Groceries',
+      paymentMethod: 'Cash', amount: 100,
+    }],
+    plannedIncome: {}, plannedExpenses: {}, savingsGoals: [], debts: [], debtPayments: [],
+    financialAssets: [], openingCashBalance: 0, recurringTransactions: [],
+    userEmail: 'user@example.com', activeTab: 'dashboard' as const, sheetConfig: null,
+  };
+
+  assert.equal(isValidWorkbookData(valid), true);
+  assert.equal(isValidWorkbookData({
+    ...valid,
+    expenseTransactions: [{ ...valid.expenseTransactions[0], date: '2026-02-30' }],
+  }), false);
+  assert.equal(isValidWorkbookData({
+    ...valid,
+    expenseTransactions: [{ ...valid.expenseTransactions[0], date: '2026-01-02', accountId: { id: 'bank1' } }],
+  }), false);
+  assert.equal(isValidWorkbookData({
+    ...valid,
+    expenseTransactions: [{ ...valid.expenseTransactions[0], paymentMethod: '   ' }],
+  }), false);
+});
