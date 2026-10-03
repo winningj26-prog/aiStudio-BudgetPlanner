@@ -38,9 +38,9 @@ Updated after each completed implementation/verification task.
 - [x] Account-scoped storage
 - [x] Workbook repository
 - [x] Toolkit homepage/app launcher
-- [x] Product 2 added to Toolkit launcher with tenant entitlement and `/product2/` standalone launch route
+- [x] Product 2 added to Toolkit launcher with shared platform app entitlement and `/product2/` standalone launch route
 - [x] App access entitlement model
-- [x] Architecture for Apps 2–4
+- [x] Shared-account architecture for independent Apps 1–4
 - [x] User onboarding foundation
 - [x] Paid onboarding completion hardened
 - [x] Subscription management/upgrade UI
@@ -287,3 +287,19 @@ Updated after each completed implementation/verification task.
 - [x] Savings goal linkage and financial-model hardening deployed to Render and reached live (`dep-davf8gvdjqhc73ei9hjg`)
 - [x] Legacy financial snapshot calls remain compatible with the pre-debt-payment opening-cash argument
 - [x] Available cash excludes non-cash assets while total assets/net worth continue to include them
+
+
+## S. Shared account / independent Product 2 architecture
+- [x] One Supabase database remains the shared platform database
+- [x] One platform account/profile per authenticated user
+- [x] Product 2 consumes the existing Toolkit Supabase Auth session
+- [x] Product 2 no longer implements its own login/signup flow
+- [x] Product 2 no longer provisions a tenant
+- [x] Product 2 no longer selects or manages a subscription
+- [x] Product 2 domain persistence is scoped directly by platform profile account_id
+- [x] Product 2 RLS policies enforce platform-account ownership
+- [x] Product 2 can operate without Product 1 runtime/data
+- [x] Product 2 browser persistence no longer depends on a tenant abstraction
+- [x] Product 2 acceptance validation passed (#63)
+- [x] V1 validation passed after architecture refactor (#513)
+- [x] Supabase security review after refactor: Product 2-specific RLS findings clear; only pre-existing platform RLS INFO notices and leaked-password WARN remain
