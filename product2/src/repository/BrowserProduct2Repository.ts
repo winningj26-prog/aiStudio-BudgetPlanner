@@ -1,12 +1,16 @@
 import type { Product2Workbook } from '../domain/types.js';
 import type { Product2Repository } from './Product2Repository.js';
+import { assertProduct2Tenant, createProduct2TenantContext, type Product2TenantContext } from '../tenant/Product2Tenant.js';
 
 export class BrowserProduct2Repository implements Product2Repository {
   private readonly key: string;
   private workbook: Product2Workbook | null;
 
-  constructor(accountId: string, initial: Product2Workbook | null = null) {
-    this.key = `budgetplanner.product2.workbook.${accountId}`;
+  private readonly tenant: Product2TenantContext;
+
+  constructor(tenant: string | Product2TenantContext, initial: Product2Workbook | null = null) {
+    this.tenant = typeof tenant === 'string' ? createProduct2TenantContext(tenant) : tenant;
+    this.key = `budgetplanner.product2.workbook.${this.tenant.tenantId}`;
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem(this.key) : null;
     this.workbook = stored ? JSON.parse(stored) as Product2Workbook : initial ? structuredClone(initial) : null;
   }
@@ -82,6 +86,10 @@ export class BrowserProduct2Repository implements Product2Repository {
 
   private requireInitialized() { if (!this.workbook) throw new Error('Product 2 account is not initialized.'); }
   private requireAccount(accountId: string) { this.requireInitialized(); this.assertAccount(accountId); }
-  private assertAccount(accountId: string) { if (!this.workbook || this.workbook.account.id !== accountId) throw new Error('Product 2 account ownership mismatch.'); }
+  private assertAccount(accountId: string) {
+    if (!this.workbook) throw new Error('Product 2 account is not initialized.');
+    assertProduct2Tenant(accountId, this.tenant);
+    assertProduct2Tenant(this.workbook.account.id, this.tenant);
+  }
   private persist() { if (typeof window !== 'undefined' && this.workbook) window.localStorage.setItem(this.key, JSON.stringify(this.workbook)); }
 }
