@@ -352,59 +352,88 @@ export const StartHereSheet: React.FC<StartHereSheetProps> = ({
         {/* ========================================== */}
         {/* STARTING FINANCIAL POSITION                */}
         {/* ========================================== */}
-        <section className="rounded-3xl border border-emerald-200 bg-white p-5 sm:p-6 shadow-2xs">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
-            <div>
+        <section className="rounded-3xl border border-emerald-250 bg-linear-to-tr from-emerald-50/20 via-white to-slate-50 p-6 sm:p-7 shadow-xs relative overflow-hidden">
+          <div className="absolute right-0 top-0 h-40 w-40 bg-radial from-emerald-400/10 to-transparent pointer-events-none" />
+          
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5">
+            <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <Wallet className="h-5 w-5 text-emerald-600" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 shadow-3xs shrink-0">
+                  <Wallet className="h-4.5 w-4.5" />
+                </div>
                 <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">Starting Financial Position</h2>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5 max-w-2xl">
-                Enter or update the balances you already had before your first tracked transactions. This is available to existing accounts as well as new users.
+              <p className="text-xs text-slate-500 max-w-2xl font-semibold leading-relaxed">
+                Log the assets, cash accounts, and outstanding liabilities you held before starting tracking. Establishing this exact opening position guarantees absolute net worth accuracy.
               </p>
             </div>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-right shrink-0">
-              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Opening net worth</p>
-              <p className="mt-1 text-lg font-black text-slate-900">{openingNetWorth.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+            
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-right shadow-3xs shrink-0 select-none">
+              <p className="text-[9px] font-black uppercase tracking-wider text-emerald-700">Opening net worth</p>
+              <p className="mt-1 text-xl font-black text-slate-900 font-mono tracking-tight">
+                {openingNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Cash + assets</p>
-              <p className="mt-1 text-lg font-black text-slate-900">{openingAssetsTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-              <p className="mt-1 text-[11px] text-slate-500">{financialAssets.length} asset{financialAssets.length === 1 ? '' : 's'} recorded</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-slate-150 bg-white p-4.5 hover:border-slate-300 transition-all shadow-4xs flex flex-col justify-between">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Opening Cash + Assets</p>
+                <p className="mt-1.5 text-lg font-black text-slate-900 font-mono">
+                  {openingAssetsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-500 font-semibold flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span>{financialAssets.length} active starting asset{financialAssets.length === 1 ? '' : 's'}</span>
+              </div>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Opening debts</p>
-              <p className="mt-1 text-lg font-black text-slate-900">{openingDebtsTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-              <p className="mt-1 text-[11px] text-slate-500">{debts.length} debt{debts.length === 1 ? '' : 's'} recorded</p>
+
+            <div className="rounded-2xl border border-slate-150 bg-white p-4.5 hover:border-slate-300 transition-all shadow-4xs flex flex-col justify-between">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Pre-existing Liabilities</p>
+                <p className="mt-1.5 text-lg font-black text-rose-600 font-mono">
+                  {openingDebtsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-500 font-semibold flex items-center gap-1.5">
+                <span className={`h-2 w-2 rounded-full ${debts.length > 0 ? 'bg-rose-500 animate-pulse' : 'bg-slate-350'}`} />
+                <span>{debts.length} active starting debt{debts.length === 1 ? '' : 's'}</span>
+              </div>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">What to do next</p>
-              <p className="mt-1 text-sm font-bold text-slate-900">Set assets/cash, then add liabilities</p>
-              <p className="mt-1 text-[11px] text-slate-500">Changes are saved with your workbook.</p>
+
+            <div className="rounded-2xl border border-slate-150 bg-white p-4.5 hover:border-slate-300 transition-all shadow-4xs flex flex-col justify-between">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Pacing Strategy Guide</p>
+                <p className="mt-1.5 text-sm font-black text-slate-800 leading-snug">
+                  Set Assets & Cash, Then Layer Liabilities
+                </p>
+              </div>
+              <div className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-500 font-semibold">
+                Saves automatically inside your workbook
+              </div>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-wrap gap-3">
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onNavigate('net_worth'); }}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-black text-white px-4 py-3 shadow-md shadow-emerald-600/10 hover:shadow-emerald-600/15 transition-all cursor-pointer border border-emerald-500 active:bg-emerald-800"
             >
               <Wallet className="h-4 w-4" />
-              Edit cash & assets
-              <ArrowRight className="h-3.5 w-3.5" />
+              <span>Edit cash & assets</span>
+              <ArrowRight className="h-3.5 w-3.5 stroke-[2.5]" />
             </button>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onNavigate('debt_payoff'); }}
-              className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-black text-rose-700 transition hover:bg-rose-100 cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-100/60 text-xs font-black text-rose-700 px-4 py-3 transition-all cursor-pointer active:bg-rose-200"
             >
               <Scale className="h-4 w-4" />
-              Edit starting debts
-              <ArrowRight className="h-3.5 w-3.5" />
+              <span>Edit starting debts</span>
+              <ArrowRight className="h-3.5 w-3.5 stroke-[2.5]" />
             </button>
           </div>
         </section>

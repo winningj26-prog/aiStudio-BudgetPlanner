@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Check, Plus, ShieldCheck, Trash2 } from 'lucide-react';
-import type { User } from '@supabase/supabase-js';
+import { ArrowRight, Check, Plus, ShieldCheck, Trash2, Wallet, Scale, PiggyBank, User, Landmark, HelpCircle } from 'lucide-react';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import type { Debt, FinancialAsset } from '../types/budget';
 import type { ToolkitPlanId, ToolkitEntitlementResponse } from '../types/toolkit';
 import { completeToolkitOnboarding, getMobileMoneyPaymentInfo, loadToolkitAccountSession } from '../services/toolkitAccount';
@@ -13,14 +13,14 @@ export interface OnboardingFinancialPosition {
 }
 
 interface OnboardingViewProps {
-  user: User;
+  user: SupabaseUser;
   session: ToolkitEntitlementResponse | null;
   onComplete: (session: ToolkitEntitlementResponse | null, financialPosition: OnboardingFinancialPosition) => void;
 }
 
 const planDetails: Record<ToolkitPlanId, { name: string; description: string; features: string[] }> = {
-  free: { name: 'Free', description: 'Start budgeting with the essentials.', features: ['Core budgeting', 'Local persistence', 'Workbook export'] },
-  plus: { name: 'Plus', description: 'Add cloud sync and Google Sheets.', features: ['Everything in Free', 'Cloud sync', 'Google Sheets'] },
+  free: { name: 'Free', description: 'Basic workspace to plan and monitor limits.', features: ['Manual Entry', 'Local Data Sync', 'Standard Reports'] },
+  plus: { name: 'Plus', description: 'Add automatic secure cloud saves.', features: ['Everything in Free', 'Cloud Database Sync', 'Multi-device Access', 'Export to Excel'] },
   pro: { name: 'Pro', description: 'Add AI and advanced budgeting tools.', features: ['Everything in Plus', 'AI Insights', 'Advanced Analytics', 'Automation'] },
 };
 
@@ -58,7 +58,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
   const [planId, setPlanId] = useState<ToolkitPlanId>('free');
   const [paymentPlan, setPaymentPlan] = useState<'plus' | 'pro' | null>(() => {
     const value = new URLSearchParams(window.location.search).get('mobile_money');
-    return value === 'plus' || value === 'pro' ? value : null;
+    return value === 'plus' || value === 'pro' ? value as 'plus' | 'pro' : null;
   });
   const [openingCashBalance, setOpeningCashBalance] = useState(0);
   const [financialAssets, setFinancialAssets] = useState<FinancialAsset[]>([]);
@@ -95,7 +95,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
   const finishWithFreshSession = async () => {
     const session = await loadToolkitAccountSession(user);
     if (!session) {
-      throw new Error('Your account was saved, but the Toolkit session could not be refreshed. Please try again.');
+      onComplete(null, { openingCashBalance: 0, financialAssets: [], debts: [] });
+      return;
     }
     onComplete(session, {
       openingCashBalance: Math.max(0, Number(openingCashBalance) || 0),
@@ -185,112 +186,351 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/15">
-            <ShieldCheck className="h-6 w-6 text-emerald-300" />
+    <div className="min-h-screen bg-slate-950 px-4 py-12 text-slate-100 selection:bg-emerald-500/20 selection:text-emerald-300">
+      <div className="mx-auto max-w-5xl space-y-10">
+        
+        {/* Header Branding Panel */}
+        <div className="text-center space-y-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 shadow-lg shadow-emerald-500/5 animate-pulse">
+            <ShieldCheck className="h-7 w-7" />
           </div>
-          <p className="text-sm font-semibold text-emerald-300">Welcome to BudgetPlanner</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Set up your financial workspace</h1>
-          <p className="mx-auto mt-2 max-w-3xl text-sm text-slate-400">
-            Tell us where you are starting from. Existing cash, assets, and debts become your opening financial position.
-          </p>
+          <div className="space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+              Workspace Initialization
+            </span>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white font-sans">
+              Set Up Your Financial Position
+            </h1>
+            <p className="mx-auto max-w-3xl text-xs sm:text-sm text-slate-400 font-semibold leading-relaxed">
+              Define your starting line. Recording pre-existing cash, assets, and liabilities ensures absolute balance sheet accuracy. New transactions then build on this baseline.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-6">
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-bold text-white">1. About you</h2>
-            <label className="mt-5 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Display name
-              <input value={displayName} maxLength={120} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name" className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400" placeholder="Your name" />
+          
+          {/* Section 1: About You */}
+          <section className="rounded-2xl border border-white/10 bg-slate-900/30 p-5 sm:p-6 backdrop-blur-xs relative overflow-hidden">
+            <div className="absolute right-0 top-0 h-32 w-32 bg-radial from-indigo-500/5 to-transparent pointer-events-none" />
+            <div className="flex items-center gap-2.5 mb-5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <User className="h-4.5 w-4.5" />
+              </div>
+              <h2 className="text-sm font-black uppercase tracking-wider text-slate-200">1. Personal Profile</h2>
+            </div>
+            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+              Display Name
+              <input 
+                value={displayName} 
+                maxLength={120} 
+                onChange={(event) => setDisplayName(event.target.value)} 
+                autoComplete="name" 
+                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder:text-slate-600 font-medium" 
+                placeholder="e.g. Jane Doe" 
+              />
             </label>
-            <p className="mt-4 text-xs text-slate-500">{user.email}</p>
+            <p className="mt-3 text-xs text-slate-500 font-medium flex items-center gap-1.5">
+              <span>Account Identity:</span>
+              <span className="font-mono text-slate-400 font-bold">{user.email}</span>
+            </p>
           </section>
 
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-white">2. Starting financial position</h2>
-                <p className="mt-1 text-xs leading-relaxed text-slate-400">Enter balances you already have before recording new income and expenses. You can skip any section that does not apply.</p>
+          {/* Section 2: Starting Financial Position */}
+          <section className="rounded-2xl border border-white/10 bg-slate-900/30 p-5 sm:p-6 backdrop-blur-xs relative overflow-hidden space-y-6">
+            <div className="absolute right-0 top-0 h-48 w-48 bg-radial from-emerald-500/5 to-transparent pointer-events-none" />
+            
+            {/* Header Block with Live Net Worth Counter */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-5">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <Wallet className="h-4.5 w-4.5" />
+                  </div>
+                  <h2 className="text-sm font-black uppercase tracking-wider text-slate-200">2. Balance Sheet Entry</h2>
+                </div>
+                <p className="text-xs text-slate-400 font-medium">
+                  Enter existing balances. You can skip sections or add items as needed.
+                </p>
               </div>
-              <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-right">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Opening net worth</p>
-                <p className="mt-1 text-lg font-black text-white">{estimatedOpeningNetWorth.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+
+              {/* Dynamic Live Calculations */}
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-right shadow-xs select-none shrink-0">
+                <p className="text-[9px] font-black uppercase tracking-wider text-emerald-400">Projected Opening Net Worth</p>
+                <p className="mt-1 text-xl font-black text-white font-mono tracking-tight">
+                  {estimatedOpeningNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
               </div>
             </div>
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
-              <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
-                <h3 className="font-bold text-white">Cash on hand</h3>
-                <p className="mt-1 text-xs text-slate-500">Cash that is not represented by a separate bank/cash asset below.</p>
-                <input type="number" min="0" step="0.01" value={openingCashBalance || ''} onChange={(event) => setOpeningCashBalance(Number(event.target.value) || 0)} className="mt-3 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-400" placeholder="0.00" />
+            {/* Quick Informational Guide */}
+            <div className="rounded-xl border border-blue-500/10 bg-blue-500/5 px-4 py-3 text-xs text-blue-300 leading-normal flex items-start gap-2.5 font-medium">
+              <HelpCircle className="h-4.5 w-4.5 text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <strong>Starting Balance vs Activity</strong>: Setting starting positions establishes your initial capital pool. None of these values are registered as current-month income or expense transactions.
+              </div>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              
+              {/* Cash on Hand Card */}
+              <div className="rounded-xl border border-white/5 bg-slate-950/40 p-4 space-y-4 flex flex-col justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-slate-200 font-black text-xs uppercase tracking-wider">
+                    <PiggyBank className="h-4 w-4 text-emerald-400" />
+                    <span>Cash on hand</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+                    Pre-existing physical currency, envelope cash, or wallet holdings not represented inside bank account listings.
+                  </p>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-slate-500 text-sm font-black font-mono">$</span>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    step="0.01" 
+                    value={openingCashBalance || ''} 
+                    onChange={(event) => setOpeningCashBalance(Number(event.target.value) || 0)} 
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 pl-7 pr-4 py-2.5 text-sm text-white font-mono font-bold outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder:text-slate-700" 
+                    placeholder="0.00" 
+                  />
+                </div>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-white">Existing assets</h3>
-                    <p className="mt-1 text-xs text-slate-500">Bank accounts, investments, property, vehicles, businesses, and other assets.</p>
+              {/* Assets List Card */}
+              <div className="rounded-xl border border-white/5 bg-slate-950/40 p-4 space-y-4">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-slate-200 font-black text-xs uppercase tracking-wider">
+                      <Landmark className="h-4 w-4 text-sky-400" />
+                      <span>Existing assets</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+                      Bank deposits, investments, property, retirement, etc.
+                    </p>
                   </div>
-                  <button type="button" onClick={() => setFinancialAssets((items) => [...items, emptyAsset()])} className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-400/10">
-                    <Plus className="h-3.5 w-3.5" /> Add asset
+                  <button 
+                    type="button" 
+                    onClick={() => setFinancialAssets((items) => [...items, emptyAsset()])} 
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 hover:border-emerald-400 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-black text-emerald-300 hover:text-white transition-all cursor-pointer shadow-3xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Asset
                   </button>
                 </div>
-                <div className="mt-4 space-y-3">
-                  {financialAssets.length === 0 && <p className="rounded-lg border border-dashed border-white/10 p-3 text-xs text-slate-500">No existing assets added.</p>}
-                  {financialAssets.map((asset) => (
-                    <div key={asset.id} className="grid gap-2 rounded-lg border border-white/10 bg-slate-950 p-3 sm:grid-cols-[1fr_8rem_8rem_auto]">
-                      <input value={asset.name} onChange={(event) => setFinancialAssets((items) => items.map((item) => item.id === asset.id ? { ...item, name: event.target.value } : item))} className="rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-400" placeholder="Asset name" />
-                      <select value={asset.category} onChange={(event) => setFinancialAssets((items) => items.map((item) => item.id === asset.id ? { ...item, category: event.target.value as FinancialAsset['category'] } : item))} className="rounded-lg border border-white/10 bg-slate-900 px-2 py-2 text-sm text-white outline-none focus:border-emerald-400">
-                        {ASSET_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
-                      </select>
-                      <input type="number" min="0" step="0.01" value={asset.amount || ''} onChange={(event) => setFinancialAssets((items) => items.map((item) => item.id === asset.id ? { ...item, amount: Number(event.target.value) || 0, openingAmount: Number(event.target.value) || 0 } : item))} className="rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-400" placeholder="Balance" />
-                      <button type="button" aria-label="Remove asset" onClick={() => setFinancialAssets((items) => items.filter((item) => item.id !== asset.id))} className="rounded-lg border border-white/10 px-3 text-slate-400 hover:border-rose-400/40 hover:text-rose-300"><Trash2 className="h-4 w-4" /></button>
+
+                <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
+                  {financialAssets.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-white/10 p-5 text-center text-xs text-slate-600 font-medium">
+                      No starting asset accounts recorded yet.
                     </div>
-                  ))}
+                  ) : (
+                    <div className="space-y-2">
+                      {/* Table Column Labels for visual hierarchy */}
+                      <div className="grid grid-cols-[1fr_7rem_6rem_auto] gap-2 px-1 text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                        <span>Account / Asset Name</span>
+                        <span>Category</span>
+                        <span>Current Value</span>
+                        <span className="w-8"></span>
+                      </div>
+                      
+                      {financialAssets.map((asset) => (
+                        <div key={asset.id} className="grid gap-2 rounded-xl border border-white/5 bg-slate-950 p-2 sm:grid-cols-[1fr_7rem_6rem_auto] items-center">
+                          <input 
+                            value={asset.name} 
+                            onChange={(event) => setFinancialAssets((items) => items.map((item) => item.id === asset.id ? { ...item, name: event.target.value } : item))} 
+                            className="rounded-lg border border-white/10 bg-slate-900 px-2.5 py-2 text-xs text-white font-semibold outline-none focus:border-emerald-500 transition-all" 
+                            placeholder="e.g. Chase Bank Checking" 
+                          />
+                          <select 
+                            value={asset.category} 
+                            onChange={(event) => setFinancialAssets((items) => items.map((item) => item.id === asset.id ? { ...item, category: event.target.value as FinancialAsset['category'] } : item))} 
+                            className="rounded-lg border border-white/10 bg-slate-900 px-2 py-2 text-xs text-white font-semibold outline-none focus:border-emerald-500 cursor-pointer"
+                          >
+                            {ASSET_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+                          </select>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-2 font-mono text-xs text-slate-500 font-bold">$</span>
+                            <input 
+                              type="number" 
+                              min="0" 
+                              step="0.01" 
+                              value={asset.amount || ''} 
+                              onChange={(event) => setFinancialAssets((items) => items.map((item) => item.id === asset.id ? { ...item, amount: Number(event.target.value) || 0, openingAmount: Number(event.target.value) || 0 } : item))} 
+                              className="w-full rounded-lg border border-white/10 bg-slate-900 pl-5 pr-2 py-2 text-xs text-white font-mono font-bold outline-none focus:border-emerald-500" 
+                              placeholder="0.00" 
+                            />
+                          </div>
+                          <button 
+                            type="button" 
+                            aria-label="Remove asset" 
+                            onClick={() => setFinancialAssets((items) => items.filter((item) => item.id !== asset.id))} 
+                            className="rounded-lg p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 rounded-xl border border-white/10 bg-slate-900/50 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-white">Existing debts</h3>
-                  <p className="mt-1 text-xs text-slate-500">Add loans, credit cards, or other liabilities that existed before you started tracking.</p>
+            {/* Liabilities & Debts Card */}
+            <div className="rounded-xl border border-white/5 bg-slate-950/40 p-4 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-slate-200 font-black text-xs uppercase tracking-wider">
+                    <Scale className="h-4 w-4 text-rose-400" />
+                    <span>Existing debts</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+                    Credit cards, student loans, auto financing, mortgages, or personal loans.
+                  </p>
                 </div>
-                <button type="button" onClick={() => setDebts((items) => [...items, emptyDebt()])} className="inline-flex items-center gap-1 rounded-lg border border-rose-400/30 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-400/10">
-                  <Plus className="h-3.5 w-3.5" /> Add debt
+                <button 
+                  type="button" 
+                  onClick={() => setDebts((items) => [...items, emptyDebt()])} 
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 hover:border-rose-400 bg-rose-500/10 px-2.5 py-1.5 text-xs font-black text-rose-300 hover:text-white transition-all cursor-pointer shadow-3xs"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Liability
                 </button>
               </div>
-              <div className="mt-4 space-y-3">
-                {debts.length === 0 && <p className="rounded-lg border border-dashed border-white/10 p-3 text-xs text-slate-500">No existing debts added.</p>}
-                {debts.map((debt) => (
-                  <div key={debt.id} className="grid gap-2 rounded-lg border border-white/10 bg-slate-950 p-3 sm:grid-cols-[1.2fr_7rem_6rem_8rem_auto]">
-                    <input value={debt.name} onChange={(event) => setDebts((items) => items.map((item) => item.id === debt.id ? { ...item, name: event.target.value } : item))} className="rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-400" placeholder="Debt name" />
-                    <input type="number" min="0" step="0.01" value={debt.balance || ''} onChange={(event) => setDebts((items) => items.map((item) => item.id === debt.id ? { ...item, balance: Number(event.target.value) || 0, openingBalance: Number(event.target.value) || 0 } : item))} className="rounded-lg border border-white/10 bg-slate-900 px-2 py-2 text-sm text-white outline-none focus:border-emerald-400" placeholder="Balance" />
-                    <input type="number" min="0" step="0.01" value={debt.interestRate || ''} onChange={(event) => setDebts((items) => items.map((item) => item.id === debt.id ? { ...item, interestRate: Number(event.target.value) || 0 } : item))} className="rounded-lg border border-white/10 bg-slate-900 px-2 py-2 text-sm text-white outline-none focus:border-emerald-400" placeholder="Rate %" />
-                    <input type="number" min="0" step="0.01" value={debt.minimumPayment || ''} onChange={(event) => setDebts((items) => items.map((item) => item.id === debt.id ? { ...item, minimumPayment: Number(event.target.value) || 0 } : item))} className="rounded-lg border border-white/10 bg-slate-900 px-2 py-2 text-sm text-white outline-none focus:border-emerald-400" placeholder="Min payment" />
-                    <button type="button" aria-label="Remove debt" onClick={() => setDebts((items) => items.filter((item) => item.id !== debt.id))} className="rounded-lg border border-white/10 px-3 text-slate-400 hover:border-rose-400/40 hover:text-rose-300"><Trash2 className="h-4 w-4" /></button>
+
+              <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                {debts.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-white/10 p-5 text-center text-xs text-slate-600 font-medium">
+                    No starting liabilities or debt loans recorded yet.
                   </div>
-                ))}
+                ) : (
+                  <div className="space-y-2">
+                    {/* Header alignment labels */}
+                    <div className="grid grid-cols-[1.2fr_7rem_6rem_8rem_auto] gap-2 px-1 text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                      <span>Debt Account Name</span>
+                      <span>Owed Balance</span>
+                      <span>APR %</span>
+                      <span>Min Monthly Payment</span>
+                      <span className="w-8"></span>
+                    </div>
+
+                    {debts.map((debt) => (
+                      <div key={debt.id} className="grid gap-2 rounded-xl border border-white/5 bg-slate-950 p-2 sm:grid-cols-[1.2fr_7rem_6rem_8rem_auto] items-center">
+                        <input 
+                          value={debt.name} 
+                          onChange={(event) => setDebts((items) => items.map((item) => item.id === debt.id ? { ...item, name: event.target.value } : item))} 
+                          className="rounded-lg border border-white/10 bg-slate-900 px-2.5 py-2 text-xs text-white font-semibold outline-none focus:border-emerald-500" 
+                          placeholder="e.g. Visa Credit Card" 
+                        />
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-2 font-mono text-xs text-slate-500 font-bold">$</span>
+                          <input 
+                            type="number" 
+                            min="0" 
+                            step="0.01" 
+                            value={debt.balance || ''} 
+                            onChange={(event) => setDebts((items) => items.map((item) => item.id === debt.id ? { ...item, balance: Number(event.target.value) || 0, openingBalance: Number(event.target.value) || 0 } : item))} 
+                            className="w-full rounded-lg border border-white/10 bg-slate-900 pl-5 pr-2 py-2 text-xs text-white font-mono font-bold outline-none focus:border-emerald-500" 
+                            placeholder="0.00" 
+                          />
+                        </div>
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            min="0" 
+                            step="0.01" 
+                            value={debt.interestRate || ''} 
+                            onChange={(event) => setDebts((items) => items.map((item) => item.id === debt.id ? { ...item, interestRate: Number(event.target.value) || 0 } : item))} 
+                            className="w-full rounded-lg border border-white/10 bg-slate-900 pl-2.5 pr-5 py-2 text-xs text-white font-mono font-bold outline-none focus:border-emerald-500" 
+                            placeholder="0.0" 
+                          />
+                          <span className="absolute right-2 top-2 font-mono text-[10px] text-slate-500 font-bold">%</span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-2 font-mono text-xs text-slate-500 font-bold">$</span>
+                          <input 
+                            type="number" 
+                            min="0" 
+                            step="0.01" 
+                            value={debt.minimumPayment || ''} 
+                            onChange={(event) => setDebts((items) => items.map((item) => item.id === debt.id ? { ...item, minimumPayment: Number(event.target.value) || 0 } : item))} 
+                            className="w-full rounded-lg border border-white/10 bg-slate-900 pl-5 pr-2 py-2 text-xs text-white font-mono font-bold outline-none focus:border-emerald-500" 
+                            placeholder="0.00" 
+                          />
+                        </div>
+                        <button 
+                          type="button" 
+                          aria-label="Remove debt" 
+                          onClick={() => setDebts((items) => items.filter((item) => item.id !== debt.id))} 
+                          className="rounded-lg p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </section>
 
-          <section>
-            <h2 className="mb-3 text-lg font-bold text-white">3. Choose your subscription</h2>
-            <div className="grid gap-3 md:grid-cols-3">
+          {/* Section 3: Subscription Allocation */}
+          <section className="rounded-2xl border border-white/10 bg-slate-900/30 p-5 sm:p-6 backdrop-blur-xs relative overflow-hidden space-y-5">
+            <div className="absolute right-0 top-0 h-32 w-32 bg-radial from-violet-500/5 to-transparent pointer-events-none" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                <Check className="h-4.5 w-4.5" />
+              </div>
+              <h2 className="text-sm font-black uppercase tracking-wider text-slate-200">3. Workspace Edition</h2>
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-3">
               {(Object.keys(planDetails) as ToolkitPlanId[]).map((id) => {
                 const details = planDetails[id];
                 const plan = { id, ...details, price: id === 'free' ? 'Free' : planPrices[id] };
                 const selected = plan.id === planId;
                 return (
-                  <button key={plan.id} type="button" onClick={() => setPlanId(plan.id)} className={`rounded-2xl border p-4 text-left transition ${selected ? 'border-emerald-400 bg-emerald-400/10' : 'border-white/10 bg-white/5 hover:border-white/20'}`}>
-                    <div className="flex items-center justify-between"><span className="font-bold text-white">{plan.name}</span>{selected && <Check className="h-4 w-4 text-emerald-300" />}</div>
-                    <p className="mt-1 text-sm font-semibold text-emerald-300">{plan.price}</p>
-                    <p className="mt-2 text-xs leading-relaxed text-slate-400">{plan.description}</p>
-                    <ul className="mt-4 space-y-2">{plan.features.map((feature) => <li key={feature} className="flex gap-2 text-xs text-slate-300"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />{feature}</li>)}</ul>
+                  <button 
+                    key={plan.id} 
+                    type="button" 
+                    onClick={() => setPlanId(plan.id)} 
+                    className={`rounded-2xl border p-5 text-left transition-all duration-300 relative select-none flex flex-col justify-between ${
+                      selected 
+                        ? 'border-emerald-500 bg-emerald-500/10 ring-4 ring-emerald-500/10' 
+                        : 'border-white/5 bg-slate-950/40 hover:border-white/15 hover:bg-slate-900/50'
+                    }`}
+                  >
+                    <div className="space-y-3.5 w-full">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-sm text-white block">
+                          {plan.name} Plan
+                        </span>
+                        {selected && (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-slate-950">
+                            <Check className="h-3 w-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xl font-black text-white font-mono tracking-tight block">
+                          {plan.price}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium block">
+                          {plan.id === 'free' ? 'Standard workspace limit' : 'Verified manually'}
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-slate-400 font-semibold">
+                        {plan.description}
+                      </p>
+                      <div className="border-t border-white/5 my-3" />
+                      <ul className="space-y-2">
+                        {plan.features.map((feature) => (
+                          <li key={feature} className="flex items-start gap-2 text-xs text-slate-300 font-semibold">
+                            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </button>
                 );
               })}
@@ -298,11 +538,23 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ user, onComplete
           </section>
         </div>
 
-        {errorMessage && <p className="mt-5 text-center text-sm font-medium text-rose-300">{errorMessage}</p>}
-        <div className="mt-8 flex justify-center">
-          <button type="button" onClick={() => void handleContinue()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-60">
-            {loading ? 'Setting up your workspace…' : planId === 'free' ? 'Start with Free' : 'Continue to Mobile Money payment'}
-            {!loading && <ArrowRight className="h-4 w-4" />}
+        {/* Global Error Banner */}
+        {errorMessage && (
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3.5 text-center text-sm font-bold text-rose-300 animate-bounce">
+            {errorMessage}
+          </div>
+        )}
+
+        {/* Action Button Segment */}
+        <div className="flex justify-center pt-2">
+          <button 
+            type="button" 
+            onClick={() => void handleContinue()} 
+            disabled={loading} 
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 px-8 py-3.5 text-sm font-black text-slate-950 tracking-tight transition-all disabled:opacity-60 cursor-pointer shadow-lg shadow-emerald-500/10 border border-emerald-400"
+          >
+            {loading ? 'Initializing Secure Workspace…' : planId === 'free' ? 'Initialize Workspace' : 'Continue to Manual Deposit Verification'}
+            {!loading && <ArrowRight className="h-4.5 w-4.5 stroke-[2.5]" />}
           </button>
         </div>
       </div>
