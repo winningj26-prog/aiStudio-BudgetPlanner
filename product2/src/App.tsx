@@ -38,7 +38,7 @@ export function App() {
 
   const persist = async (next: Product2Workbook) => {
     if (!session) return;
-    next.updatedAt = new Date().toISOString();
+    next.account.updatedAt = new Date().toISOString();
     const repo = new BrowserProduct2Repository(session.accountId, next);
     await repo.save(next);
     setWorkbook(structuredClone(next));
