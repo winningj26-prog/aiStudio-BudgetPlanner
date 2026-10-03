@@ -6,7 +6,6 @@ import type {
   SavingsContribution,
   SavingsGoal,
 } from '../domain/types.js';
-import { calculatePaymentAllocation } from '../domain/debt.js';
 import { requireSupabase } from '../lib/supabase.js';
 import type { Product2Repository } from './Product2Repository.js';
 
@@ -139,27 +138,15 @@ export class SupabaseProduct2Repository implements Product2Repository {
   async appendDebtPayment(payment: DebtPayment): Promise<void> {
     this.assertTenant(payment.accountId);
     const client = requireSupabase();
-    const debtResult = await client.from('product2_debt_accounts').select('*').eq('tenant_id', this.tenantId).eq('id', payment.debtId).single();
-    if (debtResult.error) throw debtResult.error;
-
-    const debt = mapDebt(debtResult.data);
-    const allocation = calculatePaymentAllocation(debt, payment.amount);
-    const nextBalance = Math.max(0, Math.round((debt.balance - allocation.principal) * 100) / 100);
-
-    const update = await client.from('product2_debt_accounts').update({
-      balance: nextBalance,
-      status: nextBalance === 0 ? 'paid' : debt.status,
-    }).eq('tenant_id', this.tenantId).eq('id', debt.id);
-    if (update.error) throw update.error;
-
-    const insert = await client.from('product2_debt_payments').insert({
-      ...toPayment(payment),
-      amount: allocation.total,
-      principal: allocation.principal,
-      interest: allocation.interest,
-      fees: allocation.fees,
+    const result = await client.rpc('record_product2_debt_payment', {
+      p_tenant_id: this.tenantId,
+      p_debt_id: payment.debtId,
+      p_payment_id: payment.id,
+      p_payment_date: payment.date,
+      p_amount: payment.amount,
+      p_note: payment.note ?? null,
     });
-    if (insert.error) throw insert.error;
+    if (result.error) throw result.error;
   }
 
   private async syncRows(table: string, rows: Record<string, unknown>[]) {
