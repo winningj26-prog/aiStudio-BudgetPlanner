@@ -38,6 +38,7 @@ Updated after each completed implementation/verification task.
 - [x] Account-scoped storage
 - [x] Workbook repository
 - [x] Toolkit homepage/app launcher
+- [x] Product 2 added to Toolkit launcher with tenant entitlement and `/product2/` standalone launch route
 - [x] App access entitlement model
 - [x] Architecture for Apps 2–4
 - [x] User onboarding foundation
