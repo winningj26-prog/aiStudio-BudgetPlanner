@@ -303,3 +303,21 @@ Updated after each completed implementation/verification task.
 - [x] Product 2 acceptance validation passed (#63)
 - [x] V1 validation passed after architecture refactor (#513)
 - [x] Supabase security review after refactor: Product 2-specific RLS findings clear; only pre-existing platform RLS INFO notices and leaked-password WARN remain
+
+
+## I. Product 2 — Savings Goal and Debt Tracker
+- [x] Eight Product 2 pages implemented: Start Here, Settings, Savings Goals, Savings Contributions, Debt Accounts, Debt Payments, Repayment Planner, Dashboard
+- [x] Product 1-aligned app shell, navigation, typography, spacing, cards, status semantics and responsive layout
+- [x] Savings goal KPIs, computed progress/status, categories, target dates and contribution ledger
+- [x] Debt account KPIs, debt types, APR/minimum payment fields, payoff progress and interest-assumption disclosure
+- [x] Debt payment ledger with principal/interest allocation estimate and overpayment clamping
+- [x] Snowball and avalanche planner with extra monthly payment input and required estimate warning
+- [x] Missing APR warning, zero-balance handling, completed-debt handling and deterministic strategy ordering
+- [x] Dashboard KPIs, savings/debt charts, six-month trend visualization, strategy comparison and key insights
+- [x] Direct URL navigation under `/product2/*` with production SPA fallback
+- [x] Product 2 classification fields persisted in Supabase (`category`, `debt_type`)
+- [x] Starter dataset with 2 savings goals, 4 contributions, 2 debt accounts and 6 mathematically consistent sample payments for an empty Product 2 workbook
+- [x] Product 2 acceptance coverage extended for extra payments, avalanche priority, zero-balance completion and starter-data arithmetic
+- [x] Supabase Product 2 RLS policy inventory verified after schema changes
+- [ ] Product 2 GitHub Actions typecheck/test/build execution verified after the latest implementation
+- [ ] Live authenticated Product 2 UI smoke test across all eight routes
