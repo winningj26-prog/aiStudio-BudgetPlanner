@@ -230,7 +230,7 @@ function mapPayment(row: any): DebtPayment {
 
 function toGoal(goal: SavingsGoal) {
   return {
-    id: goal.id, account_id: goal.accountId, name: goal.name, category: goal.category, target_amount: goal.targetAmount, opening_balance: goal.openingBalance,
+    id: goal.id, account_id: goal.accountId, name: goal.name, category: goal.category ?? 'Other', target_amount: goal.targetAmount, opening_balance: goal.openingBalance,
     target_date: goal.targetDate ?? null, contribution_frequency: goal.contributionFrequency ?? null,
     planned_contribution: goal.plannedContribution ?? null, status: goal.status, notes: goal.notes ?? null,
   };
@@ -245,7 +245,7 @@ function toContribution(contribution: SavingsContribution) {
 
 function toDebt(debt: DebtAccount) {
   return {
-    id: debt.id, account_id: debt.accountId, creditor: debt.creditor, debt_type: debt.type, opening_balance: debt.openingBalance,
+    id: debt.id, account_id: debt.accountId, creditor: debt.creditor, debt_type: debt.type ?? 'Other', opening_balance: debt.openingBalance,
     balance: debt.balance, interest_rate: debt.interestRate ?? null, minimum_payment: debt.minimumPayment,
     payment_frequency: debt.paymentFrequency, fees: debt.fees ?? null, status: debt.status, notes: debt.notes ?? null,
   };
