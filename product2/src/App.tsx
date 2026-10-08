@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, CircleDollarSign, CreditCard, LayoutDashboard, Settings, Target, Trash2, User, Home } from 'lucide-react';
-import type { DebtAccount, Product2Workbook, SavingsGoal } from './domain/types.js';
+import { BarChart3, CircleDollarSign, CreditCard, LayoutDashboard, Settings, Target, User, Home, ArrowRight, TrendingUp, ShieldCheck, Plus, AlertTriangle, CheckCircle2, CalendarDays, Trash2, LogOut } from 'lucide-react';
+import type { DebtAccount, Product2Workbook, SavingsGoal, SavingsGoalCategory, DebtType } from './domain/types.js';
 import { calculatePaymentAllocation, projectRepaymentScenario } from './domain/debt.js';
 import { calculateSavingsProgress } from './domain/savings.js';
 import { validateDebt, validateSavingsGoal } from './domain/validation.js';
@@ -10,259 +10,133 @@ import { getInitialProduct2AuthState, resolveProduct2Session, signOut } from './
 import { supabase } from './lib/supabase.js';
 import { id, today } from './utils/ids.js';
 
-const modules = [
-  ['start', 'Start Here', LayoutDashboard], ['settings', 'Settings', Settings], ['goals', 'Savings Goals', Target],
-  ['contributions', 'Savings Contributions', CircleDollarSign], ['debts', 'Debt Accounts', CreditCard],
-  ['payments', 'Debt Payments', CircleDollarSign], ['planner', 'Repayment Planner', BarChart3], ['dashboard', 'Dashboard', LayoutDashboard],
-] as const;
+type PageKey='start'|'settings'|'goals'|'contributions'|'debts'|'payments'|'planner'|'dashboard';
+const modules:{id:PageKey;label:string;icon:any;path:string}[]=[
+ {id:'start',label:'Start Here',icon:LayoutDashboard,path:'/product2/'},
+ {id:'settings',label:'Settings',icon:Settings,path:'/product2/settings'},
+ {id:'goals',label:'Savings Goals',icon:Target,path:'/product2/savings-goals'},
+ {id:'contributions',label:'Savings Contributions',icon:CircleDollarSign,path:'/product2/savings-contributions'},
+ {id:'debts',label:'Debt Accounts',icon:CreditCard,path:'/product2/debt-accounts'},
+ {id:'payments',label:'Debt Payments',icon:CircleDollarSign,path:'/product2/debt-payments'},
+ {id:'planner',label:'Repayment Planner',icon:BarChart3,path:'/product2/repayment-planner'},
+ {id:'dashboard',label:'Dashboard',icon:TrendingUp,path:'/product2/dashboard'},
+];
+const goalCategories:SavingsGoalCategory[]=['Emergency Fund','Vacation','Home','Vehicle','Education','Other'];
+const debtTypes:DebtType[]=['Credit Card','Personal Loan','Auto Loan','Student Loan','Mortgage','Other'];
+const money=(n:number,currency:string)=>new Intl.NumberFormat(undefined,{style:'currency',currency:currency||'USD',maximumFractionDigits:2}).format(Number.isFinite(n)?n:0);
+const pct=(n:number)=>`${Math.max(0,n).toFixed(1)}%`;
+const pathPage=():PageKey=>{const p=window.location.pathname.replace(/\\/+$/,'')||'/'; return modules.find(m=>m.path.replace(/\\/+$/,'')===p)?.id || (p==='/product2'?'start':'start');};
+const go=(key:PageKey)=>{const m=modules.find(x=>x.id===key)!;window.history.pushState({},'',m.path);window.dispatchEvent(new PopStateEvent('popstate'));};
 
-function emptyWorkbook(accountId: string, displayName: string, currency = 'USD'): Product2Workbook {
-  const now = new Date().toISOString();
-  return {
-    account: { id: accountId, displayName, currency, createdAt: now, updatedAt: now },
-    settings: { accountId, currency, dateFormat: 'YYYY-MM-DD', interestConvention: 'nominal-annual', paymentTiming: 'end-of-period', minimumPaymentPolicy: 'configured-minimum', calculationPreferences: { decimalPlaces: 2 } },
-    savingsGoals: [], savingsContributions: [], debts: [], debtPayments: [],
-  };
+function emptyWorkbook(accountId:string,displayName:string,currency='SLE'):Product2Workbook{
+ const now=new Date().toISOString();
+ return {account:{id:accountId,displayName,currency,createdAt:now,updatedAt:now},settings:{accountId,currency,dateFormat:'YYYY-MM-DD',interestConvention:'nominal-annual',paymentTiming:'end-of-period',minimumPaymentPolicy:'configured-minimum',calculationPreferences:{decimalPlaces:2}},savingsGoals:[],savingsContributions:[],debts:[],debtPayments:[]};
 }
 
-export function App() {
-  const [session, setSession] = useState<Product2Session | null>(null);
-  const [active, setActive] = useState('start');
-  const [workbook, setWorkbook] = useState<Product2Workbook | null>(null);
-  const [error, setError] = useState('');
-  const [authLoading, setAuthLoading] = useState(Boolean(supabase));
-  const [authReady, setAuthReady] = useState(false);
-
-  useEffect(() => {
-    const client = supabase;
-    if (!client) {
-      setAuthLoading(false);
-      setAuthReady(true);
-      return;
-    }
-
-    let cancelled = false;
-    const hydrate = async () => {
-      try {
-        const { user } = await getInitialProduct2AuthState();
-        if (!user) {
-          if (!cancelled) window.location.assign('/');
-          return;
-        }
-        const resolved = await resolveProduct2Session(user);
-        if (!cancelled) setSession(resolved);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Could not restore the shared Toolkit account.');
-      } finally {
-        if (!cancelled) {
-          setAuthLoading(false);
-          setAuthReady(true);
-        }
-      }
-    };
-
-    void hydrate();
-
-    const { data } = client.auth.onAuthStateChange((_event, authSession) => {
-      if (!authSession) {
-        setSession(null);
-        setWorkbook(null);
-        window.location.assign('/');
-        return;
-      }
-      void client.auth.getUser().then(async ({ data: userData, error: userError }) => {
-        if (cancelled || userError || !userData.user) return;
-        try {
-          const resolved = await resolveProduct2Session(userData.user);
-          if (!cancelled) setSession(resolved);
-        } catch (e) {
-          if (!cancelled) setError(e instanceof Error ? e.message : 'Could not resolve shared account access.');
-        }
-      });
-    });
-
-    return () => {
-      cancelled = true;
-      data.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!session) return;
-    const repo = new SupabaseProduct2Repository(session.accountId, session.displayName, session.email);
-    repo.load().then(loaded => {
-      if (loaded) setWorkbook(loaded);
-      else setWorkbook(emptyWorkbook(session.accountId, session.displayName));
-    }).catch(e => setError(e instanceof Error ? e.message : 'Could not load Product 2.'));
-  }, [session]);
-  const persist = async (next: Product2Workbook) => {
-    if (!session) return;
-    next.account.updatedAt = new Date().toISOString();
-    const repo = new SupabaseProduct2Repository(session.accountId, session.displayName, session.email);
-    await repo.save(next);
-    setWorkbook(structuredClone(next));
-  };
-
-  const recordDebtPayment = async (payment: Parameters<SupabaseProduct2Repository['appendDebtPayment']>[0]) => {
-    if (!session) return;
-    const repo = new SupabaseProduct2Repository(session.accountId, session.displayName, session.email);
-    await repo.appendDebtPayment(payment);
-    const refreshed = await repo.load();
-    if (refreshed) setWorkbook(refreshed);
-  };
-
-  if (!supabase || !authReady || authLoading) {
-    if (!supabase) return <main className="setup"><article className="card setup-card"><div className="brand-mark">P2</div><h1>Product 2 cloud configuration required</h1><p>Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> before starting the production app.</p></article></main>;
-    return <main className="loading">Checking your account…</main>;
-  }
-
-  if (!session) return <AccountRequired />;
-  if (session.productAccess !== 'active') return <ProductAccessRequired />;
-  if (!workbook) return <main className="loading">Loading Product 2…</main>;
-
-  const savings = workbook.savingsGoals.reduce((sum, goal) => sum + calculateSavingsProgress(goal, workbook.savingsContributions).currentBalance, 0);
-  const debt = workbook.debts.reduce((sum, item) => sum + item.balance, 0);
-  const planner = projectRepaymentScenario(workbook.debts, 'avalanche');
-
-  const activeLabel = modules.find(([idValue]) => idValue === active)?.[1] ?? 'Start Here';
-  const displayName = session.displayName || session.email.split('@')[0];
-  return <main className="app-shell">
-    <aside className="sidebar">
-      <div className="brand">
-        <div className="brand-mark">P2</div>
-        <div><strong>Finance Manager</strong><span>Product 2 • Workbook</span></div>
-      </div>
-      <nav>
-        <div className="nav-section-label">Workbook Ledger</div>
-        {modules.map(([idValue, label, Icon]) => (
-          <button key={idValue} className={active === idValue ? 'nav-item active' : 'nav-item'} onClick={() => setActive(idValue)}>
-            <Icon size={16} /> <span>{label}</span>
-          </button>
-        ))}
-        <button className="nav-item nav-home" onClick={() => window.location.assign('/')}>
-          <Home size={16} /> <span>Return to Toolkit</span>
-        </button>
-      </nav>
-      <div className="sidebar-footer">
-        <p className="independence">Independent tool · uses the shared Toolkit account and database. Product 1 is not required at runtime.</p>
-        <div className="profile-row">
-          <div className="profile">
-            <div className="profile-icon"><User size={15} /></div>
-            <div className="profile-copy"><strong>{displayName}</strong><span>{session.email}</span></div>
-          </div>
-          <button className="signout" title="Sign out" onClick={async () => { await signOut(); setSession(null); setWorkbook(null); }}>Sign out</button>
-        </div>
-      </div>
-    </aside>
-    <section className="content">
-      <div className="topbar">
-        <div className="topbar-left">
-          <div className="fx-badge">P2</div>
-          <div className="cell-ref">{activeLabel.replace(/ /g, '_').toUpperCase()}</div>
-          <div className="topbar-title"><strong>Product 2 · Savings & Debt Workbook</strong><span>Independent workbook namespace · shared platform authentication</span></div>
-        </div>
-        <div className="topbar-actions">
-          <span className="period-pill">LIVE WORKBOOK</span>
-          <span className="account-pill">Shared account · {session.accountId.slice(0, 8)}…</span>
-        </div>
-      </div>
-      <div className="viewport">
-        <div className="page">
-          <div className="page-heading">
-            <div><p className="eyebrow">Savings Goals & Debt Management</p><h1>{activeLabel}</h1><p>{session.email}</p></div>
-          </div>
-          {error && <div className="alert">{error}</div>}
-          {active === 'start' && <Start workbook={workbook} savings={savings} debt={debt} payoff={planner.payoffMonth} />}
-          {active === 'settings' && <SettingsView workbook={workbook} onSave={persist} />}
-          {active === 'goals' && <GoalsView workbook={workbook} onSave={persist} />}
-          {active === 'contributions' && <ContributionsView workbook={workbook} onSave={persist} />}
-          {active === 'debts' && <DebtsView workbook={workbook} onSave={persist} />}
-          {active === 'payments' && <PaymentsView workbook={workbook} onRecordPayment={recordDebtPayment} />}
-          {active === 'planner' && <PlannerView debts={workbook.debts} />}
-          {active === 'dashboard' && <Dashboard workbook={workbook} />}
-        </div>
-      </div>
-    </section>
-  </main>;
+export function App(){
+ const [session,setSession]=useState<Product2Session|null>(null); const [active,setActive]=useState<PageKey>(pathPage); const [workbook,setWorkbook]=useState<Product2Workbook|null>(null); const [error,setError]=useState(''); const [authLoading,setAuthLoading]=useState(Boolean(supabase)); const [authReady,setAuthReady]=useState(false);
+ useEffect(()=>{const onPop=()=>setActive(pathPage());window.addEventListener('popstate',onPop);return()=>window.removeEventListener('popstate',onPop)},[]);
+ useEffect(()=>{const client=supabase;if(!client){setAuthLoading(false);setAuthReady(true);return}let cancelled=false;
+  (async()=>{try{const {user}=await getInitialProduct2AuthState();if(!user){window.location.assign('/');return}const resolved=await resolveProduct2Session(user);if(!cancelled)setSession(resolved)}
+  catch(e){if(!cancelled)setError(e instanceof Error?e.message:'Could not restore the shared Toolkit account.')}finally{if(!cancelled){setAuthLoading(false);setAuthReady(true)}}})();
+  const {data}=client.auth.onAuthStateChange((_event,authSession)=>{if(!authSession){setSession(null);setWorkbook(null);window.location.assign('/');return}void client.auth.getUser().then(async({data:userData,error:userError})=>{if(cancelled||userError||!userData.user)return;try{const resolved=await resolveProduct2Session(userData.user);if(!cancelled)setSession(resolved)}catch(e){if(!cancelled)setError(e instanceof Error?e.message:'Could not resolve shared account access.')}})});
+  return()=>{cancelled=true;data.subscription.unsubscribe()};
+ },[]);
+ useEffect(()=>{if(!session)return;const repo=new SupabaseProduct2Repository(session.accountId,session.displayName,session.email);repo.load().then(loaded=>setWorkbook(loaded??emptyWorkbook(session.accountId,session.displayName))).catch(e=>setError(e instanceof Error?e.message:'Could not load Product 2.'))},[session]);
+ const persist=async(next:Product2Workbook)=>{if(!session)return;next.account.updatedAt=new Date().toISOString();await new SupabaseProduct2Repository(session.accountId,session.displayName,session.email).save(next);setWorkbook(structuredClone(next));};
+ const recordDebtPayment=async(payment:Parameters<SupabaseProduct2Repository['appendDebtPayment']>[0])=>{if(!session)return;const repo=new SupabaseProduct2Repository(session.accountId,session.displayName,session.email);await repo.appendDebtPayment(payment);const refreshed=await repo.load();if(refreshed)setWorkbook(refreshed)};
+ if(!supabase||!authReady||authLoading){if(!supabase)return <main className="setup"><article className="card setup-card"><div className="brand-mark">P2</div><h1>Product 2 cloud configuration required</h1><p>Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> before starting the production app.</p></article></main>;return <main className="loading">Checking your account…</main>}
+ if(!session)return <AccountRequired/>; if(session.productAccess!=='active')return <ProductAccessRequired/>; if(!workbook)return <main className="loading">Loading Product 2…</main>;
+ const current=modules.find(m=>m.id===active)!; const displayName=session.displayName||session.email.split('@')[0];
+ return <main className="app-shell">
+  <aside className="sidebar"><div className="brand"><div className="brand-mark">P2</div><div><strong>Savings & Debt</strong><span>Wealth Tracker</span></div></div>
+   <nav><div className="nav-section-label">Workspace</div>{modules.map(m=>{const Icon=m.icon;return <button key={m.id} className={active===m.id?'nav-item active':'nav-item'} onClick={()=>go(m.id)}><Icon size={16}/><span>{m.label}</span></button>})}<button className="nav-item nav-home" onClick={()=>window.location.assign('/')}><Home size={16}/><span>Return to Toolkit</span></button></nav>
+   <div className="sidebar-footer"><p className="independence">Independent Product 2 workspace. Shared platform account, Product 2-owned data and calculations.</p><div className="profile-row"><div className="profile"><div className="profile-icon"><User size={15}/></div><div className="profile-copy"><strong>{displayName}</strong><span>{session.email}</span></div></div><button className="signout" title="Sign out" onClick={async()=>{await signOut();setSession(null);setWorkbook(null)}}><LogOut size={14}/></button></div></div>
+  </aside>
+  <section className="content"><header className="topbar"><div className="topbar-brand"><div className="topbar-logo"><Target size={17}/></div><div><strong>Savings Goal and Debt Tracker</strong><span>Set Goals • Pay Down Debt • Build Wealth • Stay on Track</span></div></div><div className="topbar-actions"><span className="account-pill"><ShieldCheck size={12}/> Shared account</span><button className="launcher" onClick={()=>window.location.assign('/')}>Apps Launcher <ArrowRight size={13}/></button></div></header>
+   <div className="formula-strip"><span className="sheet-name">{current.label}</span><span className="formula-text">Product 2 · {session.email}</span><span className="live-pill">LIVE DATA</span></div>
+   <div className="viewport"><div className="page"><div className="page-heading"><div><p className="eyebrow">Savings Goals & Debt Management</p><h1>{current.label}</h1><p>Own your progress, understand your obligations, and choose a repayment strategy with confidence.</p></div><button className="secondary" onClick={()=>go('dashboard')}><LayoutDashboard size={14}/> Dashboard</button></div>{error&&<div className="alert danger">{error}</div>}
+    {active==='start'&&<Start workbook={workbook} currency={workbook.settings.currency}/>}
+    {active==='settings'&&<SettingsView workbook={workbook} onSave={persist}/>}
+    {active==='goals'&&<GoalsView workbook={workbook} onSave={persist}/>}
+    {active==='contributions'&&<ContributionsView workbook={workbook} onSave={persist}/>}
+    {active==='debts'&&<DebtsView workbook={workbook} onSave={persist}/>}
+    {active==='payments'&&<PaymentsView workbook={workbook} onRecordPayment={recordDebtPayment}/>}
+    {active==='planner'&&<PlannerView debts={workbook.debts} currency={workbook.settings.currency}/>}
+    {active==='dashboard'&&<Dashboard workbook={workbook}/>}
+   </div></div>
+  </section>
+ </main>;
 }
 
-function AccountRequired() {
-  return <main className="setup"><article className="card setup-card">
-    <div className="brand-mark">P2</div>
-    <p className="eyebrow">Toolkit account required</p>
-    <h1>Sign in to the Toolkit first</h1>
-    <p>Product 2 is an independent tool, but authentication is owned by the shared Toolkit account. Return to the Toolkit to sign in or complete onboarding.</p>
-    <button className="primary" onClick={() => window.location.assign('/')}>Return to Toolkit</button>
-  </article></main>;
+function AccountRequired(){return <main className="setup"><article className="card setup-card"><div className="brand-mark">P2</div><p className="eyebrow">Toolkit account required</p><h1>Sign in to the Toolkit first</h1><p>Authentication is owned by the shared Toolkit account. Product 2 remains an independent tool after sign-in.</p><button className="primary" onClick={()=>window.location.assign('/')}>Return to Toolkit</button></article></main>}
+function ProductAccessRequired(){return <main className="setup"><article className="card setup-card"><div className="brand-mark">P2</div><p className="eyebrow">Product 2 access</p><h1>This tool is not enabled for your account</h1><p>Your subscription and app access are managed by the Toolkit. Product 2 does not create a second subscription.</p><button className="primary" onClick={()=>window.location.assign('/')}>Return to Toolkit</button></article></main>}
+
+function KpiCard({label,value,detail,tone='neutral'}:{label:string;value:string;detail?:string;tone?:'positive'|'negative'|'neutral'|'warning'}){return <article className={`kpi kpi-${tone}`}><span>{label}</span><strong>{value}</strong>{detail&&<small>{detail}</small>}</article>}
+function Status({children,tone}:{children:string;tone:'positive'|'neutral'|'negative'|'warning'}){return <span className={`status ${tone}`}>{children}</span>}
+function Progress({value,tone='positive'}:{value:number;tone?:'positive'|'neutral'|'negative'|'warning'}){return <div className="progress"><div className={`progress-fill ${tone}`} style={{width:`${Math.min(100,Math.max(0,value))}%`}}/></div>}
+
+function Start({workbook,currency}:{workbook:Product2Workbook;currency:string}){
+ const savings=workbook.savingsGoals.reduce((s,g)=>s+calculateSavingsProgress(g,workbook.savingsContributions).currentBalance,0);
+ const debt=workbook.debts.reduce((s,d)=>s+d.balance,0); const progress=workbook.savingsGoals.reduce((s,g)=>s+Math.min(100,calculateSavingsProgress(g,workbook.savingsContributions).completionPercentage),0)/(workbook.savingsGoals.length||1);
+ return <><section className="welcome-grid"><article className="hero card"><div className="hero-kicker"><Target size={13}/> PRODUCT 2 WORKSPACE</div><h2>Build savings. Eliminate debt. Keep momentum.</h2><p>Set measurable goals, record contributions and payments, then compare snowball and avalanche strategies from one focused financial workspace.</p><div className="hero-actions"><button className="primary" onClick={()=>go('goals')}>Set a savings goal <ArrowRight size={14}/></button><button className="ghost" onClick={()=>go('debts')}>Add a debt</button></div></article><article className="card quick-card"><p className="eyebrow">At a glance</p><div className="mini-stat"><span>Saved</span><strong>{money(savings,currency)}</strong></div><div className="mini-stat"><span>Debt remaining</span><strong>{money(debt,currency)}</strong></div><div className="mini-stat"><span>Goal progress</span><strong>{pct(progress)}</strong></div></article></section>
+ <section className="section-block"><div className="section-title"><div><p className="eyebrow">Quick Start</p><h2>Everything you need to stay on track</h2></div></div><div className="feature-grid">{[['Track Savings Goals','Set targets, deadlines and categories, then watch each goal move from Not Started to Completed.'],['Manage Contributions','Record every contribution and see exactly how much each goal has accumulated.'],['Manage Debt Accounts','Capture balances, APRs, minimums and payment history with transparent interest assumptions.'],['Compare Payoff Strategies','Run snowball and avalanche scenarios using the same debt data and an extra monthly payment.']].map(([t,d],i)=><article className="feature card" key={t}><div className="feature-icon">{[Target,CircleDollarSign,CreditCard,BarChart3][i]({size:17})}</div><h3>{t}</h3><p>{d}</p><button className="text-link" onClick={()=>go((['goals','contributions','debts','planner'] as PageKey[])[i])}>Open {t} <ArrowRight size={12}/></button></article>)}</div></section>
+ <section className="section-block"><div className="section-title"><div><p className="eyebrow">Navigation</p><h2>Eight focused pages</h2></div></div><div className="link-grid">{modules.map(m=><button className="page-link" key={m.id} onClick={()=>go(m.id)}><m.icon size={16}/><span><strong>{m.label}</strong><small>{m.path.replace('/product2','')||'/'}</small></span><ArrowRight size={13}/></button>)}</div></section></>
 }
 
-function ProductAccessRequired() {
-  return <main className="setup"><article className="card setup-card">
-    <div className="brand-mark">P2</div>
-    <p className="eyebrow">Product 2 access</p>
-    <h1>This tool is not enabled for your account</h1>
-    <p>Your authentication and subscription are managed by the Toolkit. Product 2 does not create a separate subscription or account.</p>
-    <button className="primary" onClick={() => window.location.assign('/')}>Return to Toolkit</button>
-  </article></main>;
+function SettingsView({workbook,onSave}:{workbook:Product2Workbook;onSave:(w:Product2Workbook)=>Promise<void>}){
+ const [currency,setCurrency]=useState(workbook.settings.currency);const [dateFormat,setDateFormat]=useState(workbook.settings.dateFormat);const [message,setMessage]=useState('');
+ return <section className="settings-layout"><article className="card form-card"><div className="section-title"><div><p className="eyebrow">Preferences</p><h2>Workbook settings</h2></div></div><label>Currency<input value={currency} onChange={e=>setCurrency(e.target.value.toUpperCase())}/></label><label>Date format<select value={dateFormat} onChange={e=>setDateFormat(e.target.value)}><option>YYYY-MM-DD</option><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option></select></label><div className="assumption-box"><ShieldCheck size={15}/><div><strong>Interest model</strong><p>Simple periodic interest is used for Product 2 projections. It is an estimate, not lender-verified amortization.</p></div></div><button className="primary" onClick={async()=>{try{await onSave({...workbook,account:{...workbook.account,currency},settings:{...workbook.settings,currency,dateFormat}});setMessage('Settings saved.')}catch(e){setMessage(e instanceof Error?e.message:'Could not save settings.')}}}>Save settings</button>{message&&<p className="form-message">{message}</p>}</article><article className="card"><p className="eyebrow">Reference lists</p><h3>Savings goal categories</h3><div className="tag-list">{goalCategories.map(x=><span key={x}>{x}</span>)}</div><h3 className="mt">Debt types</h3><div className="tag-list">{debtTypes.map(x=><span key={x}>{x}</span>)}</div><p className="muted">These are controlled Product 2 classifications; no separate CRUD tables are required.</p></article></section>
 }
 
-function Start({ workbook, savings, debt, payoff }: { workbook: Product2Workbook; savings: number; debt: number; payoff: number | null }) {
-  return <div className="grid"><article className="hero card"><p className="eyebrow">Welcome, {workbook.account.displayName}</p><h2>One independent workspace for goals and debt.</h2><p>Product 2 stores its own workbook namespace and calculates savings progress, payment allocation, and repayment scenarios without Product 1.</p>
-    <div className="stats"><Metric label="Savings" value={savings.toFixed(2)} /><Metric label="Debt" value={debt.toFixed(2)} /><Metric label="Debts" value={String(workbook.debts.length)} /><Metric label="Goals" value={String(workbook.savingsGoals.length)} /></div></article>
-    <article className="card"><p className="eyebrow">Repayment</p><h3>Current avalanche projection</h3><strong>{payoff == null ? 'No payoff within projection horizon' : payoff === 0 ? 'No active debt' : `${payoff} periods`}</strong><p className="muted">Missing interest rates are treated as 0% under the documented Product 2 assumptions.</p></article></div>;
+function GoalsView({workbook,onSave}:{workbook:Product2Workbook;onSave:(w:Product2Workbook)=>Promise<void>}){
+ const [name,setName]=useState('');const [category,setCategory]=useState<SavingsGoalCategory>('Emergency Fund');const [target,setTarget]=useState('');const [opening,setOpening]=useState('0');const [date,setDate]=useState('');const [message,setMessage]=useState('');
+ const rows=workbook.savingsGoals.map(g=>({g,p:calculateSavingsProgress(g,workbook.savingsContributions)}));
+ const totalTarget=rows.reduce((s,x)=>s+x.g.targetAmount,0);const saved=rows.reduce((s,x)=>s+x.p.currentBalance,0);const progress=totalTarget?Math.min(100,saved/totalTarget*100):0;
+ const add=async()=>{const goal:SavingsGoal={id:id('goal'),accountId:workbook.account.id,name:name.trim(),category,targetAmount:Number(target),openingBalance:Number(opening),targetDate:date||undefined,status:'active'};const errors=validateSavingsGoal(goal);if(errors.length){setMessage(errors.join(' '));return}await onSave({...workbook,savingsGoals:[...workbook.savingsGoals,goal]});setName('');setTarget('');setOpening('0');setDate('');setMessage('Goal added.')};
+ return <><div className="kpi-grid"><KpiCard label="Total Goals" value={String(rows.length)} detail="Active Product 2 goals"/><KpiCard label="Total Target Amount" value={money(totalTarget,workbook.settings.currency)}/><KpiCard label="Total Saved So Far" value={money(saved,workbook.settings.currency)} tone="positive"/><KpiCard label="Overall Progress" value={pct(progress)} tone={progress>=100?'positive':'neutral'}/></div><section className="split-layout"><article className="card form-card"><p className="eyebrow">Create goal</p><h2>New savings goal</h2><label>Goal name<input value={name} onChange={e=>setName(e.target.value)} placeholder="Emergency Fund"/></label><div className="two-col"><label>Category<select value={category} onChange={e=>setCategory(e.target.value as SavingsGoalCategory)}>{goalCategories.map(x=><option key={x}>{x}</option>)}</select></label><label>Target date<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label></div><div className="two-col"><label>Target amount<input type="number" min="0" value={target} onChange={e=>setTarget(e.target.value)}/></label><label>Opening saved<input type="number" min="0" value={opening} onChange={e=>setOpening(e.target.value)}/></label></div><button className="primary" onClick={add}><Plus size={14}/> Add savings goal</button>{message&&<p className="form-message">{message}</p>}</article><article className="card"><p className="eyebrow">Goal status</p><div className="goal-stack">{rows.slice(0,5).map(({g,p})=><div className="goal-mini" key={g.id}><div className="row-between"><strong>{g.name}</strong><Status tone={p.status==='Completed'?'positive':p.status==='In Progress'?'neutral':'neutral'}>{p.status}</Status></div><div className="goal-meta"><span>{g.category}</span><span>{money(p.currentBalance,workbook.settings.currency)} / {money(g.targetAmount,workbook.settings.currency)}</span></div><Progress value={p.completionPercentage}/></div>)}{!rows.length&&<p className="muted">Create your first goal to begin tracking.</p>}</div></article></section><DataTable title="Savings goals" columns={['Goal Name','Category','Target Amount','Target Date','Saved So Far','Progress','Status','']}><>{rows.map(({g,p})=><tr key={g.id}><td><strong>{g.name}</strong></td><td>{g.category}</td><td>{money(g.targetAmount,workbook.settings.currency)}</td><td>{g.targetDate||'—'}</td><td>{money(p.currentBalance,workbook.settings.currency)}</td><td><div className="table-progress"><span>{pct(p.completionPercentage)}</span><Progress value={p.completionPercentage}/></div></td><td><Status tone={p.status==='Completed'?'positive':'neutral'}>{p.status}</Status></td><td><button className="icon" onClick={()=>onSave({...workbook,savingsGoals:workbook.savingsGoals.filter(x=>x.id!==g.id),savingsContributions:workbook.savingsContributions.filter(x=>x.goalId!==g.id)})}><Trash2 size={14}/></button></td></tr>)}{!rows.length&&<tr><td colSpan={8} className="empty">No savings goals yet.</td></tr>}</></DataTable></>
 }
 
-function Metric({label,value}:{label:string;value:string}) { return <div className="metric"><span>{label}</span><strong>{value}</strong></div>; }
-
-function GoalsView({ workbook, onSave }: { workbook: Product2Workbook; onSave: (w: Product2Workbook) => Promise<void> }) {
-  const [name,setName]=useState(''); const [target,setTarget]=useState(''); const [opening,setOpening]=useState('0'); const [message,setMessage]=useState('');
-  const add=async()=>{ const goal:SavingsGoal={id:id('goal'),accountId:workbook.account.id,name:name.trim(),targetAmount:Number(target),openingBalance:Number(opening),status:'active'}; const errors=validateSavingsGoal(goal); if(errors.length){setMessage(errors.join(' '));return;} await onSave({...workbook,savingsGoals:[...workbook.savingsGoals,goal]}); setName('');setTarget('');setOpening('0');setMessage('Goal added.'); };
-  return <section><div className="card form-grid"><div><p className="eyebrow">New goal</p><label>Name<input value={name} onChange={e=>setName(e.target.value)} /></label><label>Target amount<input type="number" min="0" value={target} onChange={e=>setTarget(e.target.value)} /></label><label>Opening balance<input type="number" min="0" value={opening} onChange={e=>setOpening(e.target.value)} /></label><button className="primary" onClick={add}>Add savings goal</button>{message&&<p className="form-message">{message}</p>}</div><div><p className="eyebrow">Goals</p>{workbook.savingsGoals.map(g=>{const p=calculateSavingsProgress(g,workbook.savingsContributions);return <div className="list-row" key={g.id}><div><strong>{g.name}</strong><small>{p.currentBalance.toFixed(2)} / {g.targetAmount.toFixed(2)} · {p.completionPercentage.toFixed(0)}%</small></div><button className="icon" onClick={()=>onSave({...workbook,savingsGoals:workbook.savingsGoals.filter(x=>x.id!==g.id),savingsContributions:workbook.savingsContributions.filter(x=>x.goalId!==g.id)})}><Trash2 size={16}/></button></div>})}{!workbook.savingsGoals.length&&<p className="muted">No savings goals yet.</p>}</div></div></section>;
+function ContributionsView({workbook,onSave}:{workbook:Product2Workbook;onSave:(w:Product2Workbook)=>Promise<void>}){
+ const [goalId,setGoalId]=useState(workbook.savingsGoals[0]?.id||'');const [amount,setAmount]=useState('');const [date,setDate]=useState(today());const [note,setNote]=useState('');const [message,setMessage]=useState('');
+ const total=workbook.savingsContributions.reduce((s,c)=>s+c.amount,0);const avg=workbook.savingsContributions.length?total/workbook.savingsContributions.length:0;
+ const add=async()=>{const value=Number(amount);if(!goalId||!Number.isFinite(value)||value<=0){setMessage('Select a goal and enter a positive amount.');return}await onSave({...workbook,savingsContributions:[...workbook.savingsContributions,{id:id('contribution'),accountId:workbook.account.id,goalId,date,amount:value,note:note.trim()||undefined}]});setAmount('');setNote('');setMessage('Contribution recorded.')};
+ return <><div className="kpi-grid"><KpiCard label="Total Contributed" value={money(total,workbook.settings.currency)} tone="positive"/><KpiCard label="Number of Contributions" value={String(workbook.savingsContributions.length)}/><KpiCard label="Average Contribution" value={money(avg,workbook.settings.currency)}/></div><section className="card form-card"><div className="form-row-wide"><div><p className="eyebrow">Record contribution</p><h2>Add to a goal</h2></div><button className="secondary" onClick={()=>go('goals')}><Target size={14}/> Manage goals</button></div><div className="four-col"><label>Date<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><label>Goal<select value={goalId} onChange={e=>setGoalId(e.target.value)}>{workbook.savingsGoals.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label><label>Amount<input type="number" min="0" value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>Note<input value={note} onChange={e=>setNote(e.target.value)} placeholder="Optional"/></label></div><button className="primary" disabled={!workbook.savingsGoals.length} onClick={add}><Plus size={14}/> Record contribution</button>{message&&<p className="form-message">{message}</p>}</section><DataTable title="Contribution history" columns={['Date','Goal','Amount','Note']}><>{workbook.savingsContributions.map(c=><tr key={c.id}><td>{c.date}</td><td><strong>{workbook.savingsGoals.find(g=>g.id===c.goalId)?.name||'Unknown goal'}</strong></td><td className="money-positive">{money(c.amount,workbook.settings.currency)}</td><td>{c.note||'—'}</td></tr>)}{!workbook.savingsContributions.length&&<tr><td colSpan={4} className="empty">No contributions yet.</td></tr>}</></DataTable></>
 }
 
-function ContributionsView({ workbook, onSave }: { workbook: Product2Workbook; onSave: (w: Product2Workbook) => Promise<void> }) {
-  const [goalId,setGoalId]=useState(workbook.savingsGoals[0]?.id||''); const [amount,setAmount]=useState(''); const [message,setMessage]=useState('');
-  const add=async()=>{const value=Number(amount);if(!goalId||!Number.isFinite(value)||value<=0){setMessage('Select a goal and enter a positive amount.');return;}await onSave({...workbook,savingsContributions:[...workbook.savingsContributions,{id:id('contribution'),accountId:workbook.account.id,goalId,date:today(),amount:value}]});setAmount('');setMessage('Contribution recorded.');};
-  return <section className="card"><p className="eyebrow">Savings contribution</p>{workbook.savingsGoals.length?<><label>Goal<select value={goalId} onChange={e=>setGoalId(e.target.value)}>{workbook.savingsGoals.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label><label>Amount<input type="number" min="0" value={amount} onChange={e=>setAmount(e.target.value)}/></label><button className="primary" onClick={add}>Record contribution</button>{message&&<p className="form-message">{message}</p>}<div className="table">{workbook.savingsContributions.map(c=><div className="list-row" key={c.id}><span>{c.date}</span><strong>{c.amount.toFixed(2)}</strong><small>{workbook.savingsGoals.find(g=>g.id===c.goalId)?.name}</small></div>)}</div></>:<p className="muted">Create a savings goal first.</p>}</section>;
+function DebtsView({workbook,onSave}:{workbook:Product2Workbook;onSave:(w:Product2Workbook)=>Promise<void>}){
+ const [creditor,setCreditor]=useState('');const [type,setType]=useState<DebtType>('Credit Card');const [balance,setBalance]=useState('');const [rate,setRate]=useState('');const [minimum,setMinimum]=useState('');const [message,setMessage]=useState('');
+ const totalOriginal=workbook.debts.reduce((s,d)=>s+d.openingBalance,0);const totalCurrent=workbook.debts.reduce((s,d)=>s+d.balance,0);const paid=totalOriginal-totalCurrent;
+ const add=async()=>{const debt:DebtAccount={id:id('debt'),accountId:workbook.account.id,creditor:creditor.trim(),type,openingBalance:Number(balance),balance:Number(balance),interestRate:rate===''?undefined:Number(rate),minimumPayment:Number(minimum),paymentFrequency:'monthly',status:'active'};const errors=validateDebt(debt);if(errors.length){setMessage(errors.join(' '));return}await onSave({...workbook,debts:[...workbook.debts,debt]});setCreditor('');setBalance('');setRate('');setMinimum('');setMessage('Debt account added.')};
+ return <><div className="assumption-banner"><AlertTriangle size={16}/><div><strong>Interest assumption</strong><span>Interest accrual is modeled as simple monthly interest on the current balance at the stated APR unless you provide an amortization schedule. It is not a lender-verified projection.</span></div></div><div className="kpi-grid"><KpiCard label="Debt Accounts" value={String(workbook.debts.length)}/><KpiCard label="Original Balance" value={money(totalOriginal,workbook.settings.currency)}/><KpiCard label="Current Balance" value={money(totalCurrent,workbook.settings.currency)} tone={totalCurrent===0?'positive':'negative'}/><KpiCard label="Total Paid Off" value={money(Math.max(0,paid),workbook.settings.currency)} tone="positive"/></div><section className="card form-card"><p className="eyebrow">Add account</p><h2>New debt account</h2><div className="four-col"><label>Account name<input value={creditor} onChange={e=>setCreditor(e.target.value)} placeholder="Credit Card"/></label><label>Debt type<select value={type} onChange={e=>setType(e.target.value as DebtType)}>{debtTypes.map(x=><option key={x}>{x}</option>)}</select></label><label>Original balance<input type="number" min="0" value={balance} onChange={e=>setBalance(e.target.value)}/></label><label>APR %<input type="number" min="0" value={rate} onChange={e=>setRate(e.target.value)} placeholder="Unknown"/></label></div><div className="two-col narrow"><label>Minimum payment<input type="number" min="0" value={minimum} onChange={e=>setMinimum(e.target.value)}/></label><div className="form-end"><button className="primary" onClick={add}><Plus size={14}/> Add debt account</button></div></div>{message&&<p className="form-message">{message}</p>}</section><DataTable title="Debt accounts" columns={['Account','Type','Original','Current','APR','Minimum','Payoff Progress','Status','']}><>{workbook.debts.map(d=>{const paidAmount=Math.max(0,d.openingBalance-d.balance);const pp=d.openingBalance?Math.min(100,paidAmount/d.openingBalance*100):100;const status=d.balance<=0?'Paid Off':'Active';return <tr key={d.id}><td><strong>{d.creditor}</strong></td><td>{d.type}</td><td>{money(d.openingBalance,workbook.settings.currency)}</td><td>{money(d.balance,workbook.settings.currency)}</td><td>{d.interestRate==null?<Status tone="warning">Unknown</Status>:d.interestRate.toFixed(2)+'%'}</td><td>{money(d.minimumPayment,workbook.settings.currency)}</td><td><div className="table-progress"><span>{pct(pp)}</span><Progress value={pp}/></div></td><td><Status tone={status==='Paid Off'?'positive':'negative'}>{status}</Status></td><td><button className="icon" onClick={()=>onSave({...workbook,debts:workbook.debts.filter(x=>x.id!==d.id),debtPayments:workbook.debtPayments.filter(p=>p.debtId!==d.id)})}><Trash2 size={14}/></button></td></tr>})}{!workbook.debts.length&&<tr><td colSpan={9} className="empty">No debt accounts yet.</td></tr>}</></DataTable></>
 }
 
-function DebtsView({ workbook, onSave }: { workbook: Product2Workbook; onSave: (w: Product2Workbook) => Promise<void> }) {
-  const [creditor,setCreditor]=useState('');const [balance,setBalance]=useState('');const [rate,setRate]=useState('');const [minimum,setMinimum]=useState('');const [message,setMessage]=useState('');
-  const add=async()=>{const debt:DebtAccount={id:id('debt'),accountId:workbook.account.id,creditor:creditor.trim(),openingBalance:Number(balance),balance:Number(balance),interestRate:rate===''?undefined:Number(rate),minimumPayment:Number(minimum),paymentFrequency:'monthly',status:'active'};const errors=validateDebt(debt);if(errors.length){setMessage(errors.join(' '));return;}await onSave({...workbook,debts:[...workbook.debts,debt]});setCreditor('');setBalance('');setRate('');setMinimum('');setMessage('Debt added.');};
-  return <section className="card form-grid"><div><p className="eyebrow">New debt</p><label>Creditor<input value={creditor} onChange={e=>setCreditor(e.target.value)}/></label><label>Balance<input type="number" min="0" value={balance} onChange={e=>setBalance(e.target.value)}/></label><label>Annual interest rate %<input type="number" min="0" value={rate} onChange={e=>setRate(e.target.value)} placeholder="Unknown"/></label><label>Minimum payment<input type="number" min="0" value={minimum} onChange={e=>setMinimum(e.target.value)}/></label><button className="primary" onClick={add}>Add debt</button>{message&&<p className="form-message">{message}</p>}</div><div><p className="eyebrow">Debt accounts</p>{workbook.debts.map(d=><div className="list-row" key={d.id}><div><strong>{d.creditor}</strong><small>{d.balance.toFixed(2)} · {d.interestRate == null ? 'Rate unknown' : `${d.interestRate}%`} · min {d.minimumPayment.toFixed(2)}</small></div><button className="icon" onClick={()=>onSave({...workbook,debts:workbook.debts.filter(x=>x.id!==d.id),debtPayments:workbook.debtPayments.filter(p=>p.debtId!==d.id)})}><Trash2 size={16}/></button></div>)}{!workbook.debts.length&&<p className="muted">No debt accounts yet.</p>}</div></section>;
+function PaymentsView({workbook,onRecordPayment}:{workbook:Product2Workbook;onRecordPayment:(p:Parameters<SupabaseProduct2Repository['appendDebtPayment']>[0])=>Promise<void>}){
+ const [debtId,setDebtId]=useState(workbook.debts[0]?.id||'');const [amount,setAmount]=useState('');const [date,setDate]=useState(today());const [note,setNote]=useState('');const [message,setMessage]=useState('');
+ const month=new Date().toISOString().slice(0,7);const thisMonth=workbook.debtPayments.filter(p=>p.date.startsWith(month)).reduce((s,p)=>s+p.amount,0);const all=workbook.debtPayments.reduce((s,p)=>s+p.amount,0);
+ const debt=workbook.debts.find(d=>d.id===debtId);const preview=debt?calculatePaymentAllocation(debt,Number(amount)||0):null;
+ const add=async()=>{if(!debt||!Number.isFinite(Number(amount))||Number(amount)<=0){setMessage('Select a debt and enter a positive amount.');return}try{const allocation=calculatePaymentAllocation(debt,Number(amount));await onRecordPayment({id:id('payment'),accountId:workbook.account.id,debtId:debt.id,date,amount:allocation.total,principal:allocation.principal,interest:allocation.interest,fees:allocation.fees,note:note.trim()||undefined});setAmount('');setNote('');setMessage('Payment recorded. Principal and interest are estimated under the Product 2 assumption model.')}catch(e){setMessage(e instanceof Error?e.message:'Could not record the debt payment.')}};
+ return <><div className="kpi-grid"><KpiCard label="Paid This Month" value={money(thisMonth,workbook.settings.currency)} tone="positive"/><KpiCard label="Paid All-Time" value={money(all,workbook.settings.currency)}/><KpiCard label="Number of Payments" value={String(workbook.debtPayments.length)}/></div><section className="card form-card"><p className="eyebrow">Record payment</p><h2>Debt payment</h2><div className="four-col"><label>Date<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><label>Debt account<select value={debtId} onChange={e=>setDebtId(e.target.value)}>{workbook.debts.map(d=><option key={d.id} value={d.id}>{d.creditor}</option>)}</select></label><label>Amount<input type="number" min="0" value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>Note<input value={note} onChange={e=>setNote(e.target.value)} placeholder="Optional"/></label></div>{preview&&<div className="allocation"><span>Principal <strong>{money(preview.principal,workbook.settings.currency)}</strong></span><span>Interest <strong>{money(preview.interest,workbook.settings.currency)}</strong></span><span>Total <strong>{money(preview.total,workbook.settings.currency)}</strong></span></div>}<button className="primary" disabled={!workbook.debts.length} onClick={add}><Plus size={14}/> Record debt payment</button>{message&&<p className="form-message">{message}</p>}</section><DataTable title="Payment history" columns={['Date','Debt Account','Amount','Principal','Interest','Note']}><>{workbook.debtPayments.map(p=><tr key={p.id}><td>{p.date}</td><td>{workbook.debts.find(d=>d.id===p.debtId)?.creditor||'Unknown'}</td><td className="money-negative">{money(p.amount,workbook.settings.currency)}</td><td>{money(p.principal??0,workbook.settings.currency)}</td><td>{money(p.interest??0,workbook.settings.currency)}</td><td>{p.note||'Estimated split'}</td></tr>)}{!workbook.debtPayments.length&&<tr><td colSpan={6} className="empty">No debt payments yet.</td></tr>}</></DataTable></>
 }
 
-function PaymentsView({ workbook, onRecordPayment }: { workbook: Product2Workbook; onRecordPayment: (payment: Parameters<SupabaseProduct2Repository['appendDebtPayment']>[0]) => Promise<void> }) {
-  const [debtId,setDebtId]=useState(workbook.debts[0]?.id||'');const [amount,setAmount]=useState('');const [message,setMessage]=useState('');
-  const debt=workbook.debts.find(d=>d.id===debtId);const preview=debt?calculatePaymentAllocation(debt,Number(amount)||0):null;
-  const add=async()=>{if(!debt||!Number.isFinite(Number(amount))||Number(amount)<=0){setMessage('Select a debt and enter a positive amount.');return;}const allocation=calculatePaymentAllocation(debt,Number(amount));try{await onRecordPayment({id:id('payment'),accountId:workbook.account.id,debtId:debt.id,date:today(),amount:allocation.total,principal:allocation.principal,interest:allocation.interest,fees:allocation.fees});setAmount('');setMessage(`Payment recorded: ${allocation.principal.toFixed(2)} principal, ${allocation.interest.toFixed(2)} interest, ${allocation.fees.toFixed(2)} fees.`);}catch(e){setMessage(e instanceof Error?e.message:'Could not record the debt payment.');}};
-  return <section className="card"><p className="eyebrow">Debt payment</p>{workbook.debts.length?<><label>Debt<select value={debtId} onChange={e=>setDebtId(e.target.value)}>{workbook.debts.map(d=><option key={d.id} value={d.id}>{d.creditor}</option>)}</select></label><label>Requested payment<input type="number" min="0" value={amount} onChange={e=>setAmount(e.target.value)}/></label>{preview&&<div className="allocation"><span>Principal {preview.principal.toFixed(2)}</span><span>Interest {preview.interest.toFixed(2)}</span><span>Fees {preview.fees.toFixed(2)}</span><span>Total {preview.total.toFixed(2)}</span></div>}<button className="primary" onClick={add}>Record debt payment</button>{message&&<p className="form-message">{message}</p>}<div className="table">{workbook.debtPayments.map(p=><div className="list-row" key={p.id}><span>{p.date}</span><strong>{p.amount.toFixed(2)}</strong><small>{workbook.debts.find(d=>d.id===p.debtId)?.creditor} · principal {p.principal?.toFixed(2)}</small></div>)}</div></>:<p className="muted">Create a debt account first.</p>}</section>;
-}
-function PlannerView({ debts }: { debts: DebtAccount[] }) {
-  const scenarios=['minimum','snowball','avalanche'] as const;return <section className="grid">{scenarios.map(strategy=>{const p=projectRepaymentScenario(debts,strategy);return <article className="card" key={strategy}><p className="eyebrow">{strategy}</p><h2>{p.payoffMonth==null?'Beyond horizon':`${p.payoffMonth} periods`}</h2><p>Total interest {p.totalInterest.toFixed(2)}</p><p>Total payments {p.totalPayments.toFixed(2)}</p><small>Payoff order: {p.order.length?p.order.join(' → '):'none'}</small></article>})}</section>;
+function PlannerView({debts,currency}:{debts:DebtAccount[];currency:string}){
+ const [extra,setExtra]=useState('0');const extraValue=Math.max(0,Number(extra)||0);const snow=projectRepaymentScenario(debts,'snowball',extraValue);const ava=projectRepaymentScenario(debts,'avalanche',extraValue);const missing=debts.filter(d=>d.balance>0&&d.interestRate==null);const fmt=(m:number|null)=>m==null?'Beyond 100 years':m===0?'Debt free':`${m} months`;
+ return <><div className="warning-banner"><AlertTriangle size={17}/><strong>Projections are estimates only.</strong><span>Actual payoff timelines depend on your lender's rates, fees, payment timing, and terms, which may differ from what you enter here.</span></div>{missing.length>0&&<div className="alert warning">Missing interest rates are treated as 0% for projections. Add rates for {missing.map(d=>d.creditor).join(', ')} to improve accuracy.</div>}<section className="planner-controls card"><div><p className="eyebrow">Scenario input</p><h2>Extra monthly payment</h2><p className="muted">This amount is applied to the strategy target after minimum payments.</p></div><div className="planner-input"><span>{currency}</span><input type="number" min="0" value={extra} onChange={e=>setExtra(e.target.value)}/></div></section><div className="comparison-grid"><ScenarioCard title="Snowball" subtitle="Lowest balance first" scenario={snow} debts={debts} currency={currency}/><ScenarioCard title="Avalanche" subtitle="Highest APR first" scenario={ava} debts={debts} currency={currency}/></div><section className="card chart-card"><div className="section-title"><div><p className="eyebrow">Strategy comparison</p><h2>Projected months to debt-free</h2></div></div><div className="compare-bars"><div><span>Snowball</span><div className="compare-track"><i style={{width:`${snow.payoffMonth==null?100:Math.min(100,snow.payoffMonth/120*100)}%`}}/></div><strong>{fmt(snow.payoffMonth)}</strong></div><div><span>Avalanche</span><div className="compare-track"><i style={{width:`${ava.payoffMonth==null?100:Math.min(100,ava.payoffMonth/120*100)}%`}}/></div><strong>{fmt(ava.payoffMonth)}</strong></div></div></section></>
 }
 
-function Dashboard({ workbook }: { workbook: Product2Workbook }) {
-  const goalProgress=workbook.savingsGoals.map(g=>calculateSavingsProgress(g,workbook.savingsContributions));const savings=goalProgress.reduce((s,g)=>s+g.currentBalance,0);const debt=workbook.debts.reduce((s,d)=>s+d.balance,0);return <section className="grid"><article className="card"><p className="eyebrow">Savings</p><h2>{savings.toFixed(2)}</h2><p>{workbook.savingsGoals.length} goal(s), {goalProgress.filter(g=>g.completionPercentage===100).length} completed.</p></article><article className="card"><p className="eyebrow">Debt</p><h2>{debt.toFixed(2)}</h2><p>{workbook.debts.length} account(s), {workbook.debts.filter(d=>d.status==='paid').length} paid.</p></article></section>;
-}
+function ScenarioCard({title,subtitle,scenario,debts,currency}:{title:string;subtitle:string;scenario:any;debts:DebtAccount[];currency:string}){return <article className="card scenario-card"><div className="scenario-heading"><div><p className="eyebrow">{subtitle}</p><h2>{title}</h2></div><BarChart3 size={20}/></div><div className="scenario-stats"><div><span>Debt-free</span><strong>{scenario.payoffMonth==null?'—':scenario.payoffMonth+' mo'}</strong></div><div><span>Total interest</span><strong>{money(scenario.totalInterest,currency)}</strong></div><div><span>Total paid</span><strong>{money(scenario.totalPayments,currency)}</strong></div></div><p className="muted">Order: {scenario.order.map((id:string)=>debts.find(d=>d.id===id)?.creditor||id).join(' → ')||'No active debt'}</p></article>}
 
-function SettingsView({ workbook, onSave }: { workbook: Product2Workbook; onSave: (w: Product2Workbook) => Promise<void> }) {
-  const [currency, setCurrency] = useState(workbook.settings.currency);
-  const [message, setMessage] = useState('');
-
-  return <section className="card">
-    <p className="eyebrow">Product 2 settings</p>
-    <label>Currency<input value={currency} onChange={e => setCurrency(e.target.value.toUpperCase())}/></label>
-    <p className="muted">Interest convention: nominal annual · Payment timing: end of period · Minimum payment policy: configured minimum.</p>
-    <p className="muted">Authentication, subscription, and app access are managed by the shared Toolkit account.</p>
-    <button className="primary" onClick={async () => {
-      try {
-        await onSave({...workbook, account:{...workbook.account,currency}, settings:{...workbook.settings,currency}});
-        setMessage('Settings saved.');
-      } catch (e) {
-        setMessage(e instanceof Error ? e.message : 'Could not save settings.');
-      }
-    }}>Save settings</button>
-    {message && <p className="form-message">{message}</p>}
-  </section>;
+function Dashboard({workbook}:{workbook:Product2Workbook}){
+ const currency=workbook.settings.currency;const goals=workbook.savingsGoals.map(g=>({g,p:calculateSavingsProgress(g,workbook.savingsContributions)}));const saved=goals.reduce((s,x)=>s+x.p.currentBalance,0);const target=goals.reduce((s,x)=>s+x.g.targetAmount,0);const debts=workbook.debts;const debt=debts.reduce((s,d)=>s+d.balance,0);const original=debts.reduce((s,d)=>s+d.openingBalance,0);const net=saved-debt;const savingsProgress=target?Math.min(100,saved/target*100):0;const debtProgress=original?Math.min(100,Math.max(0,(original-debt)/original*100)):100;const topGoal=[...goals].sort((a,b)=>b.p.completionPercentage-a.p.completionPercentage)[0];const topRate=[...debts].sort((a,b)=>(b.interestRate??0)-(a.interestRate??0))[0];const interestYear=workbook.debtPayments.filter(p=>p.date.startsWith(String(new Date().getFullYear()))).reduce((s,p)=>s+(p.interest??0),0);const ava=projectRepaymentScenario(debts,'avalanche',0);
+ const maxGoal=Math.max(1,...goals.map(x=>x.p.currentBalance));const maxDebt=Math.max(1,...debts.map(d=>d.balance));
+ return <><div className="kpi-grid dashboard-kpis"><KpiCard label="Total Saved" value={money(saved,currency)} tone="positive"/><KpiCard label="Total Debt Remaining" value={money(debt,currency)} tone={debt===0?'positive':'negative'}/><KpiCard label="Net Worth Trend" value={money(net,currency)} tone={net>=0?'positive':'negative'} detail="Saved minus debt"/><KpiCard label="Savings Progress" value={pct(savingsProgress)}/><KpiCard label="Debt Payoff Progress" value={pct(debtProgress)} tone={debtProgress>=50?'positive':'neutral'}/></div>
+ <div className="chart-grid"><BarChart title="Savings Progress by Goal" labels={goals.map(x=>x.g.name)} values={goals.map(x=>x.p.currentBalance)} max={maxGoal} formatter={v=>money(v,currency)}/><BarChart title="Debt Balance by Account" labels={debts.map(d=>d.creditor)} values={debts.map(d=>d.balance)} max={maxDebt} formatter={v=>money(v,currency)}/></div>
+ <div className="chart-grid"><TrendChart workbook={workbook}/><BarChart title="Snowball vs Avalanche Projected Payoff" labels={['Snowball','Avalanche']} values={[projectRepaymentScenario(debts,'snowball',0).payoffMonth??1200,ava.payoffMonth??1200]} max={1200} formatter={v=>`${Math.round(v)} mo`}/></div>
+ <section className="insights-grid"><article className="card insight-card"><p className="eyebrow">Key insights</p><div className="insight"><Target size={15}/><span>Closest goal</span><strong>{topGoal?topGoal.g.name+' · '+pct(topGoal.p.completionPercentage):'No goals yet'}</strong></div><div className="insight"><CreditCard size={15}/><span>Highest APR</span><strong>{topRate?topRate.creditor+' · '+(topRate.interestRate==null?'Rate unknown':topRate.interestRate.toFixed(2)+'%'):'No debts yet'}</strong></div><div className="insight"><CircleDollarSign size={15}/><span>Interest paid this year</span><strong>{money(interestYear,currency)}</strong></div><div className="insight"><CalendarDays size={15}/><span>Projected debt-free</span><strong>{ava.payoffMonth==null?'Beyond 100 years':ava.payoffMonth===0?'Already debt free':`in ${ava.payoffMonth} months`}</strong></div></article><article className="card insight-card"><p className="eyebrow">Health check</p><HealthRow label="Savings momentum" ok={savingsProgress>=50}/><HealthRow label="Debt reduction" ok={debtProgress>=25||debt===0}/><HealthRow label="Interest data complete" ok={debts.filter(d=>d.balance>0).every(d=>d.interestRate!=null)}/><HealthRow label="Goals have deadlines" ok={goals.length>0&&goals.every(x=>Boolean(x.g.targetDate))}/></article></section></>
 }
+function HealthRow({label,ok}:{label:string;ok:boolean}){return <div className="health-row">{ok?<CheckCircle2 size={15}/>:<AlertTriangle size={15}/>}<span>{label}</span><Status tone={ok?'positive':'warning'}>{ok?'On track':'Review'}</Status></div>}
+function BarChart({title,labels,values,max,formatter}:{title:string;labels:string[];values:number[];max:number;formatter:(v:number)=>string}){return <article className="card chart-card"><div className="section-title"><div><p className="eyebrow">Overview</p><h2>{title}</h2></div></div>{labels.length?<div className="bar-chart">{labels.map((l,i)=><div className="bar-row" key={l}><div className="bar-label"><span>{l}</span><strong>{formatter(values[i])}</strong></div><div className="bar-track"><i style={{width:`${Math.min(100,values[i]/max*100)}%`}}/></div></div>):<p className="empty">No data available yet.</p>}</article>}
+function TrendChart({workbook}:{workbook:Product2Workbook}){const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-(5-i));const key=d.toISOString().slice(0,7);const saved=workbook.savingsContributions.filter(x=>x.date.slice(0,7)<=key).reduce((s,x)=>s+x.amount,0)+workbook.savingsGoals.reduce((s,g)=>s+g.openingBalance,0);const paid=workbook.debtPayments.filter(x=>x.date.slice(0,7)<=key).reduce((s,x)=>s+(x.principal??0),0);return {key,saved,paid,net:saved-paid}});const max=Math.max(1,...months.map(x=>Math.max(x.saved,x.paid)));return <article className="card chart-card"><div className="section-title"><div><p className="eyebrow">Trend</p><h2>Savings vs Debt Trend</h2></div></div><div className="trend-chart">{months.map(m=><div className="trend-col" key={m.key}><div className="trend-bars"><i style={{height:`${m.saved/max*100}%`}}/><i className="debt" style={{height:`${m.paid/max*100}%`}}/></div><span>{m.key.slice(5)}</span></div>)}</div><div className="legend"><span><i/> Saved</span><span><i className="debt"/> Principal paid</span></div></article>}
+function DataTable({title,columns,children}:{title:string;columns:string[];children:any}){return <section className="card table-card"><div className="section-title"><div><p className="eyebrow">Ledger</p><h2>{title}</h2></div></div><div className="table-wrap"><table><thead><tr>{columns.map(c=><th key={c}>{c}</th>)}</tr></thead><tbody>{children}</tbody></table></div></section>}
+
+export default App;
