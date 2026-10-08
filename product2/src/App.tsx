@@ -25,7 +25,7 @@ const goalCategories:SavingsGoalCategory[]=['Emergency Fund','Vacation','Home','
 const debtTypes:DebtType[]=['Credit Card','Personal Loan','Auto Loan','Student Loan','Mortgage','Other'];
 const money=(n:number,currency:string)=>new Intl.NumberFormat(undefined,{style:'currency',currency:currency||'USD',maximumFractionDigits:2}).format(Number.isFinite(n)?n:0);
 const pct=(n:number)=>`${Math.max(0,n).toFixed(1)}%`;
-const pathPage=():PageKey=>{const p=window.location.pathname.replace(/\\/+$/,'')||'/'; return modules.find(m=>m.path.replace(/\\/+$/,'')===p)?.id || (p==='/product2'?'start':'start');};
+const pathPage=():PageKey=>{const p=window.location.pathname.replace(/\\/+$/,'')||'/'; return modules.find(m=>m.path.replace(/\/+$/,'')===p)?.id || (p==='/product2'?'start':'start');};
 const go=(key:PageKey)=>{const m=modules.find(x=>x.id===key)!;window.history.pushState({},'',m.path);window.dispatchEvent(new PopStateEvent('popstate'));};
 
 function emptyWorkbook(accountId:string,displayName:string,currency='SLE'):Product2Workbook{
