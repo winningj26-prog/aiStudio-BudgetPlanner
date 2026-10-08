@@ -198,7 +198,8 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
       const planned = (plannedIncome[cat.name] || 0) * scaleFactor;
       const actual = sumIncomeInPeriod(cat.name);
       return calculateBudgetItem(cat.name, 'income', planned, actual);
-    });
+    })
+    .filter((item) => item.planned > 0 || item.actual > 0);
 
   // 2. Build Expense Budget Items
   const expenseItems: BudgetItem[] = expenseCategories
@@ -207,7 +208,8 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
       const planned = (plannedExpenses[cat.name] || 0) * scaleFactor;
       const actual = sumExpensesInPeriod(cat.name);
       return calculateBudgetItem(cat.name, 'expense', planned, actual);
-    });
+    })
+    .filter((item) => item.planned > 0 || item.actual > 0);
 
   // Overall Totals derived from calculated frequency budget items
   const totalPlannedIncome = incomeItems.reduce((sum, item) => sum + item.planned, 0);
@@ -637,6 +639,14 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
                   </td>
                 </tr>
 
+                {incomeItems.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-semibold bg-slate-50/10">
+                      No budgeted income targets added for this period. Click the 'Create Income Budget' button to add one.
+                    </td>
+                  </tr>
+                )}
+
                 {incomeItems.map((item) => (
                   <tr
                     key={item.category}
@@ -745,6 +755,14 @@ export const MonthlyBudgetSheet: React.FC<MonthlyBudgetSheetProps> = ({
                     Expense Budgets (Spending Ceilings)
                   </td>
                 </tr>
+
+                {expenseItems.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-semibold bg-slate-50/10">
+                      No budgeted expense spending limits added for this period. Click the 'Create Expense Budget' button to add one.
+                    </td>
+                  </tr>
+                )}
 
                 {expenseItems.map((item) => {
                   const isOverBudget = item.actual > item.planned;

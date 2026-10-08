@@ -8,24 +8,24 @@ import {
 } from '../../types/budget';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import {
-  AlertCircle,
-  ArrowRight,
+  TrendingDown,
   Calculator,
-  Calendar,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
+  AlertCircle,
+  Sparkles,
   CreditCard,
-  DollarSign,
-  HelpCircle,
-  Info,
+  CheckCircle2,
   Percent,
   Plus,
   RefreshCw,
-  Sparkles,
-  TrendingDown,
   Trash2,
   ListCollapse,
+  ChevronUp,
+  ChevronDown,
+  Info,
+  Scale,
+  Calendar,
+  PiggyBank,
+  Check
 } from 'lucide-react';
 
 interface DebtPayoffSheetProps {
@@ -49,11 +49,12 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
   highlightInputs,
   onSelectCell,
 }) => {
-  // Simulator inputs
-  const [additionalPayment, setAdditionalPayment] = useState<number>(300);
+  // Strategy States
   const [strategy, setStrategy] = useState<'snowball' | 'avalanche' | 'minimums'>('snowball');
+  const [additionalPayment, setAdditionalPayment] = useState<number>(150);
+  const [isAmortizationExpanded, setIsAmortizationExpanded] = useState<boolean>(true);
 
-  // Interactive Debt Form
+  // Form states to Add / Edit Debt
   const [newDebtName, setNewDebtName] = useState('');
   const [newBalance, setNewBalance] = useState('');
   const [newInterestRate, setNewInterestRate] = useState('');
@@ -68,21 +69,14 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
   // Table selection / Excel highlight
   const [activeCellRef, setActiveCellRef] = useState<string | null>(null);
 
-  // Amortization table collapsed state
-  const [isAmortizationExpanded, setIsAmortizationExpanded] = useState(true);
-
-  // Active cell selection helper
-  const handleCellSelect = (ref: string, val: string, formula?: string, isCalc = true) => {
+  const handleCellSelect = (ref: string, val: string, formula = '', isCalculated = false) => {
     setActiveCellRef(ref);
-    onSelectCell({
-      reference: `DebtPayoff!${ref}`,
-      value: val,
-      formula,
-      isCalculated: isCalc,
-    });
+    onSelectCell({ reference: `DebtPayoff!${ref}`, value: val, formula, isCalculated });
   };
 
-  // Add / Edit Debt handler
+  // Color options for debts
+  const DEBT_COLORS = ['#e11d48', '#d97706', '#059669', '#2563eb', '#7c3aed', '#db2777', '#4b5563', '#0891b2'];
+
   const handleAddOrEditDebt = (e: React.FormEvent) => {
     e.preventDefault();
     const bal = parseFloat(newBalance);
@@ -94,42 +88,28 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
       return;
     }
 
-    if (minPay >= bal) {
-      alert('Minimum payment cannot be greater than or equal to the total balance.');
-      return;
-    }
-
     if (editingId) {
-      // Edit
-      const updated = debts.map((d) =>
+      // Save Edit
+      onUpdateDebts(debts.map((d) =>
         d.id === editingId
-          ? {
-              ...d,
-              name: newDebtName.trim(),
-              balance: bal,
-              interestRate: rate,
-              minimumPayment: minPay,
-            }
+          ? { ...d, name: newDebtName.trim(), balance: bal, interestRate: rate, minimumPayment: minPay }
           : d
-      );
-      onUpdateDebts(updated);
+      ));
       setEditingId(null);
     } else {
-      // Add
-      const colors = ['#e11d48', '#0284c7', '#8b5cf6', '#d97706', '#0d9488', '#0891b2', '#4f46e5', '#10b981'];
-      const randomColor = colors[debts.length % colors.length];
+      // Add New Debt
       const newDebt: Debt = {
         id: `debt_${Date.now()}`,
         name: newDebtName.trim(),
         balance: bal,
+        openingBalance: bal,
         interestRate: rate,
         minimumPayment: minPay,
-        color: randomColor,
+        color: DEBT_COLORS[debts.length % DEBT_COLORS.length],
       };
       onUpdateDebts([...debts, newDebt]);
     }
 
-    // Reset Form
     setNewDebtName('');
     setNewBalance('');
     setNewInterestRate('');
@@ -145,25 +125,26 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
   };
 
   const handleDeleteDebt = (id: string) => {
-    onUpdateDebts(debts.filter((d) => d.id !== id));
-    if (editingId === id) {
-      setEditingId(null);
-      setNewDebtName('');
-      setNewBalance('');
-      setNewInterestRate('');
-      setNewMinimumPayment('');
+    if (confirm('Are you sure you want to delete this debt? This resets its payoff schedule calculations.')) {
+      onUpdateDebts(debts.filter((d) => d.id !== id));
+      if (editingId === id) {
+        setEditingId(null);
+        setNewDebtName('');
+        setNewBalance('');
+        setNewInterestRate('');
+        setNewMinimumPayment('');
+      }
     }
   };
 
-  // ----------------------------------------------------
-  // AMORTIZATION ENGINE & PRIORITIZATION
-  // ----------------------------------------------------
+  // Amortization Schedule Core Simulator Engine
   const payoffSimulation = useMemo(() => {
+    const originalTotalBalance = debts.reduce((sum, d) => sum + d.balance, 0);
     if (debts.length === 0) {
       return {
         monthlySchedule: [],
-        debtStats: {} as Record<string, { payoffMonth: number; totalInterest: number }>,
-        scenarios: [] as { name: string; extra: number; label: string; months: number; interest: number; totalPayments: number }[],
+        debtStats: {},
+        scenarios: [],
         overallStats: {
           totalMonths: 0,
           totalInterest: 0,
@@ -179,122 +160,113 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
       };
     }
 
-    const originalTotalBalance = debts.reduce((sum, d) => sum + d.balance, 0);
-
-    // Run BOTH the strategy simulation AND the "Minimums Only" baseline
-    const runSimulation = (simStrategy: 'snowball' | 'avalanche' | 'minimums', simExtraPayment: number) => {
-      // Clone debts to track active state & balances
-      const activeDebts = debts.map((d) => ({
-        ...d,
-        currentBalance: d.balance,
-        monthlyInterestPaid: 0,
+    const runSimulation = (simStrategy: 'snowball' | 'avalanche' | 'minimums', extraPayment: number) => {
+      // Create deep copy of debts
+      let activeDebts = debts.map((d) => ({
+        id: d.id,
+        name: d.name,
+        balance: d.balance,
+        interestRate: d.interestRate,
+        minimumPayment: d.minimumPayment,
         totalInterestPaid: 0,
-        payoffMonth: 0,
+        payoffMonth: null as number | null,
       }));
 
-      const monthlySchedule: any[] = [];
+      const monthlySchedule = [];
+      let month = 0;
       let totalInterest = 0;
       let totalPayments = 0;
-      let month = 0;
-      const maxMonths = 360; // 30 year safety cap
+      const maxSimulationMonths = 360; // 30-year loop ceiling
       let warning = false;
       let warningMsg = '';
 
-      // Total minimums at start
-      const startMinPaymentsSum = activeDebts.reduce((sum, d) => sum + d.minimumPayment, 0);
-      // Total monthly debt payment budget
-      const totalMonthlyBudget = startMinPaymentsSum + simExtraPayment;
+      while (activeDebts.some((d) => d.balance > 0) && month < maxSimulationMonths) {
+        month += 1;
 
-      while (activeDebts.some((d) => d.currentBalance > 0) && month < maxMonths) {
-        month++;
-        const currentActiveDebts = activeDebts.filter((d) => d.currentBalance > 0);
-
-        // 1. Calculate Monthly Interest and verify if payments are sufficient
-        let totalInterestThisMonth = 0;
-        let totalMinPaymentsRequiredThisMonth = 0;
-
-        for (const debt of currentActiveDebts) {
-          const monthlyRate = debt.interestRate / 12 / 100;
-          const interestCharge = debt.currentBalance * monthlyRate;
-
-          if (interestCharge >= debt.minimumPayment) {
-            warning = true;
-            warningMsg = `Warning: The minimum payment for "${debt.name}" is less than its monthly interest charge (${formatCurrency(interestCharge, settings.currency)}). The balance is growing! Please increase payments.`;
+        // 1. Calculate monthly accrued interest
+        activeDebts.forEach((d) => {
+          if (d.balance > 0) {
+            const monthlyInterest = d.balance * (d.interestRate / 100 / 12);
+            d.totalInterestPaid += monthlyInterest;
+            totalInterest += monthlyInterest;
+            d.balance += monthlyInterest;
           }
+        });
 
-          debt.monthlyInterestPaid = interestCharge;
-          debt.totalInterestPaid += interestCharge;
-          totalInterestThisMonth += interestCharge;
-          totalMinPaymentsRequiredThisMonth += debt.minimumPayment;
-        }
+        // 2. Determine available extra accelerator buffer
+        let baseContractualMinimumSum = 0;
+        let activeDebtsForPayment = activeDebts.filter((d) => d.balance > 0);
 
-        totalInterest += totalInterestThisMonth;
+        activeDebtsForPayment.forEach((d) => {
+          baseContractualMinimumSum += d.minimumPayment;
+        });
 
-        // 2. Determine payment allocations
-        const monthlyAllocation: Record<string, number> = {};
-        let pool = totalMonthlyBudget;
+        // Extra snowball is extra payment + minimum payments rolled over from previously paid off debts
+        const totalAllocatedMonthlyPool = baseContractualMinimumSum + (simStrategy === 'minimums' ? 0 : extraPayment);
+        let unusedBufferForAccelerator = totalAllocatedMonthlyPool;
 
-        // If "minimums" or strategy has no extra, pool is just minimum payments required
-        if (simStrategy === 'minimums') {
-          pool = totalMinPaymentsRequiredThisMonth;
-        }
-
-        // Allocate minimum payments first
-        for (const debt of currentActiveDebts) {
-          const minNeeded = Math.min(debt.currentBalance + debt.monthlyInterestPaid, debt.minimumPayment);
-          monthlyAllocation[debt.id] = minNeeded;
-          pool -= minNeeded;
-        }
-
-        // Prioritize any leftover extra payment pool (and rolled-over minimums!)
-        if (pool > 0 && currentActiveDebts.length > 0) {
-          // Sort remaining active debts based on strategy
-          let sortedPriorities = [...currentActiveDebts];
-          if (simStrategy === 'snowball') {
-            // Lowest balance first
-            sortedPriorities.sort((a, b) => a.currentBalance - b.currentBalance);
-          } else if (simStrategy === 'avalanche') {
-            // Highest interest rate first
-            sortedPriorities.sort((a, b) => b.interestRate - a.interestRate);
-          }
-
-          // Distribute the pool to priority debts
-          for (const debt of sortedPriorities) {
-            if (pool <= 0) break;
-            const remainingToPayOff = debt.currentBalance + debt.monthlyInterestPaid - monthlyAllocation[debt.id];
-            if (remainingToPayOff > 0) {
-              const extraToPay = Math.min(remainingToPayOff, pool);
-              monthlyAllocation[debt.id] += extraToPay;
-              pool -= extraToPay;
-            }
-          }
-        }
-
-        // Apply payments to balances (deduct payment, add interest)
+        // 3. Step A: Pay contractual minimums first
         const balanceState: Record<string, number> = {};
-        let totalRemainingBalanceThisMonth = 0;
         let paymentMadeThisMonth = 0;
 
-        for (const debt of activeDebts) {
-          if (debt.currentBalance > 0) {
-            const pay = monthlyAllocation[debt.id] || 0;
-            paymentMadeThisMonth += pay;
-            const newBal = Math.max(0, debt.currentBalance + debt.monthlyInterestPaid - pay);
-            debt.currentBalance = newBal;
+        // Map state for table output
+        const tempDebtPayments: Record<string, number> = {};
+        activeDebts.forEach((d) => {
+          tempDebtPayments[d.id] = 0;
+        });
 
-            if (newBal === 0 && debt.payoffMonth === 0) {
-              debt.payoffMonth = month;
-            }
-            balanceState[debt.id] = newBal;
-            totalRemainingBalanceThisMonth += newBal;
-          } else {
-            balanceState[debt.id] = 0;
+        activeDebtsForPayment.forEach((d) => {
+          const contractualMin = Math.min(d.balance, d.minimumPayment);
+          d.balance -= contractualMin;
+          unusedBufferForAccelerator -= contractualMin;
+          paymentMadeThisMonth += contractualMin;
+          tempDebtPayments[d.id] += contractualMin;
+        });
+
+        // 4. Step B: Apply accelerator buffer to target priority debt
+        if (unusedBufferForAccelerator > 0 && simStrategy !== 'minimums' && activeDebtsForPayment.length > 0) {
+          // Sort active debts by strategy
+          let priorityDebtId = activeDebtsForPayment[0].id;
+
+          if (simStrategy === 'snowball') {
+            // Snowball: lowest balance first
+            const sorted = [...activeDebtsForPayment].sort((a, b) => a.balance - b.balance);
+            priorityDebtId = sorted[0].id;
+          } else if (simStrategy === 'avalanche') {
+            // Avalanche: highest interest rate first
+            const sorted = [...activeDebtsForPayment].sort((a, b) => b.interestRate - a.interestRate);
+            priorityDebtId = sorted[0].id;
+          }
+
+          const targetDebt = activeDebtsForPayment.find((d) => d.id === priorityDebtId);
+          if (targetDebt) {
+            const additionalAccPay = Math.min(targetDebt.balance, unusedBufferForAccelerator);
+            targetDebt.balance -= additionalAccPay;
+            paymentMadeThisMonth += additionalAccPay;
+            tempDebtPayments[targetDebt.id] += additionalAccPay;
           }
         }
 
         totalPayments += paymentMadeThisMonth;
 
-        // Push monthly snapshot
+        // 5. Check if any debt got fully paid off this month
+        activeDebts.forEach((d) => {
+          if (d.balance <= 0 && d.payoffMonth === null) {
+            d.payoffMonth = month;
+          }
+          balanceState[d.id] = Math.max(0, d.balance);
+        });
+
+        // Loop checks & safety limits
+        const totalRemainingBalanceThisMonth = activeDebts.reduce((sum, d) => sum + d.balance, 0);
+        const totalInterestThisMonth = activeDebts.reduce((sum, d) => sum + (d.balance > 0 ? d.balance * (d.interestRate / 100 / 12) : 0), 0);
+
+        if (paymentMadeThisMonth <= totalInterestThisMonth && totalRemainingBalanceThisMonth > 0) {
+          warning = true;
+          warningMsg = `Critical: Your allocated payments (${formatCurrency(paymentMadeThisMonth, settings.currency)}) are insufficient to cover accrued interest (${formatCurrency(totalInterestThisMonth, settings.currency)}). Your outstanding liabilities are growing negatively. Increase your extra payment slider immediately to trigger paydowns.`;
+          break;
+        }
+
         monthlySchedule.push({
           month,
           balances: balanceState,
@@ -424,92 +396,156 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
 
   // Class helper for inputs highlight
   const inputClass = highlightInputs
-    ? 'bg-amber-50/70 border-amber-300 focus:border-amber-400 focus:ring-amber-200'
-    : 'bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-100';
+    ? 'bg-amber-50/70 border-amber-300 focus:border-amber-400 focus:ring-amber-200 focus:ring-2'
+    : 'bg-white border-slate-200 focus:border-rose-500 focus:ring-rose-100 focus:ring-2';
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl space-y-7 p-4 sm:p-6 lg:p-8 selection:bg-rose-500/10 selection:text-rose-700">
+      
       {/* ---------------------------------------------------- */}
       {/* Header Banner */}
       {/* ---------------------------------------------------- */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-600 text-white shadow-xs shrink-0">
-              <TrendingDown className="h-5 w-5" />
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-10 w-14 items-center justify-center rounded-xl bg-linear-to-tr from-rose-600 to-pink-600 text-white shadow-md shadow-rose-600/10 shrink-0">
+              <Scale className="h-5 w-5" />
             </div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-              Debt Payoff Worksheet & Simulator
-            </h2>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-tight">
+                Debt Payoff Worksheet & Simulator
+              </h2>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                Calculate payoff pathways, test snowball/avalanche strategies, and record live loan interest amortizations.
+              </p>
+            </div>
           </div>
-          <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-            Simulate acceleration strategies (Snowball vs. Avalanche) to destroy your debt sooner and save interest.
-          </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700 border border-rose-100">
-            <Calculator className="h-3.5 w-3.5" />
-            <span>Interactive Amortization</span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg select-none">
+            <Calculator className="h-3.5 w-3.5 text-rose-500" /> Amortization Matrix
           </span>
         </div>
       </div>
 
       {/* Warning message from simulation */}
       {payoffSimulation.hasWarning && (
-        <div className="flex gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800 shadow-2xs">
-          <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
+        <div className="flex gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900 shadow-2xs font-semibold leading-relaxed">
+          <AlertCircle className="h-5 w-5 shrink-0 text-rose-600 mt-0.5" />
           <div>
-            <span className="font-bold">Debt Growth Warning: </span>
+            <span className="font-extrabold text-rose-950 block text-sm mb-0.5">Negative Amortization Alert</span>
             {payoffSimulation.warningMessage}
           </div>
         </div>
       )}
 
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5 shadow-xs">
-        <div className="mb-3">
-          <h3 className="font-bold text-slate-900">Record an actual debt payment</h3>
-          <p className="text-xs text-slate-600">Principal reduces the liability; interest is recorded as an expense. The simulator above never changes your actual balances.</p>
+      {/* ---------------------------------------------------- */}
+      {/* Actual Payment Record Form Ledger */}
+      {/* ---------------------------------------------------- */}
+      <div className="rounded-2xl border border-emerald-250 bg-linear-to-tr from-emerald-50/15 via-white to-slate-50 p-5 sm:p-6 shadow-xs relative overflow-hidden">
+        <div className="absolute right-0 top-0 h-32 w-32 bg-radial from-emerald-500/10 to-transparent pointer-events-none" />
+        <div className="mb-4">
+          <h3 className="font-black text-sm text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+            <Check className="h-4.5 w-4.5 text-emerald-600" />
+            <span>Record an actual debt payment</span>
+          </h3>
+          <p className="text-xs text-slate-500 font-semibold mt-0.5 leading-relaxed">
+            Record real-world debt paydowns here. The simulator below is scenario-only and never modifies your actual balances.
+          </p>
         </div>
-        <form onSubmit={handleRecordDebtPayment} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <select value={paymentDebtId} onChange={(e) => setPaymentDebtId(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${inputClass}`}>
-            <option value="">Select debt</option>
-            {debts.map((debt) => <option key={debt.id} value={debt.id}>{debt.name}</option>)}
-          </select>
-          <select value={paymentAccountId} onChange={(e) => setPaymentAccountId(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${inputClass}`}>
-            <option value="">Funding account</option>
-            {financialAssets.filter((asset) => asset.category === 'Cash' || asset.category === 'Bank').map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
-          </select>
-          <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${inputClass}`} />
-          <input type="number" min="0.01" step="0.01" placeholder="Total payment" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${inputClass}`} />
-          <input type="number" min="0" step="0.01" placeholder="Interest portion" value={paymentInterest} onChange={(e) => setPaymentInterest(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${inputClass}`} />
-          <button type="submit" className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800">Record payment</button>
+        <form onSubmit={handleRecordDebtPayment} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Select Debt</label>
+            <select 
+              value={paymentDebtId} 
+              onChange={(e) => setPaymentDebtId(e.target.value)} 
+              className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold text-slate-800 cursor-pointer h-10 ${inputClass}`}
+            >
+              <option value="">Select debt account</option>
+              {debts.map((debt) => <option key={debt.id} value={debt.id}>{debt.name} (${debt.balance.toFixed(0)})</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Funding Account</label>
+            <select 
+              value={paymentAccountId} 
+              onChange={(e) => setPaymentAccountId(e.target.value)} 
+              className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold text-slate-800 cursor-pointer h-10 ${inputClass}`}
+            >
+              <option value="">Select funding source</option>
+              {financialAssets.filter((asset) => asset.category === 'Cash' || asset.category === 'Bank').map((asset) => (
+                <option key={asset.id} value={asset.id}>{asset.name} (${asset.amount.toFixed(0)})</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Payment Date</label>
+            <input 
+              type="date" 
+              value={paymentDate} 
+              onChange={(e) => setPaymentDate(e.target.value)} 
+              className={`w-full rounded-xl border px-3 py-2 text-xs font-mono font-bold text-slate-800 h-10 ${inputClass}`} 
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Total payment ($)</label>
+            <input 
+              type="number" 
+              min="0.01" 
+              step="0.01" 
+              placeholder="0.00" 
+              value={paymentAmount} 
+              onChange={(e) => setPaymentAmount(e.target.value)} 
+              className={`w-full rounded-xl border px-3 py-2 text-xs font-mono font-bold text-slate-800 h-10 ${inputClass}`} 
+            />
+          </div>
+          <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
+            <div className="space-y-1 w-full">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Interest portion ($)</label>
+              <input 
+                type="number" 
+                min="0" 
+                step="0.01" 
+                placeholder="Interest" 
+                value={paymentInterest} 
+                onChange={(e) => setPaymentInterest(e.target.value)} 
+                className={`w-full rounded-xl border px-3 py-2 text-xs font-mono font-bold text-slate-800 h-10 ${inputClass}`} 
+              />
+            </div>
+            <button 
+              type="submit" 
+              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black text-xs h-10 px-4 transition-colors cursor-pointer border border-emerald-500 whitespace-nowrap"
+            >
+              Record Payment
+            </button>
+          </div>
         </form>
       </div>
 
       {/* ---------------------------------------------------- */}
-      {/* Top Row: Executive Strategy Controller & Dashboard Cards */}
+      {/* Executive Strategy Controller & Dashboard Cards */}
       {/* ---------------------------------------------------- */}
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Strategy Control Panel */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-4 space-y-4">
           <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-              <Sparkles className="h-4 w-4 text-rose-600" />
-              <span>Acceleration Settings</span>
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="h-4.5 w-4.5 text-rose-500 animate-pulse" />
+              <span>Acceleration Engine</span>
             </h3>
           </div>
 
-          {/* Strategy Toggle */}
+          {/* Strategy Toggle (Zero Pill Underline tabs styled) */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-500">Acceleration Strategy</label>
-            <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Acceleration Strategy</label>
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
               <button
                 type="button"
                 onClick={() => setStrategy('snowball')}
-                className={`rounded-md py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                className={`rounded-lg py-2 text-xs font-black transition-all cursor-pointer select-none text-center ${
                   strategy === 'snowball'
                     ? 'bg-rose-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-950 font-bold'
                 }`}
                 title="Prioritize lowest balances first (emotional/motivational win)"
               >
@@ -518,10 +554,10 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
               <button
                 type="button"
                 onClick={() => setStrategy('avalanche')}
-                className={`rounded-md py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                className={`rounded-lg py-2 text-xs font-black transition-all cursor-pointer select-none text-center ${
                   strategy === 'avalanche'
                     ? 'bg-rose-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-950 font-bold'
                 }`}
                 title="Prioritize highest interest rates first (mathematically optimal)"
               >
@@ -530,10 +566,10 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
               <button
                 type="button"
                 onClick={() => setStrategy('minimums')}
-                className={`rounded-md py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                className={`rounded-lg py-2 text-xs font-black transition-all cursor-pointer select-none text-center ${
                   strategy === 'minimums'
                     ? 'bg-rose-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-950 font-bold'
                 }`}
                 title="Minimum monthly payments only"
               >
@@ -545,8 +581,8 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
           {/* Additional Monthly Snowball Slider */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-500">Additional Monthly Payment</label>
-              <span className="font-mono text-xs font-bold text-rose-600">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Extra monthly payoff</label>
+              <span className="font-mono text-xs font-black text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded">
                 +{formatCurrency(additionalPayment, settings.currency)}/mo
               </span>
             </div>
@@ -560,27 +596,27 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
               disabled={strategy === 'minimums'}
               className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-rose-600 disabled:opacity-40"
             />
-            <div className="flex items-center justify-between text-[10px] text-slate-400">
+            <div className="flex items-center justify-between text-[9px] font-black text-slate-400 select-none">
               <span>$0</span>
               <span>$1,000</span>
               <span>$2,000</span>
             </div>
           </div>
 
-          <div className="rounded-xl bg-slate-50 p-3 text-[11px] text-slate-600 leading-relaxed border border-slate-100">
+          <div className="rounded-xl bg-slate-50 p-4 text-[11px] text-slate-600 leading-relaxed border border-slate-100 font-medium">
             {strategy === 'snowball' && (
               <p>
-                <strong>Debt Snowball Strategy:</strong> After paying minimums, all extra money ({formatCurrency(additionalPayment, settings.currency)} + rolled-over minimums of paid-off debts) is thrown at the <strong className="text-rose-700">lowest balance debt</strong>. This secures rapid psychological victories!
+                <strong>Snowball Principle:</strong> Contractual minimums are paid across all debts, then any excess pool (<strong className="text-rose-600">{formatCurrency(additionalPayment, settings.currency)}</strong>) is strictly allocated to the <strong className="text-rose-700 font-black">lowest outstanding balance</strong>. This triggers rapid behavioral milestones!
               </p>
             )}
             {strategy === 'avalanche' && (
               <p>
-                <strong>Debt Avalanche Strategy:</strong> After paying minimums, all extra money is applied to the debt with the <strong className="text-rose-700">highest interest rate</strong>. This saves you the maximum amount of interest and pays off the total debt quickest!
+                <strong>Avalanche Principle:</strong> Contractual minimums are paid, then excess resources are channeled to the <strong className="text-rose-700 font-black">highest interest rate</strong> loan first. This minimizes aggregate interest expense and is mathematically optimal.
               </p>
             )}
             {strategy === 'minimums' && (
               <p>
-                <strong>Minimum Payments Only Baseline:</strong> Illustrates the interest and timeline of paying only the minimum contractual payments without using snowballing or extra buffers. Useful as a benchmark!
+                <strong>Baseline:</strong> Demonstrates your payoff horizon when paying only minimum contractual payments. Zero additional monthly snowball is applied. Useful as a benchmark.
               </p>
             )}
           </div>
@@ -590,20 +626,20 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
         <div className="lg:col-span-8 flex flex-col justify-between gap-4">
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {/* KPI 1: Total Debt */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs flex flex-col justify-between min-h-[100px]">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Total Debt Balance</span>
+            <div className="rounded-xl border border-slate-200 bg-white p-4.5 shadow-2xs flex flex-col justify-between min-h-[110px]">
+              <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Total Debt Balance</span>
               <span className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-1">
                 {formatCurrency(payoffSimulation.overallStats.originalTotalBalance, settings.currency)}
               </span>
-              <span className="text-[10px] font-semibold text-slate-500 mt-2 flex items-center gap-1">
+              <span className="text-[10px] font-bold text-slate-500 mt-2 flex items-center gap-1">
                 <CreditCard className="h-3 w-3 text-slate-400 shrink-0" />
                 <span>Across {debts.length} outstanding accounts</span>
               </span>
             </div>
 
             {/* KPI 2: Final Payoff Month */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs flex flex-col justify-between min-h-[100px]">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Debt Free Goal</span>
+            <div className="rounded-xl border border-slate-200 bg-white p-4.5 shadow-2xs flex flex-col justify-between min-h-[110px]">
+              <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Debt Free Horizon</span>
               <span className="text-xl sm:text-2xl font-black text-rose-700 font-mono mt-1">
                 {getPayoffDateString(payoffSimulation.overallStats.totalMonths)}
               </span>
@@ -614,36 +650,36 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
             </div>
 
             {/* KPI 3: Interest Paid */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs flex flex-col justify-between min-h-[100px]">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Total Interest Paid</span>
+            <div className="rounded-xl border border-slate-200 bg-white p-4.5 shadow-2xs flex flex-col justify-between min-h-[110px]">
+              <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Total Interest Cost</span>
               <span className="text-xl sm:text-2xl font-black text-amber-700 font-mono mt-1">
                 {formatCurrency(payoffSimulation.overallStats.totalInterest, settings.currency)}
               </span>
               <span className="text-[10px] font-semibold text-slate-500 mt-2">
-                Equivalent to {((payoffSimulation.overallStats.totalInterest / (payoffSimulation.overallStats.originalTotalBalance || 1)) * 100).toFixed(1)}% of starting principal
+                Equivalent to {((payoffSimulation.overallStats.totalInterest / (payoffSimulation.overallStats.originalTotalBalance || 1)) * 100).toFixed(1)}% of initial principal
               </span>
             </div>
 
             {/* KPI 4: Accelerated Savings */}
-            <div className="rounded-xl border border-slate-200 bg-emerald-50/70 border-emerald-200 p-4 shadow-2xs flex flex-col justify-between min-h-[100px]">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 block">Saved with Snowball</span>
+            <div className="rounded-xl border border-emerald-250 bg-emerald-50/50 p-4.5 shadow-2xs flex flex-col justify-between min-h-[110px]">
+              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-800 block">Snowball Savings</span>
               <span className="text-xl sm:text-2xl font-black text-emerald-800 font-mono mt-1">
                 {formatCurrency(payoffSimulation.overallStats.interestSaved, settings.currency)}
               </span>
               <span className="text-[10px] font-bold text-emerald-700 mt-2 flex items-center gap-1">
-                <span>Accelerated payoff by <strong className="underline">{payoffSimulation.overallStats.monthsSaved} months</strong> sooner!</span>
+                <span>Payoff accelerated by <strong className="underline">{payoffSimulation.overallStats.monthsSaved} months</strong>!</span>
               </span>
             </div>
           </div>
 
           {/* Graphical paydown progress bar */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                 <TrendingDown className="h-4 w-4 text-rose-500" />
-                <span>Overall Debt Amortization Progress</span>
+                <span>Liability Allocation Matrix</span>
               </span>
-              <span className="font-mono text-xs font-bold text-slate-500">
+              <span className="font-mono text-xs font-semibold text-slate-500">
                 {debts.length > 0 ? '100% Amortized Schedule Calculated' : 'No debts entered'}
               </span>
             </div>
@@ -651,7 +687,7 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
             {/* Simulated payoff distribution visualization */}
             {debts.length > 0 ? (
               <div className="space-y-4">
-                <div className="relative h-6 w-full rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex">
+                <div className="relative h-6 w-full rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex">
                   {debts.map((debt, index) => {
                     const pctOfTotal = (debt.balance / payoffSimulation.overallStats.originalTotalBalance) * 100;
                     return (
@@ -667,34 +703,35 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                     );
                   })}
                 </div>
-                {/* Micro Color Legend for entered debts */}
-                <div className="flex flex-wrap items-center gap-4 text-xs">
+                {/* Micro Color Legend for entered debts (unboxed metadata) */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
                   {debts.map((debt) => (
                     <div key={debt.id} className="flex items-center gap-1.5">
                       <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: debt.color }} />
-                      <span className="font-semibold text-slate-700">{debt.name}</span>
-                      <span className="font-mono text-slate-500">({formatCurrency(debt.balance, settings.currency)})</span>
+                      <span className="font-bold text-slate-700">{debt.name}</span>
+                      <span aria-hidden="true" className="text-slate-300">•</span>
+                      <span className="font-mono text-slate-500 font-semibold">{formatCurrency(debt.balance, settings.currency)}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* Scenario payoff timeline simulator */}
-                <div className="mt-5 pt-4 border-t border-slate-100 space-y-3">
+                <div className="mt-5 pt-4 border-t border-slate-150 space-y-3.5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                        Interactive Timeline Multi-Scenario Simulator
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                        Interactive Multi-Scenario Timeline Simulator
                       </h4>
-                      <p className="text-[10px] text-slate-400">
-                        Varying additional monthly payment levels compared side-by-side. Click to select a budget level.
+                      <p className="text-[10px] text-slate-500 font-semibold leading-relaxed">
+                        Compare additional payment scenarios side-by-side. Click any option to update your plan selection.
                       </p>
                     </div>
-                    <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                    <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 uppercase tracking-wider">
                       Live Simulation
                     </span>
                   </div>
 
-                  <div className="space-y-2.5">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                     {payoffSimulation.scenarios?.map((scen) => {
                       const isActive = scen.extra === additionalPayment;
                       const isMinOnly = scen.extra === 0;
@@ -709,37 +746,31 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                               setAdditionalPayment(scen.extra);
                             }
                           }}
-                          className={`group/scen rounded-xl border p-3 transition-all cursor-pointer text-left ${
+                          className={`group/scen rounded-xl border p-3.5 transition-all duration-200 cursor-pointer text-left flex flex-col justify-between select-none ${
                             isActive
-                              ? 'border-rose-300 bg-rose-50/20 shadow-3xs ring-1 ring-rose-200'
-                              : 'border-slate-150 bg-slate-50/30 hover:bg-slate-50 hover:border-slate-200'
+                              ? 'border-rose-300 bg-rose-50/15 shadow-2xs ring-1 ring-rose-200'
+                              : 'border-slate-150 bg-slate-50/40 hover:bg-slate-50 hover:border-slate-200'
                           }`}
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className={`flex h-4.5 w-4.5 items-center justify-center rounded-full text-[9px] font-bold ${
-                                  isActive ? 'bg-rose-600 text-white font-bold' : 'bg-slate-200 text-slate-600'
-                                }`}
-                              >
-                                {isMinOnly ? 'M' : `+`}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-[10px] font-black uppercase tracking-wider ${isActive ? 'text-rose-700' : 'text-slate-400'}`}>
+                                {scen.label}
                               </span>
-                              <span className={`text-xs font-extrabold ${isActive ? 'text-rose-900' : 'text-slate-800'}`}>
-                                {scen.name} <span className="font-mono text-slate-500 font-medium">({scen.label})</span>
-                              </span>
+                              {isActive && <Check className="h-3 w-3 text-rose-600" />}
                             </div>
-                            <div className="text-right">
-                              <span className="font-mono text-xs font-black text-slate-900">
-                                {scen.months} months
+                            <div>
+                              <span className="font-mono text-base font-black text-slate-950 block leading-none">
+                                {scen.months} mos
                               </span>
-                              <span className="text-[10px] text-slate-400 block font-semibold leading-none">
-                                to zero debt
+                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
+                                to zero balance
                               </span>
                             </div>
                           </div>
 
                           {/* Graphical timeline bar */}
-                          <div className="relative w-full h-2 rounded-full bg-slate-200/60 overflow-hidden">
+                          <div className="relative w-full h-1.5 rounded-full bg-slate-200/60 overflow-hidden my-2.5">
                             <div
                               style={{ width: `${Math.max(12, Math.min(100, (scen.months / (payoffSimulation.overallStats.minimumsTotalMonths || 120)) * 100))}%` }}
                               className={`h-full rounded-full transition-all duration-300 ${
@@ -748,14 +779,15 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                             />
                           </div>
 
-                          <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 font-medium">
-                            <span className="font-mono">Total Interest: {formatCurrency(scen.interest, settings.currency)}</span>
-                            {monthsSaved > 0 && (
-                              <span className="font-bold text-emerald-600">
-                                Saved {monthsSaved} months & {formatCurrency(interestSaved, settings.currency)}
+                          <div className="space-y-1 text-[9px] font-bold text-slate-500 mt-1">
+                            <span className="font-mono block truncate">Cost: {formatCurrency(scen.interest, settings.currency)}</span>
+                            {monthsSaved > 0 ? (
+                              <span className="font-black text-emerald-600 block truncate">
+                                Saved {monthsSaved}m (-{formatCurrency(interestSaved, settings.currency)})
                               </span>
+                            ) : (
+                              isMinOnly && <span className="text-slate-400 block uppercase tracking-wider font-black">Baseline</span>
                             )}
-                            {isMinOnly && <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px]">Baseline</span>}
                           </div>
                         </div>
                       );
@@ -764,9 +796,10 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-6 text-slate-400 text-xs">
-                <Info className="h-5 w-5 mb-1" />
-                <span>Input debts below to visualize your combined paydown path</span>
+              <div className="flex flex-col items-center justify-center py-10 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                <Info className="h-7 w-7 text-rose-400 mb-2" />
+                <span className="font-bold text-slate-700">No Combined Paydown Calculated</span>
+                <p className="text-[10px] text-slate-500 mt-0.5">Input your outstanding debt records below to simulate strategy pathways.</p>
               </div>
             )}
           </div>
@@ -774,13 +807,13 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
       </div>
 
       {/* ---------------------------------------------------- */}
-      {/* Middle Grid: Excel Sheet Style Debt Ledger & Edit Form */}
+      {/* Debt Ledger & Edit Form */}
       {/* ---------------------------------------------------- */}
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Form to Add / Edit Debts */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-4">
-          <div className="border-b border-slate-100 pb-3 mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-800">
+          <div className="border-b border-slate-150 pb-3 mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
               {editingId ? 'Edit Outstanding Debt' : 'Add Outstanding Debt'}
             </h3>
             {editingId && (
@@ -793,32 +826,32 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                   setNewInterestRate('');
                   setNewMinimumPayment('');
                 }}
-                className="text-xs text-rose-600 font-semibold hover:underline"
+                className="text-xs text-rose-600 font-extrabold hover:underline"
               >
                 Cancel Edit
               </button>
             )}
           </div>
 
-          <form onSubmit={handleAddOrEditDebt} className="space-y-3.5">
+          <form onSubmit={handleAddOrEditDebt} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Debt Name</label>
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Debt Account Name</label>
               <div className="relative">
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Chase Visa, Car Loan"
+                  placeholder="e.g. Chase Visa, Auto Loan"
                   value={newDebtName}
                   onChange={(e) => setNewDebtName(e.target.value)}
-                  className={`w-full rounded-lg border py-2 pl-3 pr-8 text-xs font-semibold outline-none transition-all ${inputClass}`}
+                  className={`w-full rounded-xl border py-2.5 pl-3.5 pr-9 text-xs font-semibold outline-none transition-all h-10 ${inputClass}`}
                 />
-                <CreditCard className="absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                <CreditCard className="absolute right-3 top-3 h-4 w-4 text-slate-400" />
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-1">
-                <label className="block text-xs font-bold text-slate-500 mb-1">Balance</label>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Balance</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -828,14 +861,14 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                     placeholder="5000"
                     value={newBalance}
                     onChange={(e) => setNewBalance(e.target.value)}
-                    className={`w-full rounded-lg border py-2 pl-6 pr-1 text-xs font-mono font-bold outline-none transition-all ${inputClass}`}
+                    className={`w-full rounded-xl border py-2.5 pl-6 pr-1 text-xs font-mono font-bold outline-none transition-all h-10 ${inputClass}`}
                   />
-                  <DollarSign className="absolute left-1.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <span className="absolute left-2.5 top-2.5 font-mono text-xs text-slate-400 font-bold">$</span>
                 </div>
               </div>
 
-              <div className="col-span-1">
-                <label className="block text-xs font-bold text-slate-500 mb-1">Rate (%)</label>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Rate (%)</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -846,14 +879,14 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                     placeholder="18.9"
                     value={newInterestRate}
                     onChange={(e) => setNewInterestRate(e.target.value)}
-                    className={`w-full rounded-lg border py-2 pl-2 pr-5 text-xs font-mono font-bold outline-none transition-all ${inputClass}`}
+                    className={`w-full rounded-xl border py-2.5 pl-2 pr-5 text-xs font-mono font-bold outline-none transition-all h-10 ${inputClass}`}
                   />
-                  <Percent className="absolute right-1.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <Percent className="absolute right-2.5 top-3.5 h-3 w-3 text-slate-400" />
                 </div>
               </div>
 
-              <div className="col-span-1">
-                <label className="block text-xs font-bold text-slate-500 mb-1">Min. Pay</label>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Min. Pay</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -863,26 +896,26 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                     placeholder="120"
                     value={newMinimumPayment}
                     onChange={(e) => setNewMinimumPayment(e.target.value)}
-                    className={`w-full rounded-lg border py-2 pl-6 pr-1 text-xs font-mono font-bold outline-none transition-all ${inputClass}`}
+                    className={`w-full rounded-xl border py-2.5 pl-6 pr-1 text-xs font-mono font-bold outline-none transition-all h-10 ${inputClass}`}
                   />
-                  <DollarSign className="absolute left-1.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <span className="absolute left-2.5 top-2.5 font-mono text-xs text-slate-400 font-bold">$</span>
                 </div>
               </div>
             </div>
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2.5 shadow-sm transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs py-3.5 shadow-md shadow-rose-600/10 hover:shadow-rose-600/15 border border-rose-500 transition-all cursor-pointer h-10 select-none uppercase tracking-wider"
             >
-              <Plus className="h-4 w-4" />
-              <span>{editingId ? 'Save Debt Modifications' : 'Add Outstanding Debt'}</span>
+              <Plus className="h-4 w-4 stroke-[2.5]" />
+              <span>{editingId ? 'Save Debt Modifications' : 'Add Debt Account'}</span>
             </button>
           </form>
 
-          <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3 text-[11px] text-slate-500 leading-normal flex items-start gap-2">
-            <Info className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+          <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-4 text-[11px] text-slate-500 leading-normal flex items-start gap-2.5 font-medium">
+            <Info className="h-4.5 w-4.5 text-slate-400 shrink-0 mt-0.5" />
             <div>
-              <strong className="text-slate-700 block">Amortization Tip:</strong>
+              <strong className="text-slate-700 block font-bold mb-0.5">Dual-Ledger Accounting:</strong>
               Your regular monthly debt payments should be modeled in your expense log under "Debt Payments" categories to maintain an accurate cashflow budget!
             </div>
           </div>
@@ -890,12 +923,12 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
 
         {/* Google Sheets Style Spreadsheet Grid for Debts */}
         <div className="rounded-2xl border border-[#cbddec] bg-white shadow-xs overflow-hidden lg:col-span-8 flex flex-col justify-between">
-          <div className="bg-gradient-to-r from-[#eef6fc] to-[#f4f9fd] border-b border-[#cbddec] px-4 py-2.5 flex items-center justify-between">
-            <span className="text-xs font-bold text-[#1d4d7a] flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-rose-600" />
+          <div className="bg-gradient-to-r from-[#eef6fc] to-[#f4f9fd] border-b border-[#cbddec] px-4 py-3 flex items-center justify-between select-none">
+            <span className="text-xs font-black text-[#1d4d7a] flex items-center gap-1.5 uppercase tracking-wider">
+              <span className="h-2 w-2 rounded-full bg-rose-600 animate-pulse" />
               <span>tbl_Debt_Ledger • Double-entry formatted</span>
             </span>
-            <span className="text-[10px] font-bold text-slate-500 uppercase">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">
               GRID: COLUMN A to F
             </span>
           </div>
@@ -906,24 +939,24 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
               <thead>
                 <tr className="bg-slate-100 border-b border-[#cbddec] text-center text-slate-500 select-none text-[10px] font-bold h-6">
                   <td className="w-8 border-r border-[#cbddec] bg-[#f1f5f9]"></td>
-                  <td className="border-r border-[#cbddec] text-left px-3">A</td>
-                  <td className="border-r border-[#cbddec]">B</td>
-                  <td className="border-r border-[#cbddec]">C</td>
-                  <td className="border-r border-[#cbddec]">D</td>
-                  <td className="border-r border-[#cbddec]">E</td>
-                  <td className="border-r border-[#cbddec]">F</td>
+                  <td className="border-r border-[#cbddec] text-left px-3 font-mono">A</td>
+                  <td className="border-r border-[#cbddec] font-mono">B</td>
+                  <td className="border-r border-[#cbddec] font-mono">C</td>
+                  <td className="border-r border-[#cbddec] font-mono">D</td>
+                  <td className="border-r border-[#cbddec] font-mono">E</td>
+                  <td className="border-r border-[#cbddec] font-mono">F</td>
                   <td className="w-20 bg-[#f1f5f9]"></td>
                 </tr>
                 {/* Table Field Titles Row */}
                 <tr className="bg-slate-50/80 border-b border-[#cbddec] text-[#0c325c] font-black text-xs select-none">
                   <th className="border-r border-[#cbddec] bg-slate-100 text-center text-slate-400 text-[10px] h-8">#</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 font-bold">Debt Name</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-bold w-28">Starting Balance</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-bold w-24">Interest Rate</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-bold w-28">Min. Monthly</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-center font-bold w-32">Payoff Date</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-bold w-32">Est. Interest</th>
-                  <th className="px-3 py-1.5 text-center font-bold">Actions</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 font-black uppercase tracking-wider">Debt Name</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-28">Starting Balance</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-24">Interest Rate</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-28">Min. Monthly</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-center font-black uppercase tracking-wider w-32">Payoff Date</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-32">Est. Interest</th>
+                  <th className="px-3 py-1.5 text-center font-black uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
 
@@ -934,24 +967,21 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                   const dStats = payoffSimulation.debtStats[debt.id] || { payoffMonth: 0, totalInterest: 0 };
                   const payoffStr = getPayoffDateString(dStats.payoffMonth);
 
-                  // Unique cell highlights
-                  const rowRef = `DebtPayoff!Row_${rId}`;
-
                   return (
                     <tr
                       key={debt.id}
                       onClick={() => handleCellSelect(`A${rId}`, `${debt.name} details`, `=tbl_Debt_Ledger[${debt.name}]`, false)}
                       className={`hover:bg-slate-50 border-b border-[#cbddec]/40 transition-colors cursor-pointer group ${
-                        activeCellRef?.startsWith(`A${rId}`) ? 'bg-blue-50/60' : ''
+                        activeCellRef?.startsWith(`A${rId}`) ? 'bg-blue-50/60 font-bold' : ''
                       }`}
                     >
                       {/* Row Gutters */}
-                      <td className="border-r border-[#cbddec] bg-slate-100 text-center font-medium text-slate-400 text-[10px] select-none h-9">
+                      <td className="border-r border-[#cbddec] bg-slate-100 text-center font-bold text-slate-400 text-[10px] select-none h-9 font-mono">
                         {rId}
                       </td>
 
                       {/* Column A: Name */}
-                      <td className="border-r border-[#cbddec] px-3 py-1.5 font-semibold text-slate-800">
+                      <td className="border-r border-[#cbddec] px-3 py-1.5 font-bold text-slate-800">
                         <div className="flex items-center gap-2">
                           <span className="h-2.5 w-2.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: debt.color }} />
                           <span>{debt.name}</span>
@@ -959,22 +989,22 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                       </td>
 
                       {/* Column B: Balance */}
-                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono font-semibold text-slate-800">
+                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono font-bold text-slate-800">
                         {formatCurrency(debt.balance, settings.currency)}
                       </td>
 
                       {/* Column C: Interest Rate */}
-                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono text-slate-600">
+                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono text-slate-600 font-semibold">
                         {debt.interestRate.toFixed(2)}%
                       </td>
 
                       {/* Column D: Minimum payment */}
-                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono text-slate-600">
+                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono text-slate-600 font-semibold">
                         {formatCurrency(debt.minimumPayment, settings.currency)}
                       </td>
 
                       {/* Column E: Payoff Date (Calculated) */}
-                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-center font-bold text-rose-600 bg-rose-50/20 font-mono">
+                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-center font-black text-rose-600 bg-rose-50/10 font-mono">
                         {payoffStr}
                       </td>
 
@@ -985,11 +1015,11 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
 
                       {/* Actions */}
                       <td className="px-3 py-1.5 text-center bg-slate-50/30">
-                        <div className="flex items-center justify-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-center gap-1.5 opacity-60 group-hover:opacity-100 transition-all">
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleEditClick(debt); }}
-                            className="rounded p-1 text-slate-600 hover:bg-slate-200 hover:text-slate-950 cursor-pointer"
+                            className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-200 hover:text-slate-950 cursor-pointer transition-colors"
                             title="Edit this account"
                           >
                             <RefreshCw className="h-3.5 w-3.5" />
@@ -997,7 +1027,7 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleDeleteDebt(debt.id); }}
-                            className="rounded p-1 text-rose-600 hover:bg-rose-100 hover:text-rose-950 cursor-pointer"
+                            className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-100 hover:text-rose-950 cursor-pointer transition-colors"
                             title="Delete this account"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -1012,8 +1042,8 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                 {debts.length === 0 && (
                   <tr>
                     <td className="border-r border-[#cbddec] bg-slate-100 text-center font-medium text-slate-400 text-[10px] select-none h-12">1</td>
-                    <td colSpan={7} className="px-4 py-6 text-center text-slate-400 text-xs">
-                      No outstanding debts added yet. Use the form on the left to initialize accounts.
+                    <td colSpan={7} className="px-4 py-10 text-center text-slate-400 font-semibold bg-slate-50/10">
+                      No outstanding debts added yet. Use the left panel form to register liabilities and generate schedules.
                     </td>
                   </tr>
                 )}
@@ -1024,13 +1054,13 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                   <td className="border-r border-[#cbddec] px-3 py-2 text-xs font-bold text-slate-800">
                     Total Summary Formula
                   </td>
-                  <td className="border-r border-[#cbddec] px-3 py-2 text-right font-mono font-extrabold text-slate-900 text-xs">
+                  <td className="border-r border-[#cbddec] px-3 py-2 text-right font-mono font-black text-slate-900 text-xs">
                     {formatCurrency(payoffSimulation.overallStats.originalTotalBalance, settings.currency)}
                   </td>
                   <td className="border-r border-[#cbddec] px-3 py-2 text-right font-mono text-slate-500 text-xs">
                     {debts.length > 0 ? `${(debts.reduce((sum, d) => sum + d.interestRate, 0) / debts.length).toFixed(2)}% avg` : '—'}
                   </td>
-                  <td className="border-r border-[#cbddec] px-3 py-2 text-right font-mono text-slate-900 text-xs">
+                  <td className="border-r border-[#cbddec] px-3 py-2 text-right font-mono text-slate-900 text-xs font-black">
                     {formatCurrency(totalMinimumPaymentSum, settings.currency)}
                   </td>
                   <td className="border-r border-[#cbddec] px-3 py-2 text-center text-rose-700 font-black font-mono">
@@ -1039,7 +1069,7 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                   <td className="border-r border-[#cbddec] px-3 py-2 text-right font-mono font-black text-amber-800 text-xs bg-amber-50/20">
                     {formatCurrency(payoffSimulation.overallStats.totalInterest, settings.currency)}
                   </td>
-                  <td className="px-3 py-2 bg-slate-150 text-center text-[10px] text-slate-500 font-bold uppercase select-none">
+                  <td className="px-3 py-2 bg-slate-150 text-center text-[9px] text-slate-500 font-black uppercase select-none">
                     Calculated
                   </td>
                 </tr>
@@ -1056,15 +1086,15 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
         <button
           type="button"
           onClick={() => setIsAmortizationExpanded(!isAmortizationExpanded)}
-          className="w-full bg-slate-50 hover:bg-slate-100 border-b border-[#cbddec] px-4 py-3 flex items-center justify-between transition-colors select-none text-left cursor-pointer"
+          className="w-full bg-slate-50 hover:bg-slate-100 border-b border-[#cbddec] px-4 py-3.5 flex items-center justify-between transition-colors select-none text-left cursor-pointer"
         >
           <div className="flex items-center gap-2">
-            <ListCollapse className="h-4 w-4 text-rose-600" />
-            <h3 className="text-sm font-bold text-slate-800">
+            <ListCollapse className="h-4.5 w-4.5 text-rose-600" />
+            <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">
               Interactive Month-by-Month Payoff Projection
             </h3>
           </div>
-          <div className="flex items-center gap-3 text-xs text-slate-500">
+          <div className="flex items-center gap-3 text-xs text-slate-500 font-bold select-none">
             <span>{isAmortizationExpanded ? 'Collapse' : 'Expand'} Projection Schedule</span>
             {isAmortizationExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </div>
@@ -1073,47 +1103,47 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
         {isAmortizationExpanded && (
           <div className="overflow-x-auto max-h-96 overflow-y-auto">
             <table className="w-full text-left text-xs min-w-[700px] border-collapse relative">
-              <thead className="sticky top-0 bg-slate-100 shadow-sm border-b border-[#cbddec] text-[#0c325c] font-bold z-10">
-                <tr className="border-b border-[#cbddec] text-[10px] text-slate-500">
-                  <th className="w-12 border-r border-[#cbddec] bg-slate-150 text-center py-1 select-none">#</th>
+              <thead className="sticky top-0 bg-slate-100 shadow-xs border-b border-[#cbddec] text-[#0c325c] font-black z-10">
+                <tr className="border-b border-[#cbddec] text-[10px] text-slate-500 select-none">
+                  <th className="w-12 border-r border-[#cbddec] bg-slate-150 text-center py-1.5">#</th>
                   <th className="border-r border-[#cbddec] px-3 py-2 text-center w-20">Month</th>
                   {debts.map((debt) => (
                     <th key={debt.id} className="border-r border-[#cbddec] px-3 py-2 text-right">
                       {debt.name} Balance
                     </th>
                   ))}
-                  <th className="border-r border-[#cbddec] px-3 py-2 text-right w-32 bg-amber-50/30">
-                    Interest This Month
+                  <th className="border-r border-[#cbddec] px-3 py-2 text-right w-32 bg-amber-50/20">
+                    Interest Accrued
                   </th>
-                  <th className="border-r border-[#cbddec] px-3 py-2 text-right w-32 bg-rose-50/30">
-                    Total Monthly Payment
+                  <th className="border-r border-[#cbddec] px-3 py-2 text-right w-32 bg-rose-50/20">
+                    Total Payment
                   </th>
-                  <th className="px-3 py-2 text-right w-32 bg-blue-50/30">
-                    Cumulative Debt Left
+                  <th className="px-3 py-2 text-right w-32 bg-blue-50/20">
+                    Cumulative Remaining
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#cbddec]/60">
                 {payoffSimulation.monthlySchedule.map((row) => (
                   <tr key={row.month} className="hover:bg-slate-50 transition-colors">
-                    <td className="border-r border-[#cbddec] bg-slate-50 text-center text-[10px] text-slate-400 select-none py-1.5 font-mono">
+                    <td className="border-r border-[#cbddec] bg-slate-50 text-center text-[10px] text-slate-400 select-none py-1.5 font-mono font-bold">
                       {row.month}
                     </td>
-                    <td className="border-r border-[#cbddec] px-3 py-1.5 text-center font-mono text-slate-600">
+                    <td className="border-r border-[#cbddec] px-3 py-1.5 text-center font-mono text-slate-600 font-bold">
                       {getPayoffDateString(row.month)}
                     </td>
                     {debts.map((debt) => (
-                      <td key={debt.id} className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono text-slate-700">
+                      <td key={debt.id} className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono text-slate-700 font-semibold">
                         {formatCurrency(row.balances[debt.id] ?? 0, settings.currency)}
                       </td>
                     ))}
-                    <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono text-amber-700 bg-amber-50/10">
+                    <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono text-amber-700 bg-amber-50/5">
                       {formatCurrency(row.interest, settings.currency)}
                     </td>
-                    <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono font-semibold text-rose-600 bg-rose-50/10">
+                    <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono font-semibold text-rose-600 bg-rose-50/5">
                       {formatCurrency(row.payment, settings.currency)}
                     </td>
-                    <td className="px-3 py-1.5 text-right font-mono font-bold text-blue-900 bg-blue-50/10">
+                    <td className="px-3 py-1.5 text-right font-mono font-bold text-blue-900 bg-blue-50/5">
                       {formatCurrency(row.totalRemaining, settings.currency)}
                     </td>
                   </tr>
@@ -1121,8 +1151,8 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
 
                 {payoffSimulation.monthlySchedule.length === 0 && (
                   <tr>
-                    <td colSpan={5 + debts.length} className="px-4 py-8 text-center text-slate-400 text-xs">
-                      No paydown schedule computed. Input accounts above.
+                    <td colSpan={5 + debts.length} className="px-4 py-10 text-center text-slate-400 font-semibold bg-slate-50/5">
+                      No payoff schedule computed. Input debt accounts to initialize calculations.
                     </td>
                   </tr>
                 )}
