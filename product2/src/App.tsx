@@ -30,7 +30,29 @@ const go=(key:PageKey)=>{const m=modules.find(x=>x.id===key)!;window.history.pus
 
 function emptyWorkbook(accountId:string,displayName:string,currency='SLE'):Product2Workbook{
  const now=new Date().toISOString();
- return {account:{id:accountId,displayName,currency,createdAt:now,updatedAt:now},settings:{accountId,currency,dateFormat:'YYYY-MM-DD',interestConvention:'nominal-annual',paymentTiming:'end-of-period',minimumPaymentPolicy:'configured-minimum',calculationPreferences:{decimalPlaces:2}},savingsGoals:[],savingsContributions:[],debts:[],debtPayments:[]};
+ const goals:SavingsGoal[]=[
+  {id:'demo-goal-emergency',accountId,name:'Emergency Fund',category:'Emergency Fund',targetAmount:3000,openingBalance:200,targetDate:'2027-06-30',status:'active'},
+  {id:'demo-goal-vacation',accountId,name:'Vacation',category:'Vacation',targetAmount:1500,openingBalance:100,targetDate:'2027-09-30',status:'active'}
+ ];
+ const savingsContributions=[
+  {id:'demo-c1',accountId,goalId:goals[0].id,date:'2026-09-05',amount:500,note:'Starter contribution'},
+  {id:'demo-c2',accountId,goalId:goals[0].id,date:'2026-10-02',amount:500,note:'Monthly transfer'},
+  {id:'demo-c3',accountId,goalId:goals[1].id,date:'2026-09-12',amount:150,note:'Travel fund'},
+  {id:'demo-c4',accountId,goalId:goals[1].id,date:'2026-10-03',amount:150,note:'Monthly transfer'}
+ ];
+ const debts:DebtAccount[]=[
+  {id:'demo-debt-card',accountId,creditor:'Credit Card',type:'Credit Card',openingBalance:2400,balance:1950,interestRate:22,minimumPayment:100,paymentFrequency:'monthly',status:'active'},
+  {id:'demo-debt-auto',accountId,creditor:'Auto Loan',type:'Auto Loan',openingBalance:8000,balance:7800,interestRate:6,minimumPayment:180,paymentFrequency:'monthly',status:'active'}
+ ];
+ const debtPayments=[
+  {id:'demo-p1',accountId,debtId:debts[0].id,date:'2026-08-05',amount:200,principal:150,interest:50,note:'Monthly payment'},
+  {id:'demo-p2',accountId,debtId:debts[0].id,date:'2026-09-05',amount:195,principal:150,interest:45,note:'Monthly payment'},
+  {id:'demo-p3',accountId,debtId:debts[0].id,date:'2026-10-05',amount:190,principal:150,interest:40,note:'Monthly payment'},
+  {id:'demo-p4',accountId,debtId:debts[1].id,date:'2026-08-10',amount:110,principal:70,interest:40,note:'Monthly payment'},
+  {id:'demo-p5',accountId,debtId:debts[1].id,date:'2026-09-10',amount:108,principal:70,interest:38,note:'Monthly payment'},
+  {id:'demo-p6',accountId,debtId:debts[1].id,date:'2026-10-10',amount:96,principal:60,interest:36,note:'Monthly payment'}
+ ];
+ return {account:{id:accountId,displayName,currency,createdAt:now,updatedAt:now},settings:{accountId,currency,dateFormat:'YYYY-MM-DD',interestConvention:'nominal-annual',paymentTiming:'end-of-period',minimumPaymentPolicy:'configured-minimum',calculationPreferences:{decimalPlaces:2}},savingsGoals:goals,savingsContributions,debts,debtPayments};
 }
 
 export function App(){
