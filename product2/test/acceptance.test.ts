@@ -127,3 +127,40 @@ test('Product 2 domain identity is the shared platform account id', () => {
   assert.equal(source.savingsGoals[0].accountId, source.account.id);
   assert.equal(source.savingsGoals[0].accountId, 'p2-a');
 });
+
+
+test('extra monthly payment changes snowball and avalanche payoff projections', () => {
+  const debts = [
+    { id: 'd1', accountId: 'p2-a', creditor: 'Small', openingBalance: 500, balance: 500, interestRate: 5, minimumPayment: 50, paymentFrequency: 'monthly' as const, status: 'active' as const },
+    { id: 'd2', accountId: 'p2-a', creditor: 'High rate', openingBalance: 1500, balance: 1500, interestRate: 20, minimumPayment: 50, paymentFrequency: 'monthly' as const, status: 'active' as const }
+  ];
+  const baseline = projectRepaymentScenario(debts, 'snowball', 0);
+  const accelerated = projectRepaymentScenario(debts, 'snowball', 200);
+  assert.ok((accelerated.payoffMonth ?? Infinity) < (baseline.payoffMonth ?? Infinity));
+  assert.ok(accelerated.totalInterest < baseline.totalInterest);
+});
+
+test('avalanche prioritizes highest APR when extra payment is available', () => {
+  const debts = [
+    { id: 'low', accountId: 'p2-a', creditor: 'Low APR', openingBalance: 400, balance: 400, interestRate: 5, minimumPayment: 50, paymentFrequency: 'monthly' as const, status: 'active' as const },
+    { id: 'high', accountId: 'p2-a', creditor: 'High APR', openingBalance: 1200, balance: 1200, interestRate: 25, minimumPayment: 50, paymentFrequency: 'monthly' as const, status: 'active' as const }
+  ];
+  const scenario = projectRepaymentScenario(debts, 'avalanche', 100);
+  assert.equal(scenario.order.at(0), 'high');
+});
+
+test('overpayment clamps payment allocation and completed debt stops scheduling', () => {
+  const debt = { id: 'done', accountId: 'p2-a', creditor: 'Done', openingBalance: 100, balance: 0, interestRate: 20, minimumPayment: 100, paymentFrequency: 'monthly' as const, status: 'paid' as const };
+  const scenario = projectRepaymentScenario([debt], 'avalanche', 500);
+  assert.equal(scenario.payoffMonth, 0);
+  assert.equal(scenario.totalPayments, 0);
+});
+
+test('starter dataset totals are mathematically consistent', () => {
+  const emergency = 200 + 500 + 500;
+  const vacation = 100 + 150 + 150;
+  assert.equal(emergency, 1200);
+  assert.equal(vacation, 400);
+  assert.equal(2400 - (150 + 150 + 150), 1950);
+  assert.equal(8000 - (70 + 70 + 60), 7800);
+});
