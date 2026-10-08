@@ -197,10 +197,10 @@ function mapSettings(row: DbSettings): Product2Settings {
 
 function mapGoal(row: any): SavingsGoal {
   return {
-    id: row.id, accountId: row.account_id, name: row.name, targetAmount: Number(row.target_amount),
+    id: row.id, accountId: row.account_id, name: row.name, category: row.category ?? 'Other', targetAmount: Number(row.target_amount),
     openingBalance: Number(row.opening_balance), targetDate: row.target_date ?? undefined,
     contributionFrequency: row.contribution_frequency ?? undefined, plannedContribution: row.planned_contribution == null ? undefined : Number(row.planned_contribution),
-    status: row.status, notes: row.notes ?? undefined,
+    status: row.status, type: row.debt_type ?? 'Other', notes: row.notes ?? undefined,
   };
 }
 
@@ -211,6 +211,7 @@ function mapContribution(row: any): SavingsContribution {
 function mapDebt(row: any): DebtAccount {
   return {
     id: row.id, accountId: row.account_id, creditor: row.creditor, openingBalance: Number(row.opening_balance),
+    type: row.debt_type ?? 'Other',
     balance: Number(row.balance), interestRate: row.interest_rate == null ? undefined : Number(row.interest_rate),
     minimumPayment: Number(row.minimum_payment), paymentFrequency: row.payment_frequency, fees: row.fees == null ? undefined : Number(row.fees),
     status: row.status, notes: row.notes ?? undefined,
@@ -229,7 +230,7 @@ function mapPayment(row: any): DebtPayment {
 
 function toGoal(goal: SavingsGoal) {
   return {
-    id: goal.id, account_id: goal.accountId, name: goal.name, target_amount: goal.targetAmount, opening_balance: goal.openingBalance,
+    id: goal.id, account_id: goal.accountId, name: goal.name, category: goal.category, target_amount: goal.targetAmount, opening_balance: goal.openingBalance,
     target_date: goal.targetDate ?? null, contribution_frequency: goal.contributionFrequency ?? null,
     planned_contribution: goal.plannedContribution ?? null, status: goal.status, notes: goal.notes ?? null,
   };
@@ -244,7 +245,7 @@ function toContribution(contribution: SavingsContribution) {
 
 function toDebt(debt: DebtAccount) {
   return {
-    id: debt.id, account_id: debt.accountId, creditor: debt.creditor, opening_balance: debt.openingBalance,
+    id: debt.id, account_id: debt.accountId, creditor: debt.creditor, debt_type: debt.type, opening_balance: debt.openingBalance,
     balance: debt.balance, interest_rate: debt.interestRate ?? null, minimum_payment: debt.minimumPayment,
     payment_frequency: debt.paymentFrequency, fees: debt.fees ?? null, status: debt.status, notes: debt.notes ?? null,
   };
