@@ -1630,6 +1630,14 @@ If no category fits well, return the first item in the list: "${categories[0]?.n
 const isProd = process.env.NODE_ENV === 'production';
 const port = Number(process.env.PORT) || 3000;
 
+// Serve the standalone Product 2 bundle under the Toolkit launcher route.
+app.use('/product2', express.static(path.resolve(__dirname, 'product2/dist')));
+app.get(['/product2', '/product2/*'], (req, res, next) => {
+  res.sendFile(path.resolve(__dirname, 'product2/dist/index.html'), (err) => {
+    if (err) next();
+  });
+});
+
 if (!isProd) {
   // Use Vite middlewares in dev mode
   const vite = await import('vite').then((v) =>
@@ -1654,11 +1662,6 @@ if (!isProd) {
     }
   });
 } else {
-  // Serve the standalone Product 2 bundle under the Toolkit launcher route.
-  app.use('/product2', express.static(path.resolve(__dirname, 'product2/dist')));
-app.get('/product2/*', (req, res) => {
-  res.sendFile(path.resolve(__dirname, 'product2/dist/index.html'));
-});
   // Serve static files in production
   app.use(express.static(path.resolve(__dirname, 'dist')));
   app.get('*', (req, res) => {

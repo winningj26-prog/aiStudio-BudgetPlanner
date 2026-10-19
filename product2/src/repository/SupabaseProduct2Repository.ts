@@ -200,7 +200,7 @@ function mapGoal(row: any): SavingsGoal {
     id: row.id, accountId: row.account_id, name: row.name, category: row.category ?? 'Other', targetAmount: Number(row.target_amount),
     openingBalance: Number(row.opening_balance), targetDate: row.target_date ?? undefined,
     contributionFrequency: row.contribution_frequency ?? undefined, plannedContribution: row.planned_contribution == null ? undefined : Number(row.planned_contribution),
-    status: row.status, type: row.debt_type ?? 'Other', notes: row.notes ?? undefined,
+    status: row.status, notes: row.notes ?? undefined,
   };
 }
 

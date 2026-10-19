@@ -25,8 +25,28 @@ const goalCategories:SavingsGoalCategory[]=['Emergency Fund','Vacation','Home','
 const debtTypes:DebtType[]=['Credit Card','Personal Loan','Auto Loan','Student Loan','Mortgage','Other'];
 const money=(n:number,currency:string)=>new Intl.NumberFormat(undefined,{style:'currency',currency:currency||'USD',maximumFractionDigits:2}).format(Number.isFinite(n)?n:0);
 const pct=(n:number)=>`${Math.max(0,n).toFixed(1)}%`;
-const pathPage=():PageKey=>{const p=window.location.pathname.replace(/\\/+$/,'')||'/'; return modules.find(m=>m.path.replace(/\/+$/,'')===p)?.id || (p==='/product2'?'start':'start');};
-const go=(key:PageKey)=>{const m=modules.find(x=>x.id===key)!;window.history.pushState({},'',m.path);window.dispatchEvent(new PopStateEvent('popstate'));};
+const rawPaths:Record<PageKey,string>={
+ start:'/',
+ settings:'/settings',
+ goals:'/savings-goals',
+ contributions:'/savings-contributions',
+ debts:'/debt-accounts',
+ payments:'/debt-payments',
+ planner:'/repayment-planner',
+ dashboard:'/dashboard',
+};
+const pathPage=():PageKey=>{
+ const p=window.location.pathname.replace(/\/+$/,'')||'/';
+ const clean=p.startsWith('/product2')?(p.replace(/^\/product2/,'')||'/'):p;
+ const match=(Object.keys(rawPaths) as PageKey[]).find(k=>rawPaths[k]===clean);
+ return match||'start';
+};
+const go=(key:PageKey)=>{
+ const isNested=window.location.pathname.startsWith('/product2');
+ const target=isNested?(key==='start'?'/product2/':`/product2${rawPaths[key]}`):rawPaths[key];
+ window.history.pushState({},'',target);
+ window.dispatchEvent(new PopStateEvent('popstate'));
+};
 
 function emptyWorkbook(accountId:string,displayName:string,currency='SLE'):Product2Workbook{
  const now=new Date().toISOString();
@@ -95,7 +115,7 @@ function AccountRequired(){return <main className="setup"><article className="ca
 function ProductAccessRequired(){return <main className="setup"><article className="card setup-card"><div className="brand-mark">P2</div><p className="eyebrow">Product 2 access</p><h1>This tool is not enabled for your account</h1><p>Your subscription and app access are managed by the Toolkit. Product 2 does not create a second subscription.</p><button className="primary" onClick={()=>window.location.assign('/')}>Return to Toolkit</button></article></main>}
 
 function KpiCard({label,value,detail,tone='neutral'}:{label:string;value:string;detail?:string;tone?:'positive'|'negative'|'neutral'|'warning'}){return <article className={`kpi kpi-${tone}`}><span>{label}</span><strong>{value}</strong>{detail&&<small>{detail}</small>}</article>}
-function Status({children,tone}:{children:string;tone:'positive'|'neutral'|'negative'|'warning'}){return <span className={`status ${tone}`}>{children}</span>}
+function Status({children,tone}:{children:string;tone:'positive'|'neutral'|'negative'|'warning'|'gray'}){return <span className={`status ${tone}`}>{children}</span>}
 function Progress({value,tone='positive'}:{value:number;tone?:'positive'|'neutral'|'negative'|'warning'}){return <div className="progress"><div className={`progress-fill ${tone}`} style={{width:`${Math.min(100,Math.max(0,value))}%`}}/></div>}
 
 function Start({workbook,currency}:{workbook:Product2Workbook;currency:string}){
@@ -116,7 +136,7 @@ function GoalsView({workbook,onSave}:{workbook:Product2Workbook;onSave:(w:Produc
  const rows=workbook.savingsGoals.map(g=>({g,p:calculateSavingsProgress(g,workbook.savingsContributions)}));
  const totalTarget=rows.reduce((s,x)=>s+x.g.targetAmount,0);const saved=rows.reduce((s,x)=>s+x.p.currentBalance,0);const progress=totalTarget?Math.min(100,saved/totalTarget*100):0;
  const add=async()=>{const goal:SavingsGoal={id:id('goal'),accountId:workbook.account.id,name:name.trim(),category,targetAmount:Number(target),openingBalance:Number(opening),targetDate:date||undefined,status:'active'};const errors=validateSavingsGoal(goal);if(errors.length){setMessage(errors.join(' '));return}await onSave({...workbook,savingsGoals:[...workbook.savingsGoals,goal]});setName('');setTarget('');setOpening('0');setDate('');setMessage('Goal added.')};
- return <><div className="kpi-grid"><KpiCard label="Total Goals" value={String(rows.length)} detail="Active Product 2 goals"/><KpiCard label="Total Target Amount" value={money(totalTarget,workbook.settings.currency)}/><KpiCard label="Total Saved So Far" value={money(saved,workbook.settings.currency)} tone="positive"/><KpiCard label="Overall Progress" value={pct(progress)} tone={progress>=100?'positive':'neutral'}/></div><section className="split-layout"><article className="card form-card"><p className="eyebrow">Create goal</p><h2>New savings goal</h2><label>Goal name<input value={name} onChange={e=>setName(e.target.value)} placeholder="Emergency Fund"/></label><div className="two-col"><label>Category<select value={category} onChange={e=>setCategory(e.target.value as SavingsGoalCategory)}>{goalCategories.map(x=><option key={x}>{x}</option>)}</select></label><label>Target date<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label></div><div className="two-col"><label>Target amount<input type="number" min="0" value={target} onChange={e=>setTarget(e.target.value)}/></label><label>Opening saved<input type="number" min="0" value={opening} onChange={e=>setOpening(e.target.value)}/></label></div><button className="primary" onClick={add}><Plus size={14}/> Add savings goal</button>{message&&<p className="form-message">{message}</p>}</article><article className="card"><p className="eyebrow">Goal status</p><div className="goal-stack">{rows.slice(0,5).map(({g,p})=><div className="goal-mini" key={g.id}><div className="row-between"><strong>{g.name}</strong><Status tone={p.status==='Completed'?'positive':p.status==='In Progress'?'neutral':'neutral'}>{p.status}</Status></div><div className="goal-meta"><span>{g.category}</span><span>{money(p.currentBalance,workbook.settings.currency)} / {money(g.targetAmount,workbook.settings.currency)}</span></div><Progress value={p.completionPercentage}/></div>)}{!rows.length&&<p className="muted">Create your first goal to begin tracking.</p>}</div></article></section><DataTable title="Savings goals" columns={['Goal Name','Category','Target Amount','Target Date','Saved So Far','Progress','Status','']}><>{rows.map(({g,p})=><tr key={g.id}><td><strong>{g.name}</strong></td><td>{g.category}</td><td>{money(g.targetAmount,workbook.settings.currency)}</td><td>{g.targetDate||'—'}</td><td>{money(p.currentBalance,workbook.settings.currency)}</td><td><div className="table-progress"><span>{pct(p.completionPercentage)}</span><Progress value={p.completionPercentage}/></div></td><td><Status tone={p.status==='Completed'?'positive':'neutral'}>{p.status}</Status></td><td><button className="icon" onClick={()=>onSave({...workbook,savingsGoals:workbook.savingsGoals.filter(x=>x.id!==g.id),savingsContributions:workbook.savingsContributions.filter(x=>x.goalId!==g.id)})}><Trash2 size={14}/></button></td></tr>)}{!rows.length&&<tr><td colSpan={8} className="empty">No savings goals yet.</td></tr>}</></DataTable></>
+ return <><div className="kpi-grid"><KpiCard label="Total Goals" value={String(rows.length)} detail="Active Product 2 goals"/><KpiCard label="Total Target Amount" value={money(totalTarget,workbook.settings.currency)}/><KpiCard label="Total Saved So Far" value={money(saved,workbook.settings.currency)} tone="positive"/><KpiCard label="Overall Progress" value={pct(progress)} tone={progress>=100?'positive':'neutral'}/></div><section className="split-layout"><article className="card form-card"><p className="eyebrow">Create goal</p><h2>New savings goal</h2><label>Goal name<input value={name} onChange={e=>setName(e.target.value)} placeholder="Emergency Fund"/></label><div className="two-col"><label>Category<select value={category} onChange={e=>setCategory(e.target.value as SavingsGoalCategory)}>{goalCategories.map(x=><option key={x}>{x}</option>)}</select></label><label>Target date<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label></div><div className="two-col"><label>Target amount<input type="number" min="0" value={target} onChange={e=>setTarget(e.target.value)}/></label><label>Opening saved<input type="number" min="0" value={opening} onChange={e=>setOpening(e.target.value)}/></label></div><button className="primary" onClick={add}><Plus size={14}/> Add savings goal</button>{message&&<p className="form-message">{message}</p>}</article><article className="card"><p className="eyebrow">Goal status</p><div className="goal-stack">{rows.slice(0,5).map(({g,p})=><div className="goal-mini" key={g.id}><div className="row-between"><strong>{g.name}</strong><Status tone={p.status==='Completed'?'positive':p.status==='In Progress'?'neutral':'gray'}>{p.status}</Status></div><div className="goal-meta"><span>{g.category}</span><span>{money(p.currentBalance,workbook.settings.currency)} / {money(g.targetAmount,workbook.settings.currency)}</span></div><Progress value={p.completionPercentage}/></div>)}{!rows.length&&<p className="muted">Create your first goal to begin tracking.</p>}</div></article></section><DataTable title="Savings goals" columns={['Goal Name','Category','Target Amount','Target Date','Saved So Far','Progress','Status','']}><>{rows.map(({g,p})=><tr key={g.id}><td><strong>{g.name}</strong></td><td>{g.category}</td><td>{money(g.targetAmount,workbook.settings.currency)}</td><td>{g.targetDate||'—'}</td><td>{money(p.currentBalance,workbook.settings.currency)}</td><td><div className="table-progress"><span>{pct(p.completionPercentage)}</span><Progress value={p.completionPercentage}/></div></td><td><Status tone={p.status==='Completed'?'positive':p.status==='In Progress'?'neutral':'gray'}>{p.status}</Status></td><td><button className="icon" onClick={()=>onSave({...workbook,savingsGoals:workbook.savingsGoals.filter(x=>x.id!==g.id),savingsContributions:workbook.savingsContributions.filter(x=>x.goalId!==g.id)})}><Trash2 size={14}/></button></td></tr>)}{!rows.length&&<tr><td colSpan={8} className="empty">No savings goals yet.</td></tr>}</></DataTable></>
 }
 
 function ContributionsView({workbook,onSave}:{workbook:Product2Workbook;onSave:(w:Product2Workbook)=>Promise<void>}){
@@ -157,7 +177,47 @@ function Dashboard({workbook}:{workbook:Product2Workbook}){
  <section className="insights-grid"><article className="card insight-card"><p className="eyebrow">Key insights</p><div className="insight"><Target size={15}/><span>Closest goal</span><strong>{topGoal?topGoal.g.name+' · '+pct(topGoal.p.completionPercentage):'No goals yet'}</strong></div><div className="insight"><CreditCard size={15}/><span>Highest APR</span><strong>{topRate?topRate.creditor+' · '+(topRate.interestRate==null?'Rate unknown':topRate.interestRate.toFixed(2)+'%'):'No debts yet'}</strong></div><div className="insight"><CircleDollarSign size={15}/><span>Interest paid this year</span><strong>{money(interestYear,currency)}</strong></div><div className="insight"><CalendarDays size={15}/><span>Projected debt-free</span><strong>{ava.payoffMonth==null?'Beyond 100 years':ava.payoffMonth===0?'Already debt free':`in ${ava.payoffMonth} months`}</strong></div></article><article className="card insight-card"><p className="eyebrow">Health check</p><HealthRow label="Savings momentum" ok={savingsProgress>=50}/><HealthRow label="Debt reduction" ok={debtProgress>=25||debt===0}/><HealthRow label="Interest data complete" ok={debts.filter(d=>d.balance>0).every(d=>d.interestRate!=null)}/><HealthRow label="Goals have deadlines" ok={goals.length>0&&goals.every(x=>Boolean(x.g.targetDate))}/></article></section></>
 }
 function HealthRow({label,ok}:{label:string;ok:boolean}){return <div className="health-row">{ok?<CheckCircle2 size={15}/>:<AlertTriangle size={15}/>}<span>{label}</span><Status tone={ok?'positive':'warning'}>{ok?'On track':'Review'}</Status></div>}
-function BarChart({title,labels,values,max,formatter}:{title:string;labels:string[];values:number[];max:number;formatter:(v:number)=>string}){return <article className="card chart-card"><div className="section-title"><div><p className="eyebrow">Overview</p><h2>{title}</h2></div></div>{labels.length?<div className="bar-chart">{labels.map((l,i)=><div className="bar-row" key={l}><div className="bar-label"><span>{l}</span><strong>{formatter(values[i])}</strong></div><div className="bar-track"><i style={{width:`${Math.min(100,values[i]/max*100)}%`}}/></div></div>):<p className="empty">No data available yet.</p>}</article>}
+function BarChart({
+  title,
+  labels,
+  values,
+  max,
+  formatter,
+}: {
+  title: string;
+  labels: string[];
+  values: number[];
+  max: number;
+  formatter: (v: number) => string;
+}) {
+  return (
+    <article className="card chart-card">
+      <div className="section-title">
+        <div>
+          <p className="eyebrow">Overview</p>
+          <h2>{title}</h2>
+        </div>
+      </div>
+      {labels.length > 0 ? (
+        <div className="bar-chart">
+          {labels.map((l, i) => (
+            <div className="bar-row" key={l}>
+              <div className="bar-label">
+                <span>{l}</span>
+                <strong>{formatter(values[i])}</strong>
+              </div>
+              <div className="bar-track">
+                <i style={{ width: `${Math.min(100, (values[i] / max) * 100)}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="empty">No data available yet.</p>
+      )}
+    </article>
+  );
+}
 function TrendChart({workbook}:{workbook:Product2Workbook}){const months=Array.from({length:6},(_,i)=>{const d=new Date();d.setMonth(d.getMonth()-(5-i));const key=d.toISOString().slice(0,7);const saved=workbook.savingsContributions.filter(x=>x.date.slice(0,7)<=key).reduce((s,x)=>s+x.amount,0)+workbook.savingsGoals.reduce((s,g)=>s+g.openingBalance,0);const paid=workbook.debtPayments.filter(x=>x.date.slice(0,7)<=key).reduce((s,x)=>s+(x.principal??0),0);return {key,saved,paid,net:saved-paid}});const max=Math.max(1,...months.map(x=>Math.max(x.saved,x.paid)));return <article className="card chart-card"><div className="section-title"><div><p className="eyebrow">Trend</p><h2>Savings vs Debt Trend</h2></div></div><div className="trend-chart">{months.map(m=><div className="trend-col" key={m.key}><div className="trend-bars"><i style={{height:`${m.saved/max*100}%`}}/><i className="debt" style={{height:`${m.paid/max*100}%`}}/></div><span>{m.key.slice(5)}</span></div>)}</div><div className="legend"><span><i/> Saved</span><span><i className="debt"/> Principal paid</span></div></article>}
 function DataTable({title,columns,children}:{title:string;columns:string[];children:any}){return <section className="card table-card"><div className="section-title"><div><p className="eyebrow">Ledger</p><h2>{title}</h2></div></div><div className="table-wrap"><table><thead><tr>{columns.map(c=><th key={c}>{c}</th>)}</tr></thead><tbody>{children}</tbody></table></div></section>}
 

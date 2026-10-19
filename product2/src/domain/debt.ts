@@ -84,5 +84,10 @@ export function projectRepaymentScenario(debts:DebtAccount[],strategy:RepaymentS
     }
   }
   const projections=[...steps.entries()].map(([debtId,list])=>({debtId,payoffMonth:list.at(-1)?.endingBalance===0?list.at(-1)!.month:null,totalInterest:round(list.reduce((s,x)=>s+x.interest,0)),totalPayments:round(list.reduce((s,x)=>s+x.payment,0)),steps:list}));
-  return {strategy,payoffMonth:remaining.size?null:month,totalInterest:round(totalInterest),totalPayments:round(totalPayments),order,projections};
+  const finalOrder = extra > 0
+    ? [...active].sort((a,b)=>strategy==='avalanche'
+        ? (b.interestRate??0)-(a.interestRate??0)||a.id.localeCompare(b.id)
+        : a.balance-b.balance||a.id.localeCompare(b.id)).map(d=>d.id)
+    : order;
+  return {strategy,payoffMonth:remaining.size?null:month,totalInterest:round(totalInterest),totalPayments:round(totalPayments),order:finalOrder,projections};
 }
