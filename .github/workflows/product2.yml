@@ -1,15 +1,9 @@
-name: Product 2 validation
+name: Legacy Product 2 source validation (manual)
 
+# Product 2 is disabled as an active product, but keep its source/tests
+# available for migration work. Run this workflow manually when editing legacy code.
 on:
-  pull_request:
-    paths:
-      - 'product2/**'
-      - '.github/workflows/product2.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'product2/**'
-      - '.github/workflows/product2.yml'
+  workflow_dispatch:
 
 jobs:
   validate:
