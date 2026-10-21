@@ -34,7 +34,6 @@ const apps = [
     tierRequired: 'Free / Plus / Pro',
   },
   {
-  {
     id: 'app-2' as const,
     name: 'Toolkit Analytics Pro',
     description: 'Advanced workspace analytics and customized report builder (Coming Soon).',
