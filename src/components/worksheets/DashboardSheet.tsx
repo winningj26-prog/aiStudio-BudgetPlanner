@@ -10,6 +10,7 @@ import {
   IncomeTransaction,
   MonthSummary,
   SavingsGoal,
+  SavingsContribution,
   SettingsState,
   RecurringTransaction,
 } from '../../types/budget';
@@ -70,6 +71,8 @@ interface DashboardSheetProps {
   onOpenExportModal?: () => void;
   savingsGoals: SavingsGoal[];
   onUpdateSavingsGoals: (goals: SavingsGoal[]) => void;
+  savingsContributions?: SavingsContribution[];
+  onUpdateSavingsContributions?: (contributions: SavingsContribution[]) => void;
   debts: Debt[];
   debtPayments: DebtPayment[];
   financialAssets: FinancialAsset[];
@@ -96,6 +99,8 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
   onOpenExportModal,
   savingsGoals,
   onUpdateSavingsGoals,
+  savingsContributions = [],
+  onUpdateSavingsContributions,
   debts,
   debtPayments,
   financialAssets,
@@ -828,6 +833,8 @@ export const DashboardSheet: React.FC<DashboardSheetProps> = ({
       <SavingsGoalsTracker
         savingsGoals={savingsGoals}
         onUpdateSavingsGoals={onUpdateSavingsGoals}
+        savingsContributions={savingsContributions}
+        onUpdateSavingsContributions={onUpdateSavingsContributions}
         categories={categories}
         incomeCategories={incomeCategories}
         settings={settings}

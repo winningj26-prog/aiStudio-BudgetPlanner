@@ -1632,7 +1632,27 @@ If no category fits well, return the first item in the list: "${categories[0]?.n
 
 // Configure Vite integration
 const isProd = process.env.NODE_ENV === 'production';
-const port = Number(process.env.PORT) || 3000;
+
+// Parse CLI arguments if provided, e.g. --port 3000 --host 0.0.0.0
+function getArg(flag: string): string | undefined {
+  const index = process.argv.indexOf(flag);
+  if (index !== -1 && index + 1 < process.argv.length) {
+    return process.argv[index + 1];
+  }
+  return undefined;
+}
+
+const cliPort = getArg('--port') || getArg('-p');
+const cliHost = getArg('--host') || getArg('-h');
+
+// Dev server must run on port 3000 in AI Studio
+// In container environments, Nginx listens on port 8080; avoid conflicting with 8080
+const port = cliPort
+  ? Number(cliPort)
+  : (process.env.PORT && process.env.PORT !== '8080'
+      ? Number(process.env.PORT)
+      : 3000);
+const host = cliHost || '0.0.0.0';
 
 // Product 2 is temporarily disabled while its savings/debt functionality is merged
 // into BudgetPlanner. Keep the legacy source and data untouched for migration.
@@ -1671,6 +1691,6 @@ if (!isProd) {
   });
 }
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server running at http://localhost:${port}`);
+app.listen(port, host, () => {
+  console.log(`Server running at http://${host}:${port}`);
 });

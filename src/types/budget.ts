@@ -38,6 +38,18 @@ export interface ExpenseTransaction {
   isRecurring?: boolean;
 }
 
+export interface SavingsContribution {
+  id: string;
+  goalId: string;
+  date: string; // YYYY-MM-DD
+  amount: number;
+  /** Optional cash/bank account funding this contribution */
+  accountId?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface SavingsGoal {
   id: string;
   name: string;
@@ -45,10 +57,13 @@ export interface SavingsGoal {
   categoryName?: string;
   targetAmount: number;
   currentAmount: number;
+  /** Baseline amount saved before tracking contributions in Product 1 */
+  openingBalance?: number;
   /** Cash/bank account holding the earmarked goal funds. The goal is an internal allocation, not a separate asset. */
   accountId?: string;
   targetDate?: string;
   monthlyContribution?: number;
+  contributionFrequency?: 'monthly' | 'bi-weekly' | 'weekly' | string;
   color?: string;
   notes?: string;
 }
@@ -70,8 +85,18 @@ export interface DebtPayment {
   amount: number;
   principal: number;
   interest: number;
+  fees?: number;
   notes?: string;
 }
+
+export type DebtType =
+  | 'Credit Card'
+  | 'Personal Loan'
+  | 'Auto Loan'
+  | 'Student Loan'
+  | 'Mortgage'
+  | 'Other'
+  | string;
 
 export interface Debt {
   id: string;
@@ -81,6 +106,8 @@ export interface Debt {
   minimumPayment: number;
   /** Liability balance when tracking began. Falls back to balance for legacy records. */
   openingBalance?: number;
+  type?: DebtType;
+  paymentFrequency?: 'monthly' | 'bi-weekly' | 'weekly' | string;
   notes?: string;
   color?: string;
 }

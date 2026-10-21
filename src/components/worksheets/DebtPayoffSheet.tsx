@@ -3,6 +3,7 @@ import { validateDebtDraftValues } from '../../utils/financialPlanning';
 import {
   Debt,
   DebtPayment,
+  DebtType,
   FinancialAsset,
   SettingsState,
 } from '../../types/budget';
@@ -21,6 +22,7 @@ import {
   ListCollapse,
   ChevronUp,
   ChevronDown,
+  History,
   Info,
   Scale,
   Calendar,
@@ -56,14 +58,22 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
 
   // Form states to Add / Edit Debt
   const [newDebtName, setNewDebtName] = useState('');
+  const [newDebtType, setNewDebtType] = useState<DebtType>('Credit Card');
   const [newBalance, setNewBalance] = useState('');
+  const [newOpeningBalance, setNewOpeningBalance] = useState('');
   const [newInterestRate, setNewInterestRate] = useState('');
   const [newMinimumPayment, setNewMinimumPayment] = useState('');
+  const [newPaymentFrequency, setNewPaymentFrequency] = useState('monthly');
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Form states for Live Payment recording
   const [paymentDebtId, setPaymentDebtId] = useState('');
   const [paymentAccountId, setPaymentAccountId] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentInterest, setPaymentInterest] = useState('');
+  const [paymentFees, setPaymentFees] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [showPaymentHistory, setShowPaymentHistory] = useState(true);
   const [paymentDate, setPaymentDate] = useState(`${settings.year}-${String(['January','February','March','April','May','June','July','August','September','October','November','December'].indexOf(settings.month) + 1).padStart(2, '0')}-01`);
 
   // Table selection / Excel highlight
@@ -82,6 +92,8 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
     const bal = parseFloat(newBalance);
     const rate = parseFloat(newInterestRate);
     const minPay = parseFloat(newMinimumPayment);
+    const openBal = parseFloat(newOpeningBalance);
+    const validOpeningBalance = Number.isFinite(openBal) && openBal >= 0 ? openBal : bal;
 
     if (!newDebtName.trim() || !validateDebtDraftValues(bal, rate, minPay)) {
       alert('Please fill out all fields with valid positive numbers.');
@@ -92,7 +104,16 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
       // Save Edit
       onUpdateDebts(debts.map((d) =>
         d.id === editingId
-          ? { ...d, name: newDebtName.trim(), balance: bal, interestRate: rate, minimumPayment: minPay }
+          ? {
+              ...d,
+              name: newDebtName.trim(),
+              type: newDebtType,
+              balance: bal,
+              openingBalance: validOpeningBalance,
+              interestRate: rate,
+              minimumPayment: minPay,
+              paymentFrequency: newPaymentFrequency,
+            }
           : d
       ));
       setEditingId(null);
@@ -101,27 +122,35 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
       const newDebt: Debt = {
         id: `debt_${Date.now()}`,
         name: newDebtName.trim(),
+        type: newDebtType,
         balance: bal,
-        openingBalance: bal,
+        openingBalance: validOpeningBalance,
         interestRate: rate,
         minimumPayment: minPay,
+        paymentFrequency: newPaymentFrequency,
         color: DEBT_COLORS[debts.length % DEBT_COLORS.length],
       };
       onUpdateDebts([...debts, newDebt]);
     }
 
     setNewDebtName('');
+    setNewDebtType('Credit Card');
     setNewBalance('');
+    setNewOpeningBalance('');
     setNewInterestRate('');
     setNewMinimumPayment('');
+    setNewPaymentFrequency('monthly');
   };
 
   const handleEditClick = (debt: Debt) => {
     setEditingId(debt.id);
     setNewDebtName(debt.name);
+    setNewDebtType(debt.type || 'Credit Card');
     setNewBalance(String(debt.balance));
+    setNewOpeningBalance(String(debt.openingBalance ?? debt.balance));
     setNewInterestRate(String(debt.interestRate));
     setNewMinimumPayment(String(debt.minimumPayment));
+    setNewPaymentFrequency(debt.paymentFrequency || 'monthly');
   };
 
   const handleDeleteDebt = (id: string) => {
@@ -130,9 +159,12 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
       if (editingId === id) {
         setEditingId(null);
         setNewDebtName('');
+        setNewDebtType('Credit Card');
         setNewBalance('');
+        setNewOpeningBalance('');
         setNewInterestRate('');
         setNewMinimumPayment('');
+        setNewPaymentFrequency('monthly');
       }
     }
   };
@@ -351,28 +383,45 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
     const debt = debts.find((item) => item.id === paymentDebtId);
     const amount = parseFloat(paymentAmount);
     const interest = parseFloat(paymentInterest || '0');
-    if (!debt || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(interest) || interest < 0 || interest > amount) {
-      alert('Enter a valid debt payment and interest amount.');
+    const fees = parseFloat(paymentFees || '0');
+    if (!debt || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(interest) || interest < 0 || !Number.isFinite(fees) || fees < 0) {
+      alert('Enter valid debt payment, interest, and fee amounts.');
       return;
     }
-    const principal = amount - interest;
+    if (interest + fees > amount) {
+      alert('Total payment amount must be greater than or equal to interest plus fees.');
+      return;
+    }
+    const principal = amount - interest - fees;
     if (principal > debt.balance + 0.01) {
-      alert('Principal cannot exceed the debt balance.');
+      alert('Principal reduction cannot exceed the outstanding debt balance.');
       return;
     }
     const payment: DebtPayment = {
-      id: `debt_payment_${Date.now()}`,
+      id: `debt_payment_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       date: paymentDate,
       debtId: debt.id,
       accountId: paymentAccountId || undefined,
       amount,
       principal,
       interest,
+      fees: fees > 0 ? fees : undefined,
+      notes: paymentNotes.trim() || undefined,
     };
     onUpdateDebtPayments([...debtPayments, payment]);
     onUpdateDebts(debts.map((item) => item.id === debt.id ? { ...item, balance: Math.max(0, item.balance - principal) } : item));
     setPaymentAmount('');
     setPaymentInterest('');
+    setPaymentFees('');
+    setPaymentNotes('');
+  };
+
+  const handleDeletePayment = (paymentId: string) => {
+    const payment = debtPayments.find((p) => p.id === paymentId);
+    if (!payment) return;
+    if (!window.confirm('Are you sure you want to delete this payment record? The principal amount will be restored to the debt liability.')) return;
+    onUpdateDebtPayments(debtPayments.filter((p) => p.id !== paymentId));
+    onUpdateDebts(debts.map((d) => d.id === payment.debtId ? { ...d, balance: d.balance + payment.principal } : d));
   };
 
   // Convert month number to a real calendar month string
@@ -453,73 +502,209 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
             Record real-world debt paydowns here. The simulator below is scenario-only and never modifies your actual balances.
           </p>
         </div>
-        <form onSubmit={handleRecordDebtPayment} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Select Debt</label>
-            <select 
-              value={paymentDebtId} 
-              onChange={(e) => setPaymentDebtId(e.target.value)} 
-              className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold text-slate-800 cursor-pointer h-10 ${inputClass}`}
-            >
-              <option value="">Select debt account</option>
-              {debts.map((debt) => <option key={debt.id} value={debt.id}>{debt.name} (${debt.balance.toFixed(0)})</option>)}
-            </select>
+        <form onSubmit={handleRecordDebtPayment} className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Select Debt *</label>
+              <select 
+                value={paymentDebtId} 
+                onChange={(e) => setPaymentDebtId(e.target.value)} 
+                required
+                className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold text-slate-800 cursor-pointer h-10 ${inputClass}`}
+              >
+                <option value="">Select debt account</option>
+                {debts.map((debt) => (
+                  <option key={debt.id} value={debt.id}>
+                    {debt.name} ({debt.type || 'Debt'}) — {formatCurrency(debt.balance, settings.currency)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Funding Account</label>
+              <select 
+                value={paymentAccountId} 
+                onChange={(e) => setPaymentAccountId(e.target.value)} 
+                className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold text-slate-800 cursor-pointer h-10 ${inputClass}`}
+              >
+                <option value="">Select funding source</option>
+                {financialAssets.filter((asset) => asset.category === 'Cash' || asset.category === 'Bank').map((asset) => (
+                  <option key={asset.id} value={asset.id}>{asset.name} ({formatCurrency(asset.amount, settings.currency)})</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Payment Date *</label>
+              <input 
+                type="date" 
+                required
+                value={paymentDate} 
+                onChange={(e) => setPaymentDate(e.target.value)} 
+                className={`w-full rounded-xl border px-3 py-2 text-xs font-mono font-bold text-slate-800 h-10 ${inputClass}`} 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Total Payment Amount *</label>
+              <input 
+                type="number" 
+                min="0.01" 
+                step="0.01" 
+                required
+                placeholder="0.00" 
+                value={paymentAmount} 
+                onChange={(e) => setPaymentAmount(e.target.value)} 
+                className={`w-full rounded-xl border px-3 py-2 text-xs font-mono font-bold text-slate-800 h-10 ${inputClass}`} 
+              />
+            </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Funding Account</label>
-            <select 
-              value={paymentAccountId} 
-              onChange={(e) => setPaymentAccountId(e.target.value)} 
-              className={`w-full rounded-xl border px-3 py-2 text-xs font-semibold text-slate-800 cursor-pointer h-10 ${inputClass}`}
-            >
-              <option value="">Select funding source</option>
-              {financialAssets.filter((asset) => asset.category === 'Cash' || asset.category === 'Bank').map((asset) => (
-                <option key={asset.id} value={asset.id}>{asset.name} (${asset.amount.toFixed(0)})</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Payment Date</label>
-            <input 
-              type="date" 
-              value={paymentDate} 
-              onChange={(e) => setPaymentDate(e.target.value)} 
-              className={`w-full rounded-xl border px-3 py-2 text-xs font-mono font-bold text-slate-800 h-10 ${inputClass}`} 
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Total payment ($)</label>
-            <input 
-              type="number" 
-              min="0.01" 
-              step="0.01" 
-              placeholder="0.00" 
-              value={paymentAmount} 
-              onChange={(e) => setPaymentAmount(e.target.value)} 
-              className={`w-full rounded-xl border px-3 py-2 text-xs font-mono font-bold text-slate-800 h-10 ${inputClass}`} 
-            />
-          </div>
-          <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
-            <div className="space-y-1 w-full">
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Interest portion ($)</label>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Interest Portion</label>
               <input 
                 type="number" 
                 min="0" 
                 step="0.01" 
-                placeholder="Interest" 
+                placeholder="0.00" 
                 value={paymentInterest} 
                 onChange={(e) => setPaymentInterest(e.target.value)} 
                 className={`w-full rounded-xl border px-3 py-2 text-xs font-mono font-bold text-slate-800 h-10 ${inputClass}`} 
               />
             </div>
-            <button 
-              type="submit" 
-              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black text-xs h-10 px-4 transition-colors cursor-pointer border border-emerald-500 whitespace-nowrap"
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Fee Portion (Late / Service)</label>
+              <input 
+                type="number" 
+                min="0" 
+                step="0.01" 
+                placeholder="0.00" 
+                value={paymentFees} 
+                onChange={(e) => setPaymentFees(e.target.value)} 
+                className={`w-full rounded-xl border px-3 py-2 text-xs font-mono font-bold text-slate-800 h-10 ${inputClass}`} 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Notes / Check #</label>
+              <input 
+                type="text" 
+                placeholder="e.g. Monthly auto-pay" 
+                value={paymentNotes} 
+                onChange={(e) => setPaymentNotes(e.target.value)} 
+                className={`w-full rounded-xl border px-3 py-2 text-xs font-medium text-slate-800 h-10 ${inputClass}`} 
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                type="submit" 
+                className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black text-xs h-10 px-4 transition-colors cursor-pointer border border-emerald-500 whitespace-nowrap flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                <Check className="h-4 w-4" />
+                <span>Record Payment</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Principal Breakdown Indicator */}
+          {parseFloat(paymentAmount) > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-600 bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-200/60">
+              <span className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-700">Reconciliation:</span>
+                <span>Principal: <strong className="text-emerald-700 font-extrabold">{formatCurrency(Math.max(0, parseFloat(paymentAmount) - (parseFloat(paymentInterest) || 0) - (parseFloat(paymentFees) || 0)), settings.currency)}</strong></span>
+                <span>• Interest: <strong className="text-amber-700 font-bold">{formatCurrency(parseFloat(paymentInterest) || 0, settings.currency)}</strong></span>
+                <span>• Fees: <strong className="text-rose-700 font-bold">{formatCurrency(parseFloat(paymentFees) || 0, settings.currency)}</strong></span>
+              </span>
+              <span className="text-[10px] text-slate-500 font-medium">Interest & fees count as expenses; principal directly reduces liability.</span>
+            </div>
+          )}
+        </form>
+
+        {/* Payment History Ledger */}
+        <div className="mt-5 pt-4 border-t border-slate-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <History className="h-4 w-4 text-emerald-700" />
+              <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                Recorded Payments Ledger ({debtPayments.length})
+              </h4>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPaymentHistory(!showPaymentHistory)}
+              className="text-[11px] font-bold text-slate-600 hover:text-slate-900 cursor-pointer flex items-center gap-1"
             >
-              Record Payment
+              <span>{showPaymentHistory ? 'Collapse' : 'Expand'}</span>
+              {showPaymentHistory ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             </button>
           </div>
-        </form>
+
+          {showPaymentHistory && (
+            debtPayments.length === 0 ? (
+              <p className="text-xs text-slate-400 py-3 text-center italic">No actual debt payments recorded yet. Use the form above to record payments.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-700 border-b border-slate-200">
+                    <tr>
+                      <th className="px-3 py-2">Date</th>
+                      <th className="px-3 py-2">Debt Account</th>
+                      <th className="px-3 py-2 text-right">Total Paid</th>
+                      <th className="px-3 py-2 text-right">Principal</th>
+                      <th className="px-3 py-2 text-right">Interest</th>
+                      <th className="px-3 py-2 text-right">Fees</th>
+                      <th className="px-3 py-2">Funding Account</th>
+                      <th className="px-3 py-2">Notes</th>
+                      <th className="px-3 py-2 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {debtPayments.map((p) => {
+                      const d = debts.find((item) => item.id === p.debtId);
+                      const acct = financialAssets.find((a) => a.id === p.accountId);
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-3 py-2 font-mono font-semibold text-slate-800 whitespace-nowrap">
+                            {formatDate(p.date, settings.dateFormat)}
+                          </td>
+                          <td className="px-3 py-2 font-bold text-slate-900 whitespace-nowrap">
+                            {d?.name || 'Unknown Debt'}
+                          </td>
+                          <td className="px-3 py-2 text-right font-black text-slate-900 whitespace-nowrap">
+                            {formatCurrency(p.amount, settings.currency)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-bold text-emerald-700 whitespace-nowrap">
+                            {formatCurrency(p.principal, settings.currency)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium text-amber-700 whitespace-nowrap">
+                            {formatCurrency(p.interest, settings.currency)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium text-rose-700 whitespace-nowrap">
+                            {p.fees ? formatCurrency(p.fees, settings.currency) : '—'}
+                          </td>
+                          <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+                            {acct?.name || 'Unlinked'}
+                          </td>
+                          <td className="px-3 py-2 text-slate-500 max-w-[150px] truncate">
+                            {p.notes || '—'}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePayment(p.id)}
+                              className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
+                              title="Delete payment"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
+        </div>
       </div>
 
       {/* ---------------------------------------------------- */}
@@ -849,18 +1034,65 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Balance</label>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Debt Type</label>
+                <select
+                  value={newDebtType}
+                  onChange={(e) => setNewDebtType(e.target.value as DebtType)}
+                  className={`w-full rounded-xl border py-2 px-2.5 text-xs font-semibold outline-none transition-all h-10 ${inputClass}`}
+                >
+                  <option value="Credit Card">Credit Card</option>
+                  <option value="Personal Loan">Personal Loan</option>
+                  <option value="Auto Loan">Auto Loan</option>
+                  <option value="Student Loan">Student Loan</option>
+                  <option value="Mortgage">Mortgage</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Frequency</label>
+                <select
+                  value={newPaymentFrequency}
+                  onChange={(e) => setNewPaymentFrequency(e.target.value)}
+                  className={`w-full rounded-xl border py-2 px-2.5 text-xs font-semibold outline-none transition-all h-10 ${inputClass}`}
+                >
+                  <option value="monthly">Monthly</option>
+                  <option value="bi-weekly">Bi-Weekly</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Current Bal.</label>
                 <div className="relative">
                   <input
                     type="number"
                     step="0.01"
-                    min="1"
+                    min="0"
                     required
                     placeholder="5000"
                     value={newBalance}
                     onChange={(e) => setNewBalance(e.target.value)}
+                    className={`w-full rounded-xl border py-2.5 pl-6 pr-1 text-xs font-mono font-bold outline-none transition-all h-10 ${inputClass}`}
+                  />
+                  <span className="absolute left-2.5 top-2.5 font-mono text-xs text-slate-400 font-bold">$</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Opening Bal.</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Orig. amt"
+                    value={newOpeningBalance}
+                    onChange={(e) => setNewOpeningBalance(e.target.value)}
                     className={`w-full rounded-xl border py-2.5 pl-6 pr-1 text-xs font-mono font-bold outline-none transition-all h-10 ${inputClass}`}
                   />
                   <span className="absolute left-2.5 top-2.5 font-mono text-xs text-slate-400 font-bold">$</span>
@@ -891,7 +1123,7 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                   <input
                     type="number"
                     step="0.01"
-                    min="1"
+                    min="0"
                     required
                     placeholder="120"
                     value={newMinimumPayment}
@@ -929,12 +1161,21 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
               <span>tbl_Debt_Ledger • Double-entry formatted</span>
             </span>
             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">
-              GRID: COLUMN A to F
+              GRID: COLUMN A to G
             </span>
           </div>
 
+          {/* Explicit Interest Assumption Disclosure Banner */}
+          <div className="bg-amber-50/70 border-b border-amber-200/60 px-4 py-2.5 flex items-start gap-2 text-[11px] text-amber-900 leading-tight">
+            <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-extrabold uppercase tracking-wider text-[10px] text-amber-800 mr-1.5">Interest Accrual Assumption:</span>
+              Interest in this planner is modeled as simple monthly interest on current balance at the stated APR (<code className="font-mono font-bold bg-amber-100 px-1 py-0.2 rounded text-[10px]">Balance × APR / 12</code>) unless a lender amortization schedule is provided. Projections are estimates for planning and not guaranteed contract terms.
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs min-w-[700px] border-collapse">
+            <table className="w-full text-left text-xs min-w-[760px] border-collapse">
               {/* Google Sheets Header: Column Letters Row */}
               <thead>
                 <tr className="bg-slate-100 border-b border-[#cbddec] text-center text-slate-500 select-none text-[10px] font-bold h-6">
@@ -945,17 +1186,19 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                   <td className="border-r border-[#cbddec] font-mono">D</td>
                   <td className="border-r border-[#cbddec] font-mono">E</td>
                   <td className="border-r border-[#cbddec] font-mono">F</td>
+                  <td className="border-r border-[#cbddec] font-mono">G</td>
                   <td className="w-20 bg-[#f1f5f9]"></td>
                 </tr>
                 {/* Table Field Titles Row */}
                 <tr className="bg-slate-50/80 border-b border-[#cbddec] text-[#0c325c] font-black text-xs select-none">
                   <th className="border-r border-[#cbddec] bg-slate-100 text-center text-slate-400 text-[10px] h-8">#</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 font-black uppercase tracking-wider">Debt Name</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-28">Starting Balance</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-24">Interest Rate</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-28">Min. Monthly</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-center font-black uppercase tracking-wider w-32">Payoff Date</th>
-                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-32">Est. Interest</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 font-black uppercase tracking-wider">Account & Type</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-24">Original Bal.</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-24">Current Bal.</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-center font-black uppercase tracking-wider w-24">Payoff %</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-20">Rate (APR)</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-right font-black uppercase tracking-wider w-24">Min. Monthly</th>
+                  <th className="border-r border-[#cbddec] px-3 py-1.5 text-center font-black uppercase tracking-wider w-28">Est. Payoff</th>
                   <th className="px-3 py-1.5 text-center font-black uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -966,6 +1209,10 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                   const rId = index + 1;
                   const dStats = payoffSimulation.debtStats[debt.id] || { payoffMonth: 0, totalInterest: 0 };
                   const payoffStr = getPayoffDateString(dStats.payoffMonth);
+                  const originalBal = debt.openingBalance ?? debt.balance;
+                  const paidOffAmt = Math.max(0, originalBal - debt.balance);
+                  const progressPct = originalBal > 0 ? Math.min(100, Math.max(0, (paidOffAmt / originalBal) * 100)) : (debt.balance <= 0 ? 100 : 0);
+                  const isPaidOff = debt.balance <= 0.01;
 
                   return (
                     <tr
@@ -980,37 +1227,61 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                         {rId}
                       </td>
 
-                      {/* Column A: Name */}
+                      {/* Column A: Name & Type */}
                       <td className="border-r border-[#cbddec] px-3 py-1.5 font-bold text-slate-800">
-                        <div className="flex items-center gap-2">
-                          <span className="h-2.5 w-2.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: debt.color }} />
-                          <span>{debt.name}</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: debt.color }} />
+                            <span className="truncate">{debt.name}</span>
+                          </div>
+                          <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                            {debt.type || 'Credit Card'}
+                          </span>
                         </div>
                       </td>
 
-                      {/* Column B: Balance */}
-                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono font-bold text-slate-800">
+                      {/* Column B: Original Balance */}
+                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono text-slate-500 font-semibold">
+                        {formatCurrency(originalBal, settings.currency)}
+                      </td>
+
+                      {/* Column C: Current Balance */}
+                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono font-bold text-slate-900">
                         {formatCurrency(debt.balance, settings.currency)}
                       </td>
 
-                      {/* Column C: Interest Rate */}
+                      {/* Column D: Payoff Progress % */}
+                      <td className="border-r border-[#cbddec] px-2 py-1.5 text-center">
+                        {isPaidOff ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Paid Off
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5 justify-center">
+                            <div className="w-12 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300"
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                            <span className="font-mono text-[10px] font-bold text-slate-600">{progressPct.toFixed(0)}%</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Column E: Interest Rate */}
                       <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono text-slate-600 font-semibold">
                         {debt.interestRate.toFixed(2)}%
                       </td>
 
-                      {/* Column D: Minimum payment */}
+                      {/* Column F: Minimum payment */}
                       <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono text-slate-600 font-semibold">
                         {formatCurrency(debt.minimumPayment, settings.currency)}
                       </td>
 
-                      {/* Column E: Payoff Date (Calculated) */}
-                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-center font-black text-rose-600 bg-rose-50/10 font-mono">
-                        {payoffStr}
-                      </td>
-
-                      {/* Column F: Total Interest Paid (Calculated) */}
-                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-right font-mono font-bold text-amber-700 bg-amber-50/10">
-                        {formatCurrency(dStats.totalInterest, settings.currency)}
+                      {/* Column G: Payoff Date (Calculated) */}
+                      <td className="border-r border-[#cbddec] px-3 py-1.5 text-center font-black text-rose-600 bg-rose-50/10 font-mono text-[11px]">
+                        {isPaidOff ? 'Complete' : payoffStr}
                       </td>
 
                       {/* Actions */}
@@ -1042,7 +1313,7 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                 {debts.length === 0 && (
                   <tr>
                     <td className="border-r border-[#cbddec] bg-slate-100 text-center font-medium text-slate-400 text-[10px] select-none h-12">1</td>
-                    <td colSpan={7} className="px-4 py-10 text-center text-slate-400 font-semibold bg-slate-50/10">
+                    <td colSpan={8} className="px-4 py-10 text-center text-slate-400 font-semibold bg-slate-50/10">
                       No outstanding debts added yet. Use the left panel form to register liabilities and generate schedules.
                     </td>
                   </tr>
@@ -1054,8 +1325,18 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                   <td className="border-r border-[#cbddec] px-3 py-2 text-xs font-bold text-slate-800">
                     Total Summary Formula
                   </td>
+                  <td className="border-r border-[#cbddec] px-3 py-2 text-right font-mono text-slate-600 text-xs font-semibold">
+                    {formatCurrency(debts.reduce((sum, d) => sum + (d.openingBalance ?? d.balance), 0), settings.currency)}
+                  </td>
                   <td className="border-r border-[#cbddec] px-3 py-2 text-right font-mono font-black text-slate-900 text-xs">
-                    {formatCurrency(payoffSimulation.overallStats.originalTotalBalance, settings.currency)}
+                    {formatCurrency(debts.reduce((sum, d) => sum + d.balance, 0), settings.currency)}
+                  </td>
+                  <td className="border-r border-[#cbddec] px-2 py-2 text-center font-mono text-slate-600 text-[10px] font-bold">
+                    {(() => {
+                      const orig = debts.reduce((sum, d) => sum + (d.openingBalance ?? d.balance), 0);
+                      const curr = debts.reduce((sum, d) => sum + d.balance, 0);
+                      return orig > 0 ? `${Math.min(100, Math.max(0, ((orig - curr) / orig) * 100)).toFixed(0)}%` : '—';
+                    })()}
                   </td>
                   <td className="border-r border-[#cbddec] px-3 py-2 text-right font-mono text-slate-500 text-xs">
                     {debts.length > 0 ? `${(debts.reduce((sum, d) => sum + d.interestRate, 0) / debts.length).toFixed(2)}% avg` : '—'}
@@ -1065,9 +1346,6 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                   </td>
                   <td className="border-r border-[#cbddec] px-3 py-2 text-center text-rose-700 font-black font-mono">
                     {debts.length > 0 ? getPayoffDateString(payoffSimulation.overallStats.totalMonths) : '—'}
-                  </td>
-                  <td className="border-r border-[#cbddec] px-3 py-2 text-right font-mono font-black text-amber-800 text-xs bg-amber-50/20">
-                    {formatCurrency(payoffSimulation.overallStats.totalInterest, settings.currency)}
                   </td>
                   <td className="px-3 py-2 bg-slate-150 text-center text-[9px] text-slate-500 font-black uppercase select-none">
                     Calculated

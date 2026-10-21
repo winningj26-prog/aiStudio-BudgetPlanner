@@ -12,6 +12,7 @@ import type {
   IncomeTransaction,
   RecurringTransaction,
   SavingsGoal,
+  SavingsContribution,
   SettingsState,
   WorksheetTab,
 } from '../types/budget';
@@ -29,6 +30,7 @@ export interface WorkbookData {
   plannedIncome: Record<string, number>;
   plannedExpenses: Record<string, number>;
   savingsGoals: SavingsGoal[];
+  savingsContributions?: SavingsContribution[];
   debts: Debt[];
   debtPayments: DebtPayment[];
   financialAssets: FinancialAsset[];
@@ -54,6 +56,7 @@ export interface WorkbookDefaults {
   plannedIncome: Record<string, number>;
   plannedExpenses: Record<string, number>;
   savingsGoals: SavingsGoal[];
+  savingsContributions?: SavingsContribution[];
   debts: Debt[];
   debtPayments: DebtPayment[];
   financialAssets: FinancialAsset[];
@@ -82,6 +85,7 @@ export function createLocalWorkbookRepository(
         plannedIncome: loadFromAccountStorage(STORAGE_KEYS.PLANNED_INCOME, userId, defaults.plannedIncome),
         plannedExpenses: loadFromAccountStorage(STORAGE_KEYS.PLANNED_EXPENSES, userId, defaults.plannedExpenses),
         savingsGoals: loadFromAccountStorage(STORAGE_KEYS.SAVINGS_GOALS, userId, defaults.savingsGoals),
+        savingsContributions: loadFromAccountStorage(STORAGE_KEYS.SAVINGS_CONTRIBUTIONS, userId, defaults.savingsContributions ?? []),
         debts: loadFromAccountStorage(STORAGE_KEYS.DEBTS, userId, defaults.debts),
         debtPayments: loadFromAccountStorage(STORAGE_KEYS.DEBT_PAYMENTS, userId, defaults.debtPayments),
         financialAssets: loadFromAccountStorage(STORAGE_KEYS.FINANCIAL_ASSETS, userId, defaults.financialAssets),
@@ -104,6 +108,7 @@ export function createLocalWorkbookRepository(
       saveToAccountStorage(STORAGE_KEYS.PLANNED_INCOME, userId, data.plannedIncome);
       saveToAccountStorage(STORAGE_KEYS.PLANNED_EXPENSES, userId, data.plannedExpenses);
       saveToAccountStorage(STORAGE_KEYS.SAVINGS_GOALS, userId, data.savingsGoals);
+      saveToAccountStorage(STORAGE_KEYS.SAVINGS_CONTRIBUTIONS, userId, data.savingsContributions ?? []);
       saveToAccountStorage(STORAGE_KEYS.DEBTS, userId, data.debts);
       saveToAccountStorage(STORAGE_KEYS.DEBT_PAYMENTS, userId, data.debtPayments);
       saveToAccountStorage(STORAGE_KEYS.FINANCIAL_ASSETS, userId, data.financialAssets);

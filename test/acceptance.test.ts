@@ -21,7 +21,7 @@ import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
 import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
 import { isValidWorkbookData, normalizeWorkbookData } from '../src/utils/workbookValidation.ts';
 import { buildAnnualSummary, calculateBudgetItem, calculateBudgetStatus, sumExpensesByCategory, sumIncomeByCategory, sumExpenseTransactions, sumIncomeTransactions } from '../src/utils/formulas.ts';
-import { calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates, normalizeSavingsGoalDraft, validateDebtDraftValues, normalizeRecurringRuleValues } from '../src/utils/financialPlanning.ts';
+import { calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates, normalizeSavingsGoalDraft, validateDebtDraftValues, normalizeRecurringRuleValues, reconcileGoalBalance, validateSavingsContributionDraft } from '../src/utils/financialPlanning.ts';
 import { calculateFinancialSnapshot } from '../src/utils/financialModel.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 import { getCurrentCalendarPeriod, syncSettingsToCurrentPeriod } from '../src/utils/calendarPeriod.ts';
@@ -69,7 +69,7 @@ test('local workbook repository round-trips account-scoped workbook data', () =>
   const defaults = {
     settings: { currency: 'USD', month: 'January', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
     incomeCategories: [], expenseCategories: [], paymentMethods: [], incomeTransactions: [],
-    expenseTransactions: [], plannedIncome: {}, plannedExpenses: {}, savingsGoals: [], debts: [], debtPayments: [], financialAssets: [], openingCashBalance: 0,
+    expenseTransactions: [], plannedIncome: {}, plannedExpenses: {}, savingsGoals: [], savingsContributions: [], debts: [], debtPayments: [], financialAssets: [], openingCashBalance: 0,
     recurringTransactions: [], userEmail: '', activeTab: 'start_here' as const, sheetConfig: null,
   };
   const repository = createLocalWorkbookRepository('user-a', defaults);
@@ -1057,4 +1057,173 @@ test('Product 2 remains disabled during the merge without deleting legacy source
   assert.match(serverSource, /row\.app_id !== 'product2'/);
   assert.match(serverSource, /Product 2 is disabled and cannot be enabled or overridden/);
   assert.equal(rootPackage.scripts.build, 'vite build');
+});
+
+test('savings contribution validation enforces positive finite amount, valid date, and goal id', () => {
+  assert.equal(validateSavingsContributionDraft('goal-1', 250, '2026-03-15'), true);
+  assert.equal(validateSavingsContributionDraft('goal-1', 0, '2026-03-15'), false);
+  assert.equal(validateSavingsContributionDraft('goal-1', -50, '2026-03-15'), false);
+  assert.equal(validateSavingsContributionDraft('', 250, '2026-03-15'), false);
+  assert.equal(validateSavingsContributionDraft('goal-1', 250, 'invalid-date'), false);
+  assert.equal(validateSavingsContributionDraft('goal-1', 250, '2026-02-30'), false);
+});
+
+test('savings goal balance reconciliation preserves legacy balances without reset and tallies contributions', () => {
+  // Legacy goal with no openingBalance explicitly set and no contributions
+  const legacyGoal = {
+    id: 'legacy-1',
+    name: 'Emergency Fund',
+    targetAmount: 10000,
+    currentAmount: 3500,
+  };
+  const legacyReconciled = reconcileGoalBalance(legacyGoal, []);
+  assert.equal(legacyReconciled.currentAmount, 3500);
+  assert.equal(legacyReconciled.openingBalance, 3500);
+
+  // Goal with opening balance and contributions
+  const activeGoal = {
+    id: 'goal-2',
+    name: 'Home Down Payment',
+    targetAmount: 50000,
+    currentAmount: 0,
+    openingBalance: 10000,
+  };
+  const contributions = [
+    { id: 'sc-1', goalId: 'goal-2', amount: 1500, date: '2026-01-15' },
+    { id: 'sc-2', goalId: 'goal-2', amount: 2000, date: '2026-02-15' },
+    { id: 'sc-3', goalId: 'other-goal', amount: 500, date: '2026-02-15' },
+  ];
+  const activeReconciled = reconcileGoalBalance(activeGoal, contributions);
+  assert.equal(activeReconciled.currentAmount, 13500);
+  assert.equal(activeReconciled.openingBalance, 10000);
+});
+
+test('savings contributions and goal balances do not double count as separate assets in financial snapshot', () => {
+  const assets: FinancialAsset[] = [
+    { id: 'checking', name: 'Primary Checking', category: 'Bank', amount: 10000 },
+  ];
+  const debts: Debt[] = [
+    { id: 'loan1', name: 'Car Loan', balance: 5000, interestRate: 5, minimumPayment: 200 },
+  ];
+  const goals: SavingsGoal[] = [
+    { id: 'vacation', name: 'Vacation', targetAmount: 3000, currentAmount: 1500, openingBalance: 500 },
+  ];
+
+  const snapshot = calculateFinancialSnapshot(
+    [],
+    [],
+    goals,
+    debts,
+    assets,
+    [],
+    0,
+  );
+
+  // Net worth = Assets (10000) - Debts (5000) = 5000. Goals are an earmark, not additive external assets.
+  assert.equal(snapshot.totalAssets, 10000);
+  assert.equal(snapshot.totalLiabilities, 5000);
+  assert.equal(snapshot.netWorth, 5000);
+});
+
+test('debt payment reconciliation accurately partitions principal, interest, and fees into expenses and liabilities', () => {
+  const assets: FinancialAsset[] = [
+    { id: 'checking', name: 'Checking Account', category: 'Bank', amount: 8000 },
+  ];
+  const debts: Debt[] = [
+    { id: 'card-1', name: 'Visa Platinum', type: 'Credit Card', balance: 4000, interestRate: 18, minimumPayment: 150 },
+  ];
+  const payments: DebtPayment[] = [
+    {
+      id: 'pay-1',
+      debtId: 'card-1',
+      date: '2026-01-15',
+      amount: 300,
+      principal: 220,
+      interest: 60,
+      fees: 20,
+      accountId: 'checking',
+    },
+  ];
+
+  const snapshot = calculateFinancialSnapshot(
+    [{ id: 'inc-1', date: '2026-01-01', category: 'Salary', amount: 5000, type: 'income' }],
+    [{ id: 'exp-1', date: '2026-01-05', category: 'Food', amount: 400, paymentMethod: 'Cash' }],
+    [],
+    debts,
+    assets,
+    payments,
+    0,
+  );
+
+  // Total expense includes base expenses (400) + debt interest (60) + debt fees (20) = 480
+  assert.equal(snapshot.debtInterestExpense, 60);
+  assert.equal(snapshot.debtFeeExpense, 20);
+  assert.equal(snapshot.totalExpenses, 480);
+  assert.equal(snapshot.debtPrincipalPaid, 220);
+
+  // Cash account balance reduced by full payment amount (300) => 8000 - 300 = 7700
+  assert.equal(snapshot.accountBalances['checking'], 7700);
+});
+
+test('debt payoff simulation is purely analytical and does not mutate real debts ledger', () => {
+  const originalDebts: Debt[] = [
+    { id: 'd1', name: 'Credit Card', balance: 2000, interestRate: 15, minimumPayment: 60 },
+    { id: 'd2', name: 'Student Loan', balance: 8000, interestRate: 6, minimumPayment: 100 },
+  ];
+  const originalCopy = JSON.parse(JSON.stringify(originalDebts));
+
+  const monthsD1 = calculateDebtPayoffMonths(originalDebts[0]);
+  const monthsD2 = calculateDebtPayoffMonths(originalDebts[1]);
+
+  assert.ok(monthsD1 !== null && monthsD1 > 0 && Number.isFinite(monthsD1));
+  assert.ok(monthsD2 !== null && monthsD2 > 0 && Number.isFinite(monthsD2));
+
+  // Verify inputs remained pristine
+  assert.deepEqual(originalDebts, originalCopy);
+});
+
+test('workbook validation and normalization round-trips savingsContributions and debt fees with backward compatibility', () => {
+  // Legacy workbook without savingsContributions or fees
+  const legacyWorkbook = {
+    settings: { currency: 'USD' as const, month: 'January', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
+    incomeCategories: [], expenseCategories: [], paymentMethods: ['Cash'],
+    incomeTransactions: [], expenseTransactions: [],
+    plannedIncome: {}, plannedExpenses: {},
+    savingsGoals: [{ id: 'g1', name: 'Emergency', targetAmount: 5000, currentAmount: 1000 }],
+    debts: [{ id: 'd1', name: 'Card', balance: 1500, interestRate: 12, minimumPayment: 50 }],
+    debtPayments: [{ id: 'dp1', debtId: 'd1', date: '2026-01-10', amount: 100, principal: 80, interest: 20 }],
+    financialAssets: [], openingCashBalance: 0, recurringTransactions: [],
+    userEmail: 'user@example.com', activeTab: 'dashboard' as const, sheetConfig: null,
+  };
+
+  assert.equal(isValidWorkbookData(legacyWorkbook), true);
+  const normalized = normalizeWorkbookData(legacyWorkbook, legacyWorkbook);
+  assert.ok(Array.isArray(normalized.savingsContributions));
+  assert.equal(normalized.savingsContributions.length, 0);
+
+  // Modern workbook with contributions and fee-inclusive debt payments
+  const modernWorkbook = {
+    ...legacyWorkbook,
+    savingsContributions: [
+      { id: 'c1', goalId: 'g1', amount: 500, date: '2026-01-12', note: 'First deposit' },
+    ],
+    debtPayments: [
+      { id: 'dp1', debtId: 'd1', date: '2026-01-10', amount: 110, principal: 80, interest: 20, fees: 10 },
+    ],
+  };
+
+  assert.equal(isValidWorkbookData(modernWorkbook), true);
+  const normalizedModern = normalizeWorkbookData(modernWorkbook, legacyWorkbook);
+  assert.equal(normalizedModern.savingsContributions.length, 1);
+  assert.equal(normalizedModern.savingsContributions[0].amount, 500);
+  assert.equal(normalizedModern.debtPayments[0].fees, 10);
+
+  // Invalid contribution rejection
+  const invalidWorkbook = {
+    ...modernWorkbook,
+    savingsContributions: [
+      { id: 'c2', goalId: 'g1', amount: -200, date: '2026-01-12' },
+    ],
+  };
+  assert.equal(isValidWorkbookData(invalidWorkbook), false);
 });

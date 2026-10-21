@@ -4,6 +4,7 @@ export interface FinancialSnapshot {
   totalIncome: number;
   totalExpenses: number;
   debtInterestExpense: number;
+  debtFeeExpense: number;
   debtPrincipalPaid: number;
   operatingCashFlow: number;
   goalAllocated: number;
@@ -38,8 +39,9 @@ export function calculateFinancialSnapshot(
 
   const totalIncome = incomeTransactions.reduce((sum, tx) => sum + positive(tx.amount), 0);
   const debtInterestExpense = debtPayments.reduce((sum, payment) => sum + positive(payment.interest), 0);
+  const debtFeeExpense = debtPayments.reduce((sum, payment) => sum + positive(payment.fees || 0), 0);
   const debtPrincipalPaid = debtPayments.reduce((sum, payment) => sum + positive(payment.principal), 0);
-  const totalExpenses = expenseTransactions.reduce((sum, tx) => sum + positive(tx.amount), 0) + debtInterestExpense;
+  const totalExpenses = expenseTransactions.reduce((sum, tx) => sum + positive(tx.amount), 0) + debtInterestExpense + debtFeeExpense;
   const operatingCashFlow = totalIncome - totalExpenses;
   const goalAllocated = savingsGoals.reduce((sum, goal) => sum + positive(goal.currentAmount), 0);
 
@@ -114,6 +116,7 @@ export function calculateFinancialSnapshot(
     totalIncome,
     totalExpenses,
     debtInterestExpense,
+    debtFeeExpense,
     debtPrincipalPaid,
     operatingCashFlow,
     goalAllocated,

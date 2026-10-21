@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   PLANNED_INCOME: 'pmbp_planned_income_v2',
   PLANNED_EXPENSES: 'pmbp_planned_expenses_v2',
   SAVINGS_GOALS: 'pmbp_savings_goals_v2',
+  SAVINGS_CONTRIBUTIONS: 'pmbp_savings_contributions_v2',
   DEBTS: 'pmbp_debts_v2',
   DEBT_PAYMENTS: 'pmbp_debt_payments_v2',
   FINANCIAL_ASSETS: 'pmbp_financial_assets_v2',

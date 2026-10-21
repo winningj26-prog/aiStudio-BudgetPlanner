@@ -1,5 +1,5 @@
 import type { WorkbookData } from '../services/workbookRepository';
-import type { CategoryItem, Debt, DebtPayment, FinancialAsset, ExpenseTransaction, IncomeTransaction, RecurringTransaction, SavingsGoal, SettingsState, WorksheetTab } from '../types/budget';
+import type { CategoryItem, Debt, DebtPayment, FinancialAsset, ExpenseTransaction, IncomeTransaction, RecurringTransaction, SavingsGoal, SavingsContribution, SettingsState, WorksheetTab } from '../types/budget';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const CURRENCIES = ['USD','EUR','GBP','CAD','AUD','JPY'];
@@ -49,32 +49,48 @@ const isExpense = (value: unknown): value is ExpenseTransaction =>
 const isGoal = (value: unknown): value is SavingsGoal =>
   isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string'
   && isNonNegativeNumber(value.targetAmount) && isNonNegativeNumber(value.currentAmount)
+  && (value.openingBalance == null || isNonNegativeNumber(value.openingBalance))
   && (value.accountId == null || typeof value.accountId === 'string')
   && (value.categoryId == null || typeof value.categoryId === 'string')
   && (value.categoryName == null || typeof value.categoryName === 'string')
   && (value.targetDate == null || isDate(value.targetDate))
   && (value.monthlyContribution == null || isNonNegativeNumber(value.monthlyContribution))
+  && (value.contributionFrequency == null || typeof value.contributionFrequency === 'string')
   && (value.color == null || typeof value.color === 'string')
   && (value.notes == null || typeof value.notes === 'string');
+
+const isContribution = (value: unknown): value is SavingsContribution =>
+  isRecord(value) && typeof value.id === 'string' && typeof value.goalId === 'string'
+  && isDate(value.date) && isNonNegativeNumber(value.amount)
+  && (value.accountId == null || typeof value.accountId === 'string')
+  && (value.notes == null || typeof value.notes === 'string')
+  && (value.createdAt == null || typeof value.createdAt === 'string')
+  && (value.updatedAt == null || typeof value.updatedAt === 'string');
 
 const isDebt = (value: unknown): value is Debt =>
   isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string'
   && isNonNegativeNumber(value.balance) && isNonNegativeNumber(value.interestRate)
   && isNonNegativeNumber(value.minimumPayment)
   && (value.openingBalance == null || isNonNegativeNumber(value.openingBalance))
+  && (value.type == null || typeof value.type === 'string')
+  && (value.paymentFrequency == null || typeof value.paymentFrequency === 'string')
   && (value.notes == null || typeof value.notes === 'string')
   && (value.color == null || typeof value.color === 'string');
 
-
-const isDebtPayment = (value: unknown): value is DebtPayment =>
-  isRecord(value) && typeof value.id === 'string' && isDate(value.date)
-  && typeof value.debtId === 'string' && value.debtId.length > 0
-  && (value.accountId == null || typeof value.accountId === 'string')
-  && isNonNegativeNumber(value.amount)
-  && isNonNegativeNumber(value.principal)
-  && isNonNegativeNumber(value.interest)
-  && Math.abs(value.amount - value.principal - value.interest) < 0.01
-  && (value.notes == null || typeof value.notes === 'string');
+const isDebtPayment = (value: unknown): value is DebtPayment => {
+  if (!isRecord(value) || typeof value.id !== 'string' || !isDate(value.date)
+    || typeof value.debtId !== 'string' || value.debtId.length === 0
+    || (value.accountId != null && typeof value.accountId !== 'string')
+    || !isNonNegativeNumber(value.amount)
+    || !isNonNegativeNumber(value.principal)
+    || !isNonNegativeNumber(value.interest)
+    || (value.fees != null && !isNonNegativeNumber(value.fees))
+    || (value.notes != null && typeof value.notes === 'string')) {
+    return false;
+  }
+  const fees = typeof value.fees === 'number' ? value.fees : 0;
+  return Math.abs(value.amount - value.principal - value.interest - fees) < 0.01;
+};
 
 const isAsset = (value: unknown): value is FinancialAsset =>
   isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string'
@@ -126,6 +142,7 @@ export function isValidWorkbookData(value: unknown): value is WorkbookData {
     && Array.isArray(value.expenseTransactions) && value.expenseTransactions.every(isExpense)
     && isNumberMap(value.plannedIncome) && isNumberMap(value.plannedExpenses)
     && Array.isArray(value.savingsGoals) && value.savingsGoals.every(isGoal)
+    && (value.savingsContributions == null || (Array.isArray(value.savingsContributions) && value.savingsContributions.every(isContribution)))
     && Array.isArray(value.debts) && value.debts.every(isDebt)
     && Array.isArray(value.debtPayments) && value.debtPayments.every(isDebtPayment)
     && Array.isArray(value.financialAssets) && value.financialAssets.every(isAsset)
@@ -137,5 +154,12 @@ export function isValidWorkbookData(value: unknown): value is WorkbookData {
 }
 
 export function normalizeWorkbookData(value: unknown, fallback: WorkbookData): WorkbookData {
-  return isValidWorkbookData(value) ? value : fallback;
+  if (!isValidWorkbookData(value)) return fallback;
+  if (!Array.isArray(value.savingsContributions)) {
+    return {
+      ...value,
+      savingsContributions: fallback.savingsContributions ?? [],
+    };
+  }
+  return value;
 }

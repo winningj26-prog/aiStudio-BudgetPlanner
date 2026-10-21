@@ -14,6 +14,7 @@ import {
   MonthSummary,
   RecurringTransaction,
   SavingsGoal,
+  SavingsContribution,
   SettingsState,
   WorksheetTab,
 } from './types/budget';
@@ -26,6 +27,7 @@ import {
   INITIAL_PLANNED_INCOME,
   INITIAL_RECURRING_TRANSACTIONS,
   INITIAL_SAVINGS_GOALS,
+  INITIAL_SAVINGS_CONTRIBUTIONS,
   INITIAL_DEBTS,
   INITIAL_FINANCIAL_ASSETS,
   INITIAL_OPENING_CASH_BALANCE,
@@ -133,6 +135,9 @@ export default function App() {
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() =>
     loadFromStorage<SavingsGoal[]>(STORAGE_KEYS.SAVINGS_GOALS, INITIAL_SAVINGS_GOALS)
   );
+  const [savingsContributions, setSavingsContributions] = useState<SavingsContribution[]>(() =>
+    loadFromStorage<SavingsContribution[]>(STORAGE_KEYS.SAVINGS_CONTRIBUTIONS, INITIAL_SAVINGS_CONTRIBUTIONS)
+  );
 
   // Outstanding Debts tracking (persistent)
   const [debts, setDebts] = useState<Debt[]>(() =>
@@ -197,6 +202,7 @@ export default function App() {
       plannedIncome: INITIAL_PLANNED_INCOME,
       plannedExpenses: INITIAL_PLANNED_EXPENSES,
       savingsGoals: INITIAL_SAVINGS_GOALS,
+      savingsContributions: INITIAL_SAVINGS_CONTRIBUTIONS,
       debts: INITIAL_DEBTS,
       debtPayments: [],
       financialAssets: INITIAL_FINANCIAL_ASSETS,
@@ -217,6 +223,7 @@ export default function App() {
       plannedIncome,
       plannedExpenses,
       savingsGoals,
+      savingsContributions,
       debts,
       debtPayments,
       financialAssets,
@@ -237,6 +244,7 @@ export default function App() {
     plannedIncome,
     plannedExpenses,
     savingsGoals,
+    savingsContributions,
     debts,
     debtPayments,
     financialAssets,
@@ -337,6 +345,9 @@ export default function App() {
     setSavingsGoals(
       loadFromAccountStorage(STORAGE_KEYS.SAVINGS_GOALS, userId, INITIAL_SAVINGS_GOALS),
     );
+    setSavingsContributions(
+      loadFromAccountStorage(STORAGE_KEYS.SAVINGS_CONTRIBUTIONS, userId, INITIAL_SAVINGS_CONTRIBUTIONS),
+    );
     setDebts(loadFromAccountStorage(STORAGE_KEYS.DEBTS, userId, INITIAL_DEBTS));
     setDebtPayments(loadFromAccountStorage(STORAGE_KEYS.DEBT_PAYMENTS, userId, []));
     setFinancialAssets(
@@ -435,6 +446,7 @@ export default function App() {
             plannedIncome,
             plannedExpenses,
             savingsGoals,
+            savingsContributions,
             debts,
             debtPayments,
             financialAssets,
@@ -453,6 +465,9 @@ export default function App() {
           setPlannedIncome(cloud.plannedIncome);
           setPlannedExpenses(cloud.plannedExpenses);
           setSavingsGoals(cloud.savingsGoals);
+          if (cloud.savingsContributions) {
+            setSavingsContributions(cloud.savingsContributions);
+          }
           setDebts(cloud.debts);
           setDebtPayments(cloud.debtPayments);
           setFinancialAssets(cloud.financialAssets);
@@ -491,6 +506,7 @@ export default function App() {
         plannedIncome,
         plannedExpenses,
         savingsGoals,
+        savingsContributions,
         debts,
         debtPayments,
         financialAssets,
@@ -517,6 +533,7 @@ export default function App() {
     plannedIncome,
     plannedExpenses,
     savingsGoals,
+    savingsContributions,
     debts,
     debtPayments,
     financialAssets,
@@ -849,6 +866,8 @@ export default function App() {
             onOpenExportModal={() => setIsExportModalOpen(true)}
             savingsGoals={savingsGoals}
             onUpdateSavingsGoals={setSavingsGoals}
+            savingsContributions={savingsContributions}
+            onUpdateSavingsContributions={setSavingsContributions}
             debts={debts}
             debtPayments={debtPayments}
             financialAssets={financialAssets}

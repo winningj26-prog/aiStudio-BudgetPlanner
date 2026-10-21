@@ -1,10 +1,12 @@
 import {
   CategoryItem,
   Debt,
+  DebtPayment,
   ExpenseTransaction,
   IncomeTransaction,
   RecurringTransaction,
   SavingsGoal,
+  SavingsContribution,
   SettingsState,
   FinancialAsset,
 } from '../types/budget';
@@ -62,7 +64,9 @@ export const INITIAL_EXPENSE_TRANSACTIONS: ExpenseTransaction[] = [];
 export const INITIAL_PLANNED_INCOME: Record<string, number> = {};
 export const INITIAL_PLANNED_EXPENSES: Record<string, number> = {};
 export const INITIAL_SAVINGS_GOALS: SavingsGoal[] = [];
+export const INITIAL_SAVINGS_CONTRIBUTIONS: SavingsContribution[] = [];
 export const INITIAL_DEBTS: Debt[] = [];
+export const INITIAL_DEBT_PAYMENTS: DebtPayment[] = [];
 export const INITIAL_RECURRING_TRANSACTIONS: RecurringTransaction[] = [];
 
 export const INITIAL_OPENING_CASH_BALANCE = 0;

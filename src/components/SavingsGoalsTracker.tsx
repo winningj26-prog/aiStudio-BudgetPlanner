@@ -2,11 +2,17 @@ import React, { useState } from 'react';
 import {
   CategoryItem,
   SavingsGoal,
+  SavingsContribution,
   FinancialAsset,
   SettingsState,
 } from '../types/budget';
-import { formatCurrency } from '../utils/formatters';
-import { calculateSavingsGoalProgress, normalizeSavingsGoalDraft } from '../utils/financialPlanning';
+import { formatCurrency, formatDate } from '../utils/formatters';
+import {
+  calculateSavingsGoalProgress,
+  normalizeSavingsGoalDraft,
+  reconcileGoalBalance,
+  validateSavingsContributionDraft,
+} from '../utils/financialPlanning';
 import {
   Award,
   Calendar,
@@ -17,6 +23,7 @@ import {
   Edit2,
   Filter,
   Flame,
+  History,
   Minus,
   Pencil,
   PiggyBank,
@@ -31,6 +38,8 @@ import {
 interface SavingsGoalsTrackerProps {
   savingsGoals: SavingsGoal[];
   onUpdateSavingsGoals: (goals: SavingsGoal[]) => void;
+  savingsContributions?: SavingsContribution[];
+  onUpdateSavingsContributions?: (contributions: SavingsContribution[]) => void;
   categories: CategoryItem[];
   incomeCategories: CategoryItem[];
   settings: SettingsState;
@@ -43,6 +52,8 @@ interface SavingsGoalsTrackerProps {
 export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   savingsGoals,
   onUpdateSavingsGoals,
+  savingsContributions = [],
+  onUpdateSavingsContributions,
   categories,
   incomeCategories,
   settings,
@@ -51,11 +62,19 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   currentMonthlySavings = 500, // default fallback
   currentSavingsRate = 20,     // default fallback
 }) => {
+  // View toggle: Goals overview vs Contribution history ledger
+  const [activeViewTab, setActiveViewTab] = useState<'goals' | 'ledger'>('goals');
+
   // Modal states
   const [isAddGoalModalOpen, setIsAddGoalModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
   const [contributeGoal, setContributeGoal] = useState<SavingsGoal | null>(null);
   const [contributionAmount, setContributionAmount] = useState<string>('100');
+  const [contributionDate, setContributionDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [contributionAccountId, setContributionAccountId] = useState<string>('');
+  const [contributionNotes, setContributionNotes] = useState<string>('');
+  const [selectedContributionGoalId, setSelectedContributionGoalId] = useState<string>('');
+  const [ledgerGoalFilter, setLedgerGoalFilter] = useState<string>('all');
 
   // Filter state
   const [filterStatus, setFilterStatus] = useState<'all' | 'in_progress' | 'completed'>('all');
@@ -63,10 +82,12 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   // Form states for Add/Edit Goal
   const [goalName, setGoalName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
+  const [openingBalance, setOpeningBalance] = useState('0');
   const [currentAmount, setCurrentAmount] = useState('0');
   const [categoryName, setCategoryName] = useState('Savings');
   const [targetDate, setTargetDate] = useState('');
   const [monthlyContribution, setMonthlyContribution] = useState('');
+  const [contributionFrequency, setContributionFrequency] = useState('monthly');
   const [goalColor, setGoalColor] = useState('#059669');
   const [goalNotes, setGoalNotes] = useState('');
   const [goalAccountId, setGoalAccountId] = useState('');
@@ -105,6 +126,15 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   const completedGoalsCount = goalProgress.filter((g) => g.isComplete).length;
   const totalMonthlyCommitment = savingsGoals.reduce((sum, g) => sum + (g.monthlyContribution || 0), 0);
 
+  // Contribution metrics & filtering
+  const totalContributedAll = savingsContributions.reduce((sum, c) => sum + (c.amount > 0 ? c.amount : 0), 0);
+  const contributionCount = savingsContributions.length;
+  const avgContribution = contributionCount > 0 ? totalContributedAll / contributionCount : 0;
+  const filteredContributions = savingsContributions.filter((c) => {
+    if (ledgerGoalFilter === 'all') return true;
+    return c.goalId === ledgerGoalFilter;
+  });
+
   // Filtered goals
   const filteredGoals = savingsGoals.filter((goal) => {
     const isCompleted = goal.currentAmount >= goal.targetAmount;
@@ -118,10 +148,12 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
     setEditingGoal(null);
     setGoalName('');
     setTargetAmount('5000');
+    setOpeningBalance('0');
     setCurrentAmount('0');
     setCategoryName('Savings');
     setTargetDate('2026-12-31');
     setMonthlyContribution('250');
+    setContributionFrequency('monthly');
     setGoalColor('#059669');
     setGoalNotes('');
     setGoalAccountId('');
@@ -133,10 +165,13 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
     setEditingGoal(goal);
     setGoalName(goal.name);
     setTargetAmount(String(goal.targetAmount));
+    const effectiveOpening = goal.openingBalance !== undefined ? goal.openingBalance : goal.currentAmount;
+    setOpeningBalance(String(effectiveOpening));
     setCurrentAmount(String(goal.currentAmount));
     setCategoryName(goal.categoryName || 'Savings');
     setTargetDate(goal.targetDate || '');
     setMonthlyContribution(goal.monthlyContribution ? String(goal.monthlyContribution) : '');
+    setContributionFrequency(goal.contributionFrequency || 'monthly');
     setGoalColor(goal.color || '#059669');
     setGoalNotes(goal.notes || '');
     setGoalAccountId(goal.accountId || '');
@@ -149,10 +184,16 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
     const normalized = normalizeSavingsGoalDraft(targetAmount, currentAmount, monthlyContribution);
     if (!goalName.trim() || !normalized) return;
 
-    const { targetAmount: target, currentAmount: current, monthlyContribution: monthly } = normalized;
+    const { targetAmount: target, monthlyContribution: monthly } = normalized;
+    const openBal = parseFloat(openingBalance);
+    const validOpeningBal = Number.isFinite(openBal) && openBal >= 0 ? openBal : 0;
 
     if (editingGoal) {
-      // Update existing
+      // Reconcile with existing contributions
+      const goalContribs = savingsContributions.filter((c) => c.goalId === editingGoal.id);
+      const contribSum = goalContribs.reduce((sum, c) => sum + (c.amount > 0 ? c.amount : 0), 0);
+      const computedCurrent = validOpeningBal + contribSum;
+
       const updated = savingsGoals.map((g) =>
         g.id === editingGoal.id
           ? {
@@ -161,9 +202,11 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
               categoryName,
               accountId: goalAccountId || undefined,
               targetAmount: target,
-              currentAmount: current,
+              openingBalance: validOpeningBal,
+              currentAmount: computedCurrent,
               targetDate: targetDate || undefined,
               monthlyContribution: monthly,
+              contributionFrequency,
               color: goalColor,
               notes: goalNotes.trim() || undefined,
             }
@@ -171,16 +214,18 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
       );
       onUpdateSavingsGoals(updated);
     } else {
-      // Create new
+      // Create new goal
       const newGoal: SavingsGoal = {
         id: `goal_${Date.now()}`,
         name: goalName.trim(),
         categoryName,
         accountId: goalAccountId || undefined,
         targetAmount: target,
-        currentAmount: current,
+        openingBalance: validOpeningBal,
+        currentAmount: validOpeningBal,
         targetDate: targetDate || undefined,
         monthlyContribution: monthly,
+        contributionFrequency,
         color: goalColor,
         notes: goalNotes.trim() || undefined,
       };
@@ -199,25 +244,71 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   // Quick contribute
   const handleOpenContribute = (goal: SavingsGoal) => {
     setContributeGoal(goal);
+    setSelectedContributionGoalId(goal.id);
     setContributionAmount('100');
+    setContributionDate(new Date().toISOString().split('T')[0]);
+    setContributionAccountId(goal.accountId || '');
+    setContributionNotes('');
   };
 
   const handleApplyContribution = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!contributeGoal) return;
+    const targetGoal = contributeGoal || savingsGoals.find((g) => g.id === selectedContributionGoalId);
+    if (!targetGoal) return;
     const added = parseFloat(contributionAmount) || 0;
-    if (!Number.isFinite(added) || added <= 0) return;
+    if (!Number.isFinite(added) || added <= 0) {
+      alert('Please enter a valid positive contribution amount.');
+      return;
+    }
 
-    const updated = savingsGoals.map((g) => {
-      if (g.id === contributeGoal.id) {
-        const nextAmount = Math.max(0, g.currentAmount + added);
-        return { ...g, currentAmount: nextAmount };
+    const newContribution: SavingsContribution = {
+      id: `contrib_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      goalId: targetGoal.id,
+      date: contributionDate || new Date().toISOString().split('T')[0],
+      amount: added,
+      accountId: contributionAccountId || targetGoal.accountId || undefined,
+      notes: contributionNotes.trim() || undefined,
+      createdAt: new Date().toISOString(),
+    };
+
+    const nextContributions = [...savingsContributions, newContribution];
+    onUpdateSavingsContributions?.(nextContributions);
+
+    const updatedGoals = savingsGoals.map((g) => {
+      if (g.id === targetGoal.id) {
+        const opening = g.openingBalance !== undefined ? g.openingBalance : g.currentAmount;
+        const totalContribs = nextContributions
+          .filter((c) => c.goalId === g.id)
+          .reduce((sum, c) => sum + (c.amount > 0 ? c.amount : 0), 0);
+        return {
+          ...g,
+          openingBalance: opening,
+          currentAmount: opening + totalContribs,
+        };
       }
       return g;
     });
 
-    onUpdateSavingsGoals(updated);
+    onUpdateSavingsGoals(updatedGoals);
     setContributeGoal(null);
+    setContributionAmount('100');
+    setContributionNotes('');
+    setContributionAccountId('');
+  };
+
+  const handleDeleteContribution = (contributionId: string) => {
+    if (!window.confirm('Are you sure you want to delete this contribution?')) return;
+    const nextContributions = savingsContributions.filter((c) => c.id !== contributionId);
+    onUpdateSavingsContributions?.(nextContributions);
+    const updatedGoals = savingsGoals.map((g) => {
+      const reconciled = reconcileGoalBalance(g, nextContributions);
+      return {
+        ...g,
+        currentAmount: reconciled.currentAmount,
+        openingBalance: g.openingBalance !== undefined ? g.openingBalance : reconciled.openingBalance,
+      };
+    });
+    onUpdateSavingsGoals(updatedGoals);
   };
 
   const handleCreateGoalFromCalc = () => {
@@ -269,51 +360,67 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                 <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200/60 shadow-2xs">
                   {savingsGoals.length} {savingsGoals.length === 1 ? 'Goal' : 'Goals'}
                 </span>
+                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-800 border border-blue-200/60 shadow-2xs">
+                  {savingsContributions.length} {savingsContributions.length === 1 ? 'Contribution' : 'Contributions'}
+                </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Set category targets, track progress bars toward financial milestones, and allocate monthly savings.
+                Set category targets, log first-class contribution history, track progress, and allocate monthly savings.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Filter Pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* View Mode Toggle */}
           <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold text-slate-600 border border-slate-200/60">
             <button
               type="button"
-              onClick={() => setFilterStatus('all')}
-              className={`rounded-lg px-2.5 py-1 transition-all cursor-pointer ${
-                filterStatus === 'all'
-                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+              onClick={() => setActiveViewTab('goals')}
+              className={`rounded-lg px-2.5 py-1 transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeViewTab === 'goals'
+                  ? 'bg-white text-emerald-800 shadow-2xs font-bold'
                   : 'hover:text-slate-900'
               }`}
             >
-              All ({savingsGoals.length})
+              <Target className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Goals View</span>
             </button>
             <button
               type="button"
-              onClick={() => setFilterStatus('in_progress')}
-              className={`rounded-lg px-2.5 py-1 transition-all cursor-pointer ${
-                filterStatus === 'in_progress'
-                  ? 'bg-white text-blue-700 shadow-2xs font-bold'
+              onClick={() => setActiveViewTab('ledger')}
+              className={`rounded-lg px-2.5 py-1 transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeViewTab === 'ledger'
+                  ? 'bg-white text-blue-800 shadow-2xs font-bold'
                   : 'hover:text-slate-900'
               }`}
             >
-              Active ({savingsGoals.length - completedGoalsCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterStatus('completed')}
-              className={`rounded-lg px-2.5 py-1 transition-all cursor-pointer ${
-                filterStatus === 'completed'
-                  ? 'bg-white text-emerald-700 shadow-2xs font-bold'
-                  : 'hover:text-slate-900'
-              }`}
-            >
-              Completed ({completedGoalsCount})
+              <History className="h-3.5 w-3.5 text-blue-600" />
+              <span>Contribution Ledger ({savingsContributions.length})</span>
             </button>
           </div>
+
+          {/* Quick Log Contribution Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (savingsGoals.length === 0) {
+                alert('Please create a savings goal first before logging contributions.');
+                return;
+              }
+              const defaultGoal = savingsGoals[0];
+              setContributeGoal(defaultGoal);
+              setSelectedContributionGoalId(defaultGoal.id);
+              setContributionAmount('100');
+              setContributionDate(new Date().toISOString().split('T')[0]);
+              setContributionAccountId(defaultGoal.accountId || '');
+              setContributionNotes('');
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 px-3 py-2 text-xs font-bold text-emerald-800 shadow-2xs transition-all cursor-pointer shrink-0"
+          >
+            <PiggyBank className="h-4 w-4 text-emerald-600" />
+            <span>Log Contribution</span>
+          </button>
 
           {/* New Goal Button */}
           <button
@@ -328,11 +435,13 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
         </div>
       </div>
 
-      {/* ---------------------------------------------------- */}
-      {/* 2. Executive Overall Progress & Savings Goal Calculator */}
-      {/* ---------------------------------------------------- */}
-      <div className="grid gap-6 lg:grid-cols-12">
-        {/* Left Card: Cumulative Overall Progress */}
+      {activeViewTab === 'goals' ? (
+        <>
+          {/* ---------------------------------------------------- */}
+          {/* 2. Executive Overall Progress & Savings Goal Calculator */}
+          {/* ---------------------------------------------------- */}
+          <div className="grid gap-6 lg:grid-cols-12">
+            {/* Left Card: Cumulative Overall Progress */}
         <div className="lg:col-span-7 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/60 via-slate-50/40 to-blue-50/50 p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="space-y-1">
@@ -768,6 +877,162 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
           })}
         </div>
       )}
+      </>
+    ) : (
+      /* ---------------------------------------------------- */
+      /* Section: First-Class Persisted Contribution Ledger */
+      /* ---------------------------------------------------- */
+      <div className="space-y-6">
+        {/* Contribution KPIs */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 to-emerald-100/30 p-4 shadow-2xs">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">
+              Total Contributed (All-Time)
+            </span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
+              {formatCurrency(totalContributedAll, settings.currency)}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">Across all active & completed savings targets</p>
+          </div>
+
+          <div className="rounded-xl border border-blue-200/80 bg-gradient-to-br from-blue-50/70 to-blue-100/30 p-4 shadow-2xs">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-800">
+              Logged Contributions
+            </span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
+              {savingsContributions.length}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">Persisted account-scoped ledger events</p>
+          </div>
+
+          <div className="rounded-xl border border-purple-200/80 bg-gradient-to-br from-purple-50/70 to-purple-100/30 p-4 shadow-2xs">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-800">
+              Average Contribution
+            </span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
+              {formatCurrency(avgContribution, settings.currency)}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">Mean per logged savings deposit</p>
+          </div>
+        </div>
+
+        {/* Filter & Action Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-slate-500" />
+            <span className="text-xs font-bold text-slate-700">Filter by Target Goal:</span>
+            <select
+              value={ledgerGoalFilter}
+              onChange={(e) => setLedgerGoalFilter(e.target.value)}
+              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:outline-hidden cursor-pointer"
+            >
+              <option value="all">All Goals ({savingsContributions.length})</option>
+              {savingsGoals.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (savingsGoals.length === 0) {
+                alert('Please create a savings goal first.');
+                return;
+              }
+              const defaultGoal = savingsGoals[0];
+              setContributeGoal(defaultGoal);
+              setSelectedContributionGoalId(defaultGoal.id);
+              setContributionAmount('100');
+              setContributionDate(new Date().toISOString().split('T')[0]);
+              setContributionAccountId(defaultGoal.accountId || '');
+              setContributionNotes('');
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-emerald-700 cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Record Contribution</span>
+          </button>
+        </div>
+
+        {/* Contributions Table */}
+        {filteredContributions.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
+            <History className="mx-auto h-9 w-9 text-slate-300" />
+            <h4 className="mt-2 text-sm font-bold text-slate-700">No contributions logged yet</h4>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+              {savingsGoals.length === 0
+                ? 'Create a savings target first to begin logging contributions.'
+                : 'Record your first savings deposit to build an auditable contribution ledger.'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-200/90 shadow-2xs">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50 text-[11px] uppercase font-bold text-slate-700 border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Savings Target</th>
+                  <th className="px-4 py-3">Amount</th>
+                  <th className="px-4 py-3">Funding Account</th>
+                  <th className="px-4 py-3">Notes</th>
+                  <th className="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {filteredContributions.map((contrib) => {
+                  const goal = savingsGoals.find((g) => g.id === contrib.goalId);
+                  const fundingAccount = cashAccounts.find((a) => a.id === contrib.accountId);
+                  return (
+                    <tr key={contrib.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">
+                        {formatDate(contrib.date, settings.dateFormat)}
+                      </td>
+                      <td className="px-4 py-3 font-bold text-slate-900 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className="h-2 w-2 rounded-full shrink-0"
+                            style={{ backgroundColor: goal?.color || '#059669' }}
+                          />
+                          <span>{goal?.name || 'Deleted Goal'}</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-black text-emerald-700 whitespace-nowrap">
+                        +{formatCurrency(contrib.amount, settings.currency)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                        {fundingAccount ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                            {fundingAccount.name}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">Unlinked earmark</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 max-w-xs truncate">
+                        {contrib.notes || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteContribution(contrib.id)}
+                          className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
+                          title="Delete contribution"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    )}
 
       {/* ---------------------------------------------------- */}
       {/* 4. Modal: Add / Edit Goal */}
@@ -843,7 +1108,7 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                 </p>
               </div>
 
-              {/* Target Amount & Initial Amount */}
+              {/* Target Amount & Opening Balance */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Target Amount ({settings.currency}) *</label>
@@ -860,23 +1125,26 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Currently Saved</label>
+                  <label className="block font-bold text-slate-700 mb-1">Opening Balance ({settings.currency})</label>
                   <input
                     type="number"
                     step="1"
                     min="0"
                     placeholder="0"
-                    value={currentAmount}
-                    onChange={(e) => setCurrentAmount(e.target.value)}
+                    value={openingBalance}
+                    onChange={(e) => setOpeningBalance(e.target.value)}
                     className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-800 focus:border-emerald-500 focus:outline-hidden"
                   />
+                  <p className="mt-0.5 text-[10px] text-slate-500">
+                    Starting balance before contributions.
+                  </p>
                 </div>
               </div>
 
-              {/* Target Date & Monthly Contribution */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Target Date, Planned Addition & Frequency */}
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Target Date (Optional)</label>
+                  <label className="block font-bold text-slate-700 mb-1">Target Date</label>
                   <input
                     type="date"
                     value={targetDate}
@@ -886,7 +1154,7 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Planned Monthly Addition</label>
+                  <label className="block font-bold text-slate-700 mb-1">Planned Addition</label>
                   <input
                     type="number"
                     step="1"
@@ -896,6 +1164,19 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                     onChange={(e) => setMonthlyContribution(e.target.value)}
                     className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-emerald-500 focus:outline-hidden"
                   />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Frequency</label>
+                  <select
+                    value={contributionFrequency}
+                    onChange={(e) => setContributionFrequency(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-emerald-500 focus:outline-hidden cursor-pointer"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="bi-weekly">Bi-weekly</option>
+                    <option value="weekly">Weekly</option>
+                  </select>
                 </div>
               </div>
 
@@ -956,39 +1237,96 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
       {/* ---------------------------------------------------- */}
       {contributeGoal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-2xs animate-in fade-in duration-150">
-          <div className="relative w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl space-y-4">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white">
                   <PiggyBank className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">Add Funds to Goal</h3>
-                  <p className="text-[11px] text-slate-500">{contributeGoal.name}</p>
+                  <h3 className="text-base font-extrabold text-slate-900">Record Savings Contribution</h3>
+                  <p className="text-[11px] text-slate-500">First-class persisted savings deposit</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setContributeGoal(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleApplyContribution} className="space-y-3.5 text-xs">
+              {/* Target Goal Selector */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Target Savings Goal *</label>
+                <select
+                  value={selectedContributionGoalId || contributeGoal.id}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedContributionGoalId(id);
+                    const found = savingsGoals.find((g) => g.id === id);
+                    if (found) {
+                      setContributeGoal(found);
+                      if (found.accountId && !contributionAccountId) {
+                        setContributionAccountId(found.accountId);
+                      }
+                    }
+                  }}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-emerald-500 focus:outline-hidden cursor-pointer"
+                >
+                  {savingsGoals.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} ({formatCurrency(g.currentAmount, settings.currency)} / {formatCurrency(g.targetAmount, settings.currency)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Goal Snapshot Card */}
               <div className="rounded-xl bg-slate-50 p-3 border border-slate-200/80">
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-500">Currently Saved:</span>
-                  <strong className="text-slate-800">
+                  <strong className="text-slate-800 font-extrabold">
                     {formatCurrency(contributeGoal.currentAmount, settings.currency)}
                   </strong>
                 </div>
                 <div className="flex justify-between text-xs mt-1">
                   <span className="text-slate-500">Target Goal:</span>
-                  <strong className="text-slate-800">
+                  <strong className="text-slate-800 font-extrabold">
                     {formatCurrency(contributeGoal.targetAmount, settings.currency)}
                   </strong>
+                </div>
+              </div>
+
+              {/* Date & Funding Account */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Contribution Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={contributionDate}
+                    onChange={(e) => setContributionDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Funding Account</label>
+                  <select
+                    value={contributionAccountId}
+                    onChange={(e) => setContributionAccountId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-emerald-500 focus:outline-hidden cursor-pointer"
+                  >
+                    <option value="">Unlinked — internal earmark</option>
+                    {cashAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name} ({account.category})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1016,11 +1354,12 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
               {/* Custom Amount */}
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Contribution Amount ({settings.currency})
+                  Contribution Amount ({settings.currency}) *
                 </label>
                 <input
                   type="number"
                   step="1"
+                  min="0.01"
                   required
                   placeholder="0.00"
                   value={contributionAmount}
@@ -1029,20 +1368,36 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                 />
               </div>
 
+              {/* Notes */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Notes / Description (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Monthly transfer, bonus deposit..."
+                  value={contributionNotes}
+                  onChange={(e) => setContributionNotes(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-emerald-500 focus:outline-hidden"
+                />
+              </div>
+
+              <p className="text-[10px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-200/60">
+                ℹ️ Goal contributions represent internal allocations within your cash accounts and do not create duplicate expenses or change total net worth.
+              </p>
+
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setContributeGoal(null)}
-                  className="rounded-xl border border-slate-200 px-3.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
-                  <span>Deposit Funds</span>
+                  <span>Deposit Contribution</span>
                 </button>
               </div>
             </form>

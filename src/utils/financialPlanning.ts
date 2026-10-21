@@ -1,4 +1,4 @@
-import { Debt, RecurringTransaction, SavingsGoal } from '../types/budget';
+import { Debt, RecurringTransaction, SavingsGoal, SavingsContribution } from '../types/budget';
 
 export interface SavingsGoalProgress {
   targetAmount: number;
@@ -6,6 +6,61 @@ export interface SavingsGoalProgress {
   remainingAmount: number;
   percentComplete: number;
   isComplete: boolean;
+}
+
+export function reconcileGoalBalance(
+  goal: SavingsGoal,
+  contributions: SavingsContribution[] = [],
+): { currentAmount: number; openingBalance: number } {
+  const goalContribs = contributions.filter((c) => c.goalId === goal.id);
+  const opening = Number.isFinite(goal.openingBalance)
+    ? Math.max(0, goal.openingBalance!)
+    : (Number.isFinite(goal.currentAmount) && goal.currentAmount >= 0 ? goal.currentAmount : 0);
+
+  if (goalContribs.length > 0) {
+    const totalContributed = goalContribs.reduce(
+      (sum, c) => sum + (Number.isFinite(c.amount) && c.amount > 0 ? c.amount : 0),
+      0,
+    );
+    return {
+      currentAmount: opening + totalContributed,
+      openingBalance: opening,
+    };
+  }
+
+  return {
+    currentAmount: opening,
+    openingBalance: opening,
+  };
+}
+
+export function validateSavingsContributionDraft(
+  goalIdOrAmount: unknown,
+  amountOrDate: unknown,
+  dateMaybe?: unknown,
+): boolean {
+  let goalId: unknown = undefined;
+  let amount: unknown = goalIdOrAmount;
+  let date: unknown = amountOrDate;
+
+  if (dateMaybe !== undefined) {
+    goalId = goalIdOrAmount;
+    amount = amountOrDate;
+    date = dateMaybe;
+  }
+
+  if (goalId !== undefined) {
+    if (typeof goalId !== 'string' || !goalId.trim()) return false;
+  }
+
+  const num = Number(amount);
+  if (!Number.isFinite(num) || num <= 0) return false;
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const [year, month, day] = date.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
 }
 
 export function calculateSavingsGoalProgress(goal: SavingsGoal): SavingsGoalProgress {

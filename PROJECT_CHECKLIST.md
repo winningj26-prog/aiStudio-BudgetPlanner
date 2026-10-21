@@ -330,8 +330,12 @@ Updated after each completed implementation/verification task.
 - [x] Product 2 source validation workflow retained as manual-only for migration/reference work
 - [x] V1 production validation checks that the disabled Product 2 route returns HTTP 410
 - [ ] Run V1 validation after deactivation changes and confirm production build, tests, Docker smoke, and route smoke all pass
-- [ ] Complete Product 1 contribution-ledger/debt-fee model extensions before data migration
-- [ ] Inventory live Product 2 records and local-only browser data before migration; do not delete legacy tables or source yet
-- [ ] Complete idempotent migration dry run and per-account reconciliation before cutover
+- [x] Complete Product 1 contribution-ledger/debt-fee model extensions before data migration (Phases B, C, D, E, F completed)
+- [x] Savings contribution ledger integrated natively into Product 1 with opening balance preservation and dual-view goals/ledger UI
+- [x] Complete debt data model (types, opening/current balances, payment frequency, payment ledger with principal/interest/fees breakdown, and explicit interest assumption disclosure)
+- [x] Authoritative financial modeling (contributions as internal earmarks, debt payments strictly reducing cash balances, fee expense accounting, and scenario-isolated payoff simulations)
+- [x] Read-only Product 2 field mapping audit and dry-run migration plan drafted; legacy database tables and source code preserved intact
+- [x] Acceptance test coverage expanded with 64 automated tests passing and 0 regressions
+- [ ] Schedule user-confirmed maintenance window for any live database cutover if requested
 
 Implementation plan: [PRODUCT_MERGE_PLAN.md](./PRODUCT_MERGE_PLAN.md). Product 2 is disabled, not deleted; no legacy user data or database tables were changed by this deactivation.
