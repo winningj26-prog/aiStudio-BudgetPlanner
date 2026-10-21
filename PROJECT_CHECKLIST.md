@@ -321,3 +321,17 @@ Updated after each completed implementation/verification task.
 - [x] Supabase Product 2 RLS policy inventory verified after schema changes
 - [ ] Product 2 GitHub Actions typecheck/test/build execution verified after the latest implementation
 - [ ] Live authenticated Product 2 UI smoke test across all eight routes
+
+## T. Product 2 deactivation and merge preparation
+- [x] Product 2 removed from the active Toolkit launcher; Product 1 remains available
+- [x] Direct `/product2/*` requests return HTTP 410 while legacy source/data are preserved
+- [x] Product 2 app-entitlement overrides are rejected by the server and legacy stored overrides are ignored
+- [x] Root production build no longer builds or depends on the standalone Product 2 bundle
+- [x] Product 2 source validation workflow retained as manual-only for migration/reference work
+- [x] V1 production validation checks that the disabled Product 2 route returns HTTP 410
+- [ ] Run V1 validation after deactivation changes and confirm production build, tests, Docker smoke, and route smoke all pass
+- [ ] Complete Product 1 contribution-ledger/debt-fee model extensions before data migration
+- [ ] Inventory live Product 2 records and local-only browser data before migration; do not delete legacy tables or source yet
+- [ ] Complete idempotent migration dry run and per-account reconciliation before cutover
+
+Implementation plan: [PRODUCT_MERGE_PLAN.md](./PRODUCT_MERGE_PLAN.md). Product 2 is disabled, not deleted; no legacy user data or database tables were changed by this deactivation.
