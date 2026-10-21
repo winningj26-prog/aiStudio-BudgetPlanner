@@ -687,16 +687,36 @@ test('debt payments split cash movement, principal reduction, and interest expen
   assert.equal(snapshot.totalLiabilities, 100000);
 });
 
-test('debt payment records must balance total, principal, and interest', () => {
-  const snapshot = {
-    id: 'p1',
-    date: '2026-10-01',
-    debtId: 'mortgage',
-    amount: 700,
-    principal: 200,
-    interest: 500,
+test('debt payment validation reconciles principal, interest, and fees while preserving legacy records', () => {
+  const baseWorkbook = {
+    settings: { currency: 'USD' as const, month: 'October', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
+    incomeCategories: [], expenseCategories: [], paymentMethods: ['Bank'],
+    incomeTransactions: [], expenseTransactions: [], plannedIncome: {}, plannedExpenses: {},
+    savingsGoals: [], savingsContributions: [], debts: [
+      { id: 'mortgage', name: 'Mortgage', balance: 100000, interestRate: 6, minimumPayment: 700 },
+    ],
+    debtPayments: [], financialAssets: [], openingCashBalance: 0, recurringTransactions: [],
+    userEmail: 'test@example.com', activeTab: 'dashboard' as const, sheetConfig: null,
   };
-  assert.equal(snapshot.amount, snapshot.principal + snapshot.interest);
+  const paymentBase = { id: 'p1', date: '2026-10-01', debtId: 'mortgage' };
+
+  // Legacy records remain valid: an omitted fee field means zero fees.
+  assert.equal(isValidWorkbookData({
+    ...baseWorkbook,
+    debtPayments: [{ ...paymentBase, amount: 700, principal: 200, interest: 500 }],
+  }), true);
+
+  // New records must reconcile the full payment, including fees.
+  assert.equal(isValidWorkbookData({
+    ...baseWorkbook,
+    debtPayments: [{ ...paymentBase, amount: 720, principal: 200, interest: 500, fees: 20 }],
+  }), true);
+
+  // A payment whose components do not sum to the total must be rejected.
+  assert.equal(isValidWorkbookData({
+    ...baseWorkbook,
+    debtPayments: [{ ...paymentBase, amount: 700, principal: 200, interest: 500, fees: 20 }],
+  }), false);
 });
 
 
