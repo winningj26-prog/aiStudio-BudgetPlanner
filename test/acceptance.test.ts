@@ -1031,3 +1031,30 @@ test('workbook validation rejects impossible calendar dates and malformed linked
     expenseTransactions: [{ ...valid.expenseTransactions[0], paymentMethod: '   ' }],
   }), false);
 });
+
+
+test('Product 2 remains disabled during the merge without deleting legacy source', () => {
+  const appSource = readFileSync(
+    fileURLToPath(new URL('../src/App.tsx', import.meta.url)),
+    'utf8',
+  );
+  const launcherSource = readFileSync(
+    fileURLToPath(new URL('../src/components/ToolkitHomeView.tsx', import.meta.url)),
+    'utf8',
+  );
+  const serverSource = readFileSync(
+    fileURLToPath(new URL('../server.ts', import.meta.url)),
+    'utf8',
+  );
+  const rootPackage = JSON.parse(readFileSync(
+    fileURLToPath(new URL('../package.json', import.meta.url)),
+    'utf8',
+  ));
+
+  assert.doesNotMatch(appSource, /onOpenProduct2|location\.assign\('\/product2\//);
+  assert.doesNotMatch(launcherSource, /id: 'product2'|onOpenProduct2|isProduct2/);
+  assert.match(serverSource, /Product 2 is temporarily disabled/);
+  assert.match(serverSource, /row\.app_id !== 'product2'/);
+  assert.match(serverSource, /Product 2 is disabled and cannot be enabled or overridden/);
+  assert.equal(rootPackage.scripts.build, 'vite build');
+});
