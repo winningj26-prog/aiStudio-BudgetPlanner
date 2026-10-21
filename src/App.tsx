@@ -767,9 +767,6 @@ export default function App() {
           setShowToolkitHome(false);
           setActiveTab('start_here');
         }}
-        onOpenProduct2={() => {
-          window.location.assign('/product2/');
-        }}
         onManageSubscription={() => {
           setShowToolkitHome(false);
           setShowSubscription(true);
