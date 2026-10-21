@@ -262,7 +262,10 @@ app.post('/api/platform/users/override', async (req, res) => {
     if (typeof reason !== 'string' || reason.trim().length < 5 || reason.trim().length > 500) {
       return res.status(400).json({ error: 'A reason between 5 and 500 characters is required.' });
     }
-    const allowedAppIds = ['budget-planner', 'product2', 'app-2', 'app-3', 'app-4'];
+    const allowedAppIds = ['budget-planner', 'app-2', 'app-3', 'app-4'];
+    if (Object.prototype.hasOwnProperty.call(appAccess, 'product2')) {
+      return res.status(400).json({ error: 'Product 2 is disabled and cannot be enabled or overridden.' });
+    }
     for (const appId of Object.keys(appAccess)) {
       if (allowedAppIds.indexOf(appId) === -1) {
         return res.status(400).json({ error: 'Unsupported app entitlement: ' + appId });
@@ -664,13 +667,14 @@ app.get('/api/account/session', async (req, res) => {
 
     const appAccess: Record<string, boolean> = {
       'budget-planner': !suspended,
-      'product2': !suspended,
       'app-2': false,
       'app-3': false,
       'app-4': false,
     };
     if (!suspended) {
-      for (const row of overrideRows ?? []) appAccess[row.app_id] = Boolean(row.enabled);
+      for (const row of overrideRows ?? []) {
+        if (row.app_id !== 'product2') appAccess[row.app_id] = Boolean(row.enabled);
+      }
     }
 
     return res.json({
@@ -1630,12 +1634,10 @@ If no category fits well, return the first item in the list: "${categories[0]?.n
 const isProd = process.env.NODE_ENV === 'production';
 const port = Number(process.env.PORT) || 3000;
 
-// Serve the standalone Product 2 bundle under the Toolkit launcher route.
-app.use('/product2', express.static(path.resolve(__dirname, 'product2/dist')));
-app.get(['/product2', '/product2/*'], (req, res, next) => {
-  res.sendFile(path.resolve(__dirname, 'product2/dist/index.html'), (err) => {
-    if (err) next();
-  });
+// Product 2 is temporarily disabled while its savings/debt functionality is merged
+// into BudgetPlanner. Keep the legacy source and data untouched for migration.
+app.use(['/product2', '/product2/*'], (_req, res) => {
+  res.status(410).json({ error: 'Product 2 is temporarily disabled.' });
 });
 
 if (!isProd) {
