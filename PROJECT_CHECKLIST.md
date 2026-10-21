@@ -266,7 +266,7 @@ Updated after each completed implementation/verification task.
 - [x] Interest is recognized as an expense without reducing debt principal
 - [x] Debt payment cash movement propagates to the selected account balance
 - [x] Debt payoff simulator remains scenario-only and does not mutate actual debts
-- [x] Workbook validation enforces debt payment amount = principal + interest
+- [x] Workbook validation enforces debt payment amount = principal + interest + fees (legacy missing fees default to zero)
 - [x] Net Worth and Advanced Analytics consume debt payment accounting
 - [x] Debt payment acceptance tests added
 - [ ] Live acceptance: record a real debt payment and verify account, debt, expense, and net worth changes together
@@ -329,7 +329,7 @@ Updated after each completed implementation/verification task.
 - [x] Root production build no longer builds or depends on the standalone Product 2 bundle
 - [x] Product 2 source validation workflow retained as manual-only for migration/reference work
 - [x] V1 production validation checks that the disabled Product 2 route returns HTTP 410
-- [ ] Run V1 validation after deactivation changes and confirm production build, tests, Docker smoke, and route smoke all pass
+- [x] V1 validation run #549 passed after Product 2 deactivation and Product 1 savings/debt integration: production build, tests, Docker smoke, and disabled-route smoke
 - [x] Complete Product 1 contribution-ledger/debt-fee model extensions before data migration (Phases B, C, D, E, F completed)
 - [x] Savings contribution ledger integrated natively into Product 1 with opening balance preservation and dual-view goals/ledger UI
 - [x] Complete debt data model (types, opening/current balances, payment frequency, payment ledger with principal/interest/fees breakdown, and explicit interest assumption disclosure)
