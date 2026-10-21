@@ -14,14 +14,12 @@ import {
   Cloud,
   ArrowUpRight,
   HelpCircle,
-  Target,
 } from 'lucide-react';
 import type { ToolkitEntitlementResponse } from '../types/toolkit';
 
 interface ToolkitHomeViewProps {
   session: ToolkitEntitlementResponse;
   onOpenBudgetPlanner: () => void;
-  onOpenProduct2: () => void;
   onLogout: () => void;
   onManageSubscription: () => void;
   onOpenPlatformDashboard?: () => void;
@@ -36,12 +34,6 @@ const apps = [
     tierRequired: 'Free / Plus / Pro',
   },
   {
-    id: 'product2' as const,
-    name: 'Product 2',
-    description: 'Track savings goals, contributions, debt accounts, payments, and repayment scenarios in a separate tenant-scoped workspace.',
-    icon: <Target className="h-6 w-6" />,
-    tierRequired: 'Free / Plus / Pro',
-  },
   {
     id: 'app-2' as const,
     name: 'Toolkit Analytics Pro',
@@ -68,7 +60,6 @@ const apps = [
 export const ToolkitHomeView: React.FC<ToolkitHomeViewProps> = ({
   session,
   onOpenBudgetPlanner,
-  onOpenProduct2,
   onLogout,
   onManageSubscription,
   onOpenPlatformDashboard,
@@ -217,7 +208,6 @@ export const ToolkitHomeView: React.FC<ToolkitHomeViewProps> = ({
             {apps.map((app) => {
               const enabled = Boolean(entitlements.apps[app.id]);
               const isBudgetPlanner = app.id === 'budget-planner';
-              const isProduct2 = app.id === 'product2';
 
               return (
                 <article
@@ -270,7 +260,7 @@ export const ToolkitHomeView: React.FC<ToolkitHomeViewProps> = ({
                     <button
                       type="button"
                       disabled={!enabled}
-                      onClick={isBudgetPlanner ? onOpenBudgetPlanner : isProduct2 ? onOpenProduct2 : undefined}
+                      onClick={isBudgetPlanner ? onOpenBudgetPlanner : undefined}
                       className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black transition duration-150 cursor-pointer ${
                         enabled
                           ? 'bg-emerald-400 text-slate-950 hover:bg-emerald-300 shadow-md shadow-emerald-400/10'
