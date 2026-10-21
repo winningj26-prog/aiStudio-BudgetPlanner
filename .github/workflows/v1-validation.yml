@@ -47,6 +47,12 @@ jobs:
           done
           cat /tmp/budget-planner-server.log
           exit 1
+          
+      - name: Verify disabled Product 2 route
+        run: |
+          status=$(curl --silent --output /tmp/product2-response.json --write-out '%{http_code}' http://127.0.0.1:4173/product2/)
+          test "$status" = "410"
+          grep -q 'temporarily disabled' /tmp/product2-response.json
 
       - name: Build production Docker image
         run: docker build --tag budget-planner:v1-validation .
