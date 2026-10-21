@@ -1649,9 +1649,7 @@ const cliHost = getArg('--host') || getArg('-h');
 // In container environments, Nginx listens on port 8080; avoid conflicting with 8080
 const port = cliPort
   ? Number(cliPort)
-  : (process.env.PORT && process.env.PORT !== '8080'
-      ? Number(process.env.PORT)
-      : 3000);
+  : Number(process.env.PORT || 3000);
 const host = cliHost || '0.0.0.0';
 
 // Product 2 is temporarily disabled while its savings/debt functionality is merged
