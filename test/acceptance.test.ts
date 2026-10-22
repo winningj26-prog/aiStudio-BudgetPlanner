@@ -1145,6 +1145,83 @@ test('savings contributions and goal balances do not double count as separate as
   assert.equal(snapshot.netWorth, 5000);
 });
 
+
+test('savings goal reconciliation recalculates after contribution edit or deletion', () => {
+  const goal = {
+    id: 'goal-edit',
+    name: 'Emergency Fund',
+    targetAmount: 5000,
+    currentAmount: 0,
+    openingBalance: 1000,
+  };
+  const original = [
+    { id: 'c1', goalId: 'goal-edit', amount: 250, date: '2026-10-01' },
+    { id: 'c2', goalId: 'goal-edit', amount: 500, date: '2026-10-10' },
+  ];
+  assert.equal(reconcileGoalBalance(goal, original).currentAmount, 1750);
+
+  // Editing a ledger amount replaces its prior value; it is not added twice.
+  const edited = original.map((contribution) =>
+    contribution.id === 'c2' ? { ...contribution, amount: 300 } : contribution,
+  );
+  assert.equal(reconcileGoalBalance(goal, edited).currentAmount, 1550);
+
+  // Deleting a ledger row removes only that contribution from the derived balance.
+  const deleted = edited.filter((contribution) => contribution.id !== 'c1');
+  assert.equal(reconcileGoalBalance(goal, deleted).currentAmount, 1300);
+});
+
+test('linked savings allocations are capped by the matching account balance and do not change net worth', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [],
+    [],
+    [
+      { id: 'g1', name: 'Emergency', targetAmount: 5000, currentAmount: 4000, accountId: 'bank1' },
+      { id: 'g2', name: 'Travel', targetAmount: 2000, currentAmount: 3000, accountId: 'bank1' },
+      { id: 'g3', name: 'Other account', targetAmount: 1000, currentAmount: 500, accountId: 'bank2' },
+    ],
+    [],
+    [
+      { id: 'bank1', name: 'Main Bank', amount: 5000, openingAmount: 5000, category: 'Bank' },
+      { id: 'bank2', name: 'Second Bank', amount: 2000, openingAmount: 2000, category: 'Bank' },
+    ],
+    [],
+    0,
+  );
+
+  // Allocations on bank1 total 7,000 but cannot earmark more than its 5,000 balance.
+  // The bank2 allocation is 500, so available cash is 1,500; assets remain 7,000.
+  assert.equal(snapshot.goalAllocated, 7500);
+  assert.equal(snapshot.availableCash, 1500);
+  assert.equal(snapshot.totalAssets, 7000);
+  assert.equal(snapshot.netWorth, 7000);
+  assert.equal(snapshot.accountBalances.bank1, 5000);
+  assert.equal(snapshot.accountBalances.bank2, 2000);
+});
+
+test('debt payment cash movement applies only to its selected funding account', () => {
+  const snapshot = calculateFinancialSnapshot(
+    [],
+    [],
+    [],
+    [{ id: 'loan', name: 'Loan', balance: 1000, openingBalance: 1000, interestRate: 10, minimumPayment: 100 }],
+    [
+      { id: 'bank1', name: 'Main Bank', amount: 2000, openingAmount: 2000, category: 'Bank' },
+      { id: 'bank2', name: 'Savings Bank', amount: 3000, openingAmount: 3000, category: 'Bank' },
+    ],
+    [{ id: 'p1', date: '2026-10-01', debtId: 'loan', accountId: 'bank1', amount: 150, principal: 100, interest: 50 }],
+    0,
+  );
+
+  assert.equal(snapshot.accountBalances.bank1, 1850);
+  assert.equal(snapshot.accountBalances.bank2, 3000);
+  assert.equal(snapshot.totalExpenses, 50);
+  assert.equal(snapshot.debtPrincipalPaid, 100);
+  assert.equal(snapshot.totalAssets, 4850);
+  assert.equal(snapshot.totalLiabilities, 1000);
+  assert.equal(snapshot.netWorth, 3850);
+});
+
 test('debt payment reconciliation accurately partitions principal, interest, and fees into expenses and liabilities', () => {
   const assets: FinancialAsset[] = [
     { id: 'checking', name: 'Checking Account', category: 'Bank', amount: 8000 },
