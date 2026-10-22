@@ -1204,7 +1204,7 @@ test('debt payment cash movement applies only to its selected funding account', 
     [],
     [],
     [],
-    [{ id: 'loan', name: 'Loan', balance: 1000, openingBalance: 1000, interestRate: 10, minimumPayment: 100 }],
+    [{ id: 'loan', name: 'Loan', balance: 900, openingBalance: 1000, interestRate: 10, minimumPayment: 100 }],
     [
       { id: 'bank1', name: 'Main Bank', amount: 2000, openingAmount: 2000, category: 'Bank' },
       { id: 'bank2', name: 'Savings Bank', amount: 3000, openingAmount: 3000, category: 'Bank' },
@@ -1218,8 +1218,10 @@ test('debt payment cash movement applies only to its selected funding account', 
   assert.equal(snapshot.totalExpenses, 50);
   assert.equal(snapshot.debtPrincipalPaid, 100);
   assert.equal(snapshot.totalAssets, 4850);
-  assert.equal(snapshot.totalLiabilities, 1000);
-  assert.equal(snapshot.netWorth, 3850);
+  // Current liability reflects the $100 principal reduction; opening balance remains $1,000.
+  assert.equal(snapshot.totalLiabilities, 900);
+  assert.equal(snapshot.openingLiabilities, 1000);
+  assert.equal(snapshot.netWorth, 3950);
 });
 
 test('debt payment reconciliation accurately partitions principal, interest, and fees into expenses and liabilities', () => {
