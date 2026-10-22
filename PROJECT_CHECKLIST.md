@@ -348,6 +348,7 @@ Implementation plan: [PRODUCT_MERGE_PLAN.md](./PRODUCT_MERGE_PLAN.md). Product 2
 ## Savings goals and debt-payment acceptance follow-up
 - [x] Added acceptance coverage for savings contribution edits/deletions recalculating goal balances from opening balance plus ledger rows.
 - [x] Added acceptance coverage proving linked savings allocations are capped by their funding account balances and never increase net worth as separate assets.
-- [x] Added acceptance coverage proving debt-payment cash movement affects only the selected funding account while principal, interest, liabilities, and expenses remain distinct.
+- [x] Added acceptance coverage proving debt-payment cash movement affects only the selected funding account while principal, interest, current liabilities, opening liabilities, and expenses remain distinct.
+- [x] Corrected debt-payment snapshot fixture so current liability is post-principal-payment ($900) while opening liability remains $1,000; net worth decreases only by the $50 interest expense.
 - [ ] Run the new acceptance coverage in GitHub Actions and resolve any failures.
 - [ ] Perform live authenticated UI acceptance for savings-goal contribution CRUD, debt-payment CRUD, and workbook persistence; automated tests do not substitute for this.
