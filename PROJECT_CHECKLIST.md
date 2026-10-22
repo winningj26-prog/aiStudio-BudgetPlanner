@@ -343,3 +343,11 @@ Updated after each completed implementation/verification task.
 - [ ] Schedule user-confirmed maintenance window for any live database cutover if requested
 
 Implementation plan: [PRODUCT_MERGE_PLAN.md](./PRODUCT_MERGE_PLAN.md). Product 2 is disabled, not deleted; no legacy user data or database tables were changed by this deactivation.
+
+
+## Savings goals and debt-payment acceptance follow-up
+- [x] Added acceptance coverage for savings contribution edits/deletions recalculating goal balances from opening balance plus ledger rows.
+- [x] Added acceptance coverage proving linked savings allocations are capped by their funding account balances and never increase net worth as separate assets.
+- [x] Added acceptance coverage proving debt-payment cash movement affects only the selected funding account while principal, interest, liabilities, and expenses remain distinct.
+- [ ] Run the new acceptance coverage in GitHub Actions and resolve any failures.
+- [ ] Perform live authenticated UI acceptance for savings-goal contribution CRUD, debt-payment CRUD, and workbook persistence; automated tests do not substitute for this.
