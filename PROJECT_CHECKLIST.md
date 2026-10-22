@@ -330,11 +330,14 @@ Updated after each completed implementation/verification task.
 - [x] Product 2 source validation workflow retained as manual-only for migration/reference work
 - [x] V1 production validation checks that the disabled Product 2 route returns HTTP 410
 - [x] V1 validation run #549 passed after Product 2 deactivation and Product 1 savings/debt integration: production build, tests, Docker smoke, and disabled-route smoke
+- [x] Debt payment acceptance tests now cover fee-inclusive reconciliation, legacy payments without fees, and rejection of inconsistent totals
+- [x] V1 validation run #551 passed after fee-invariant test and checklist corrections
 - [x] Complete Product 1 contribution-ledger/debt-fee model extensions before data migration (Phases B, C, D, E, F completed)
 - [x] Savings contribution ledger integrated natively into Product 1 with opening balance preservation and dual-view goals/ledger UI
 - [x] Complete debt data model (types, opening/current balances, payment frequency, payment ledger with principal/interest/fees breakdown, and explicit interest assumption disclosure)
 - [x] Authoritative financial modeling (contributions as internal earmarks, debt payments strictly reducing cash balances, fee expense accounting, and scenario-isolated payoff simulations)
 - [x] Read-only Product 2 field mapping audit and dry-run migration plan drafted; legacy database tables and source code preserved intact
+- [x] Live read-only Supabase audit confirmed 0 rows in Product 2 savings-goal, savings-contribution, debt-account, and debt-payment tables; 1 settings row belongs to an existing platform profile. Browser-local data/backups are not covered by this database count.
 - [x] Acceptance test coverage expanded with 64 automated tests passing and 0 regressions
 - [ ] Schedule user-confirmed maintenance window for any live database cutover if requested
 
