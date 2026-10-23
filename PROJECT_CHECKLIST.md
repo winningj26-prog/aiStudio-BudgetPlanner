@@ -350,6 +350,7 @@ Implementation plan: [PRODUCT_MERGE_PLAN.md](./PRODUCT_MERGE_PLAN.md). Product 2
 - [x] Added acceptance coverage proving linked savings allocations are capped by their funding account balances and never increase net worth as separate assets.
 - [x] Added acceptance coverage proving debt-payment cash movement affects only the selected funding account while principal, interest, current liabilities, opening liabilities, and expenses remain distinct.
 - [x] Added contribution-ledger edit action and reused the contribution form to update amount, date, funding account, and notes while preserving contribution ID/creation timestamp and reconciling the goal balance.
+- [x] Contribution edits now reconcile both the source and destination goals when an entry is reassigned; acceptance coverage verifies both balances and preserved contribution identity.
 - [x] Corrected debt-payment snapshot fixture so current liability is post-principal-payment ($900) while opening liability remains $1,000; net worth decreases only by the $50 interest expense.
 - [ ] Run the new acceptance coverage in GitHub Actions and resolve any failures.
 - [ ] Perform live authenticated UI acceptance for savings-goal contribution CRUD, debt-payment CRUD, and workbook persistence; automated tests do not substitute for this.
