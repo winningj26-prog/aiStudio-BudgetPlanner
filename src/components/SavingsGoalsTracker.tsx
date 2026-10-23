@@ -69,6 +69,7 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
   const [isAddGoalModalOpen, setIsAddGoalModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
   const [contributeGoal, setContributeGoal] = useState<SavingsGoal | null>(null);
+  const [editingContribution, setEditingContribution] = useState<SavingsContribution | null>(null);
   const [contributionAmount, setContributionAmount] = useState<string>('100');
   const [contributionDate, setContributionDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [contributionAccountId, setContributionAccountId] = useState<string>('');
@@ -262,16 +263,19 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
     }
 
     const newContribution: SavingsContribution = {
-      id: `contrib_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      ...(editingContribution || {}),
+      id: editingContribution?.id || `contrib_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       goalId: targetGoal.id,
       date: contributionDate || new Date().toISOString().split('T')[0],
       amount: added,
-      accountId: contributionAccountId || targetGoal.accountId || undefined,
+      accountId: contributionAccountId || undefined,
       notes: contributionNotes.trim() || undefined,
-      createdAt: new Date().toISOString(),
+      createdAt: editingContribution?.createdAt || new Date().toISOString(),
     };
 
-    const nextContributions = [...savingsContributions, newContribution];
+    const nextContributions = editingContribution
+      ? savingsContributions.map((contribution) => contribution.id === editingContribution.id ? newContribution : contribution)
+      : [...savingsContributions, newContribution];
     onUpdateSavingsContributions?.(nextContributions);
 
     const updatedGoals = savingsGoals.map((g) => {
@@ -291,9 +295,25 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
 
     onUpdateSavingsGoals(updatedGoals);
     setContributeGoal(null);
+    setEditingContribution(null);
     setContributionAmount('100');
     setContributionNotes('');
     setContributionAccountId('');
+  };
+
+  const handleOpenEditContribution = (contribution: SavingsContribution) => {
+    const goal = savingsGoals.find((item) => item.id === contribution.goalId);
+    if (!goal) {
+      alert('This contribution is linked to a goal that no longer exists.');
+      return;
+    }
+    setEditingContribution(contribution);
+    setContributeGoal(goal);
+    setSelectedContributionGoalId(goal.id);
+    setContributionAmount(String(contribution.amount));
+    setContributionDate(contribution.date);
+    setContributionAccountId(contribution.accountId || '');
+    setContributionNotes(contribution.notes || '');
   };
 
   const handleDeleteContribution = (contributionId: string) => {
@@ -1017,6 +1037,14 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                       <td className="px-4 py-3 text-right">
                         <button
                           type="button"
+                          onClick={() => handleOpenEditContribution(contrib)}
+                          className="rounded p-1 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors cursor-pointer"
+                          title="Edit contribution"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleDeleteContribution(contrib.id)}
                           className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
                           title="Delete contribution"
@@ -1244,13 +1272,13 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                   <PiggyBank className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900">Record Savings Contribution</h3>
-                  <p className="text-[11px] text-slate-500">First-class persisted savings deposit</p>
+                  <h3 className="text-base font-extrabold text-slate-900">{editingContribution ? 'Edit Savings Contribution' : 'Record Savings Contribution'}</h3>
+                  <p className="text-[11px] text-slate-500">{editingContribution ? 'Update the existing ledger entry' : 'First-class persisted savings deposit'}</p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setContributeGoal(null)}
+                onClick={() => { setContributeGoal(null); setEditingContribution(null); }}
                 className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
               >
                 <X className="h-5 w-5" />
@@ -1397,7 +1425,7 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
                   className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
-                  <span>Deposit Contribution</span>
+                  <span>{editingContribution ? 'Save Changes' : 'Deposit Contribution'}</span>
                 </button>
               </div>
             </form>
