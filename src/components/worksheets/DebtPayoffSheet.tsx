@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { validateDebtDraftValues } from '../../utils/financialPlanning';
+import { applyDebtPaymentChange, validateDebtDraftValues } from '../../utils/financialPlanning';
 import {
   Debt,
   DebtPayment,
@@ -424,11 +424,6 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
       return;
     }
     const principal = amount - interest - fees;
-    const availableBalance = debt.balance + (existingPayment?.debtId === debt.id ? existingPayment.principal : 0);
-    if (principal > availableBalance + 0.01) {
-      alert('Principal reduction cannot exceed the outstanding debt balance after reversing the payment being edited.');
-      return;
-    }
     const payment: DebtPayment = {
       id: existingPayment?.id || `debt_payment_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       date: paymentDate,
@@ -443,12 +438,11 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
     const nextPayments = existingPayment
       ? debtPayments.map((item) => item.id === existingPayment.id ? payment : item)
       : [...debtPayments, payment];
-    const nextDebts = debts.map((item) => {
-      let balance = item.balance;
-      if (existingPayment?.debtId === item.id) balance += existingPayment.principal;
-      if (item.id === debt.id) balance -= principal;
-      return balance === item.balance ? item : { ...item, balance: Math.max(0, balance) };
-    });
+    const nextDebts = applyDebtPaymentChange(debts, existingPayment, payment);
+    if (!nextDebts) {
+      alert('Principal reduction cannot exceed the outstanding debt balance after reversing the payment being edited.');
+      return;
+    }
     onUpdateDebtPayments(nextPayments);
     onUpdateDebts(nextDebts);
     resetPaymentForm();
