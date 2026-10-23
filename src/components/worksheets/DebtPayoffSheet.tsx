@@ -741,7 +741,7 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDeletePayment(p.id)
+                              onClick={() => handleDeletePayment(p.id)}
                               className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
                               title="Delete payment"
                             >
