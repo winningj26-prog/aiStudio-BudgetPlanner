@@ -15,6 +15,7 @@ import {
   hasToolkitFeature,
 } from '../src/types/toolkit.ts';
 import { createLocalWorkbookRepository } from '../src/services/workbookRepository.ts';
+import type { SavingsGoal } from '../src/types/budget.ts';
 import { getAuthSessionState } from '../src/services/supabaseAuth.ts';
 import { isPlatformAdminEmail, normalizePlatformAdminEmails } from '../src/utils/platformAdmin.ts';
 import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
