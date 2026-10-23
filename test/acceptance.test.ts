@@ -22,7 +22,7 @@ import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
 import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
 import { isValidWorkbookData, normalizeWorkbookData } from '../src/utils/workbookValidation.ts';
 import { buildAnnualSummary, calculateBudgetItem, calculateBudgetStatus, sumExpensesByCategory, sumIncomeByCategory, sumExpenseTransactions, sumIncomeTransactions } from '../src/utils/formulas.ts';
-import { calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates, normalizeSavingsGoalDraft, validateDebtDraftValues, normalizeRecurringRuleValues, reconcileGoalBalance, validateSavingsContributionDraft } from '../src/utils/financialPlanning.ts';
+import { applyDebtPaymentChange, calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates, normalizeSavingsGoalDraft, validateDebtDraftValues, normalizeRecurringRuleValues, reconcileGoalBalance, validateSavingsContributionDraft } from '../src/utils/financialPlanning.ts';
 import { calculateFinancialSnapshot } from '../src/utils/financialModel.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 import { getCurrentCalendarPeriod, syncSettingsToCurrentPeriod } from '../src/utils/calendarPeriod.ts';
@@ -1355,4 +1355,34 @@ test('workbook validation and normalization round-trips savingsContributions and
     ],
   };
   assert.equal(isValidWorkbookData(invalidWorkbook), false);
+});
+
+
+test('editing a debt payment reconciles both debt balances without duplicating payment history', () => {
+  const debts: Debt[] = [
+    { id: 'card-a', name: 'Card A', balance: 780, interestRate: 18, minimumPayment: 50 },
+    { id: 'card-b', name: 'Card B', balance: 1000, interestRate: 12, minimumPayment: 40 },
+  ];
+  const existing: DebtPayment = {
+    id: 'payment-1', debtId: 'card-a', date: '2026-01-10', amount: 250,
+    principal: 220, interest: 20, fees: 10,
+  };
+  const edited: DebtPayment = {
+    ...existing, debtId: 'card-b', date: '2026-01-12', amount: 300,
+    principal: 260, interest: 30, fees: 10,
+  };
+  const nextDebts = applyDebtPaymentChange(debts, existing, edited);
+  assert.ok(nextDebts);
+  assert.equal(nextDebts.find((debt) => debt.id === 'card-a')?.balance, 1000);
+  assert.equal(nextDebts.find((debt) => debt.id === 'card-b')?.balance, 740);
+  assert.equal(edited.id, existing.id);
+  assert.equal(applyDebtPaymentChange(debts, existing, { ...edited, principal: 2000 }), null);
+});
+
+test('debt payment UI supports editing records and prevents deleting debts with payment history', async () => {
+  const source = readFileSync(new URL('../src/components/worksheets/DebtPayoffSheet.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const handleEditPayment = \(payment: DebtPayment\)/);
+  assert.match(source, /applyDebtPaymentChange\(debts, existingPayment, payment\)/);
+  assert.match(source, /This debt has payment history/);
+  assert.match(source, /handleEditPayment\(p\)/);
 });
