@@ -599,7 +599,7 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                 className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black text-xs h-10 px-4 transition-colors cursor-pointer border border-emerald-500 whitespace-nowrap flex items-center justify-center gap-1.5 shadow-2xs"
               >
                 <Check className="h-4 w-4" />
-                <span>Record Payment</span>
+                <span>{editingPaymentId ? "Save Payment Changes" : "Record Payment"}</span>
               </button>
             </div>
           </div>
@@ -615,6 +615,11 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
               </span>
               <span className="text-[10px] text-slate-500 font-medium">Interest & fees count as expenses; principal directly reduces liability.</span>
             </div>
+          )}
+          {editingPaymentId && (
+            <button type="button" onClick={resetPaymentForm} className="w-full rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 font-bold text-xs h-9 cursor-pointer">
+              Cancel Payment Edit
+            </button>
           )}
         </form>
 
