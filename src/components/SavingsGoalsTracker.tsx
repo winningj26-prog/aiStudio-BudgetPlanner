@@ -278,19 +278,14 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
       : [...savingsContributions, newContribution];
     onUpdateSavingsContributions?.(nextContributions);
 
-    const updatedGoals = savingsGoals.map((g) => {
-      if (g.id === targetGoal.id) {
-        const opening = g.openingBalance !== undefined ? g.openingBalance : g.currentAmount;
-        const totalContribs = nextContributions
-          .filter((c) => c.goalId === g.id)
-          .reduce((sum, c) => sum + (c.amount > 0 ? c.amount : 0), 0);
-        return {
-          ...g,
-          openingBalance: opening,
-          currentAmount: opening + totalContribs,
-        };
-      }
-      return g;
+    // Reconcile every goal because an edited contribution may move between goals.
+    const updatedGoals = savingsGoals.map((goal) => {
+      const reconciled = reconcileGoalBalance(goal, nextContributions);
+      return {
+        ...goal,
+        openingBalance: goal.openingBalance !== undefined ? goal.openingBalance : reconciled.openingBalance,
+        currentAmount: reconciled.currentAmount,
+      };
     });
 
     onUpdateSavingsGoals(updatedGoals);
