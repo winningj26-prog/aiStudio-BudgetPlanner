@@ -198,7 +198,8 @@ Updated after each completed implementation/verification task.
 - [x] Savings goal progress calculations hardened for zero/oversaved/invalid-value edge cases
 - [x] Savings goal contributions reject zero, negative, and non-finite amounts
 - [x] Debt interest, minimum-payment shortfall, and payoff edge cases covered by acceptance tests
-- [x] Recurring transaction posting now honors monthly, weekly, bi-weekly, and yearly frequencies
+- [x] Recurring transaction posting date-generation coverage includes frequency/month-length and duplicate/inactive/period contract cases
+- [x] Yearly recurring rules no longer generate every month; legacy schema treats them as January anniversaries until annual anchor-date support is added
 - [x] Recurring transaction date generation clamps day-of-month safely to shorter months
 - [x] Module 4 savings goals, debts, and recurring transaction acceptance tests added
 - [ ] Module 4 live acceptance: create/edit/delete income and expense transactions
