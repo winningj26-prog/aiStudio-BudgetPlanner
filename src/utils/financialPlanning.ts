@@ -1,4 +1,25 @@
-import { Debt, RecurringTransaction, SavingsGoal, SavingsContribution } from '../types/budget';
+import { Debt, DebtPayment, RecurringTransaction, SavingsGoal, SavingsContribution } from '../types/budget';
+
+
+export function applyDebtPaymentChange(
+  debts: Debt[],
+  existingPayment: DebtPayment | undefined,
+  nextPayment: DebtPayment,
+): Debt[] | null {
+  const targetDebt = debts.find((debt) => debt.id === nextPayment.debtId);
+  if (!targetDebt || !Number.isFinite(nextPayment.principal) || nextPayment.principal < 0) return null;
+
+  const availableBalance = targetDebt.balance
+    + (existingPayment?.debtId === targetDebt.id ? existingPayment.principal : 0);
+  if (nextPayment.principal > availableBalance + 0.01) return null;
+
+  return debts.map((debt) => {
+    let balance = debt.balance;
+    if (existingPayment?.debtId === debt.id) balance += existingPayment.principal;
+    if (nextPayment.debtId === debt.id) balance -= nextPayment.principal;
+    return Math.abs(balance - debt.balance) < 0.000001 ? debt : { ...debt, balance: Math.max(0, balance) };
+  });
+}
 
 export interface SavingsGoalProgress {
   targetAmount: number;
