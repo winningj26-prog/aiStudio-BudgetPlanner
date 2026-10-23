@@ -353,4 +353,7 @@ Implementation plan: [PRODUCT_MERGE_PLAN.md](./PRODUCT_MERGE_PLAN.md). Product 2
 - [x] Contribution edits now reconcile both the source and destination goals when an entry is reassigned; acceptance coverage verifies both balances and preserved contribution identity.
 - [x] Corrected debt-payment snapshot fixture so current liability is post-principal-payment ($900) while opening liability remains $1,000; net worth decreases only by the $50 interest expense.
 - [ ] Run the new acceptance coverage in GitHub Actions and resolve any failures.
+- [x] Added debt-payment edit workflow that preserves payment identity and reconciles principal against the old and new debt balances; invalid overpayment is rejected by a tested pure helper.
+- [x] Debt accounts with payment history cannot be deleted until their payment records are removed, preventing orphaned financial history.
 - [ ] Perform live authenticated UI acceptance for savings-goal contribution CRUD, debt-payment CRUD, and workbook persistence; automated tests do not substitute for this.
+- [ ] Complete recurring-transaction create/edit/delete and month-generation acceptance pass.
