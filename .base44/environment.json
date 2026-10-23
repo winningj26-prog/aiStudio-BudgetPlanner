@@ -1,0 +1,32 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/healthz",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d --build",
+  "secrets": [
+    {
+      "name": "SUPABASE_URL",
+      "description": "Supabase project URL (Project Settings > Data API > Project URL). Used by the Express server for privileged account/subscription operations.",
+      "requiredAtBoot": true
+    },
+    {
+      "name": "SUPABASE_SECRET_KEY",
+      "description": "Supabase secret API key (Project Settings > API Keys). Server-side privileged access; never exposed to the browser.",
+      "requiredAtBoot": true
+    },
+    {
+      "name": "VITE_SUPABASE_URL",
+      "description": "Supabase project URL exposed to the browser bundle. Usually the same value as SUPABASE_URL.",
+      "requiredAtBoot": true
+    },
+    {
+      "name": "VITE_SUPABASE_PUBLISHABLE_KEY",
+      "description": "Supabase publishable (anon) key exposed to the browser bundle for Supabase Auth sign-in.",
+      "requiredAtBoot": true
+    },
+    {
+      "name": "GEMINI_API_KEY",
+      "description": "Google Gemini API key for AI spending insights and category suggestions (aistudio.google.com/apikey). Optional: the app falls back to canned insights and keyword matching when it is absent.",
+      "requiredAtBoot": false
+    }
+  ]
+}

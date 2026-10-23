@@ -1,0 +1,53 @@
+# Base44 sandbox environment for the Personal Monthly Budget Planner.
+#
+# The app is a single Node process (server.ts) that serves the Express API and the
+# Vite React frontend together in development mode (Vite middleware mode), so there
+# is one service on host port 3000 and no local database service:
+# Supabase is the app's only database/auth backend and it is a hosted external
+# service (see AGENTS.md).
+#
+# Run with: docker compose -f docker-compose.base44.yml up -d --build
+services:
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    # node_modules lives in a named volume, so dependencies are installed from the
+    # mounted manifest on every start; the dev server (tsx server.ts) watches the
+    # bind-mounted source for live reload.
+    command: ["sh", "-ec", "npm install --no-audit --no-fund && exec npm run dev"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      - web_node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      # Provided by the platform; enables sandbox-only dev overrides when it equals "1".
+      - BASE44_PREVIEW_MODE
+      # Public preview origin used for dev host/origin allowlists (never hardcoded).
+      - BASE44_PUBLIC_HOST_SUFFIX
+      - BASE44_SANDBOX_HOST_DOMAIN
+    env_file:
+      # Supabase URL/keys and GEMINI_API_KEY are supplied by the user and delivered
+      # to this file by the platform.
+      - /run/base44/app.env
+    labels:
+      base44.project: "Budget Planner"
+      base44.kind: "web"
+      base44.port: "3000"
+    restart: on-failure
+    healthcheck:
+      # Checks the API health endpoint AND that the Vite-served frontend renders,
+      # printing which one failed.
+      test:
+        - CMD-SHELL
+        - >-
+          node -e 'const u="http://127.0.0.1:3000";(async()=>{const checks=[["/healthz",(r)=>r.status===200],["/",(r)=>r.status===200]];for(const [p,ok] of checks){try{const r=await fetch(u+p);if(!ok(r)){console.error("healthcheck failed: "+p+" -> "+r.status);process.exit(1)}}catch(e){console.error("healthcheck failed: "+p+" -> "+e.message);process.exit(1)}}})()'
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 180s
+
+volumes:
+  web_node_modules:
