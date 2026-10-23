@@ -1146,6 +1146,35 @@ test('savings contributions and goal balances do not double count as separate as
 });
 
 
+test('moving an edited savings contribution reconciles both source and destination goals', () => {
+  const sourceGoal = {
+    id: 'source', name: 'Source', targetAmount: 2000, currentAmount: 1500, openingBalance: 1000,
+  } as SavingsGoal;
+  const destinationGoal = {
+    id: 'destination', name: 'Destination', targetAmount: 2000, currentAmount: 200, openingBalance: 100,
+  } as SavingsGoal;
+  const originalContributions = [
+    { id: 'move-me', goalId: 'source', amount: 500, date: '2026-01-10', createdAt: '2026-01-10T12:00:00.000Z' },
+    { id: 'destination-existing', goalId: 'destination', amount: 100, date: '2026-01-11' },
+  ];
+  const editedContributions = originalContributions.map((contribution) =>
+    contribution.id === 'move-me'
+      ? { ...contribution, goalId: 'destination', amount: 300, date: '2026-01-12' }
+      : contribution,
+  );
+
+  assert.deepEqual(reconcileGoalBalance(sourceGoal, editedContributions), {
+    openingBalance: 1000,
+    currentAmount: 1000,
+  });
+  assert.deepEqual(reconcileGoalBalance(destinationGoal, editedContributions), {
+    openingBalance: 100,
+    currentAmount: 500,
+  });
+  assert.equal(editedContributions[0].id, originalContributions[0].id);
+  assert.equal(editedContributions[0].createdAt, originalContributions[0].createdAt);
+});
+
 test('savings goal reconciliation recalculates after contribution edit or deletion', () => {
   const goal = {
     id: 'goal-edit',
