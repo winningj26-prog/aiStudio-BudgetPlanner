@@ -209,8 +209,16 @@ export function generateRecurringDates(
   const pad = (value: number) => String(value).padStart(2, '0');
   const add = (day: number) => dates.push(`${year}-${pad(month)}-${pad(day)}`);
 
-  if (rule.frequency === 'monthly' || rule.frequency === 'yearly') {
+  if (rule.frequency === 'monthly') {
     add(firstDay);
+    return dates;
+  }
+
+  // The legacy rule schema has no month-of-year field. Treat yearly rules as
+  // January anniversaries until a dedicated annual anchor date is configured.
+  // This prevents the previous bug where a "yearly" rule posted every month.
+  if (rule.frequency === 'yearly') {
+    if (month === 1) add(firstDay);
     return dates;
   }
 
