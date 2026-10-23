@@ -508,7 +508,8 @@ test('recurring date generation respects frequency and month length', () => {
   assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 1, frequency: 'bi-weekly' }), [
     '2026-02-01', '2026-02-15',
   ]);
-  assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 31, frequency: 'yearly' }), ['2026-02-28']);
+  assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 31, frequency: 'yearly' }), []);
+  assert.deepEqual(generateRecurringDates(2026, 1, { dayOfMonth: 31, frequency: 'yearly' }), ['2026-01-31']);
   assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 0, frequency: 'monthly' }), []);
 });
 
@@ -1385,4 +1386,25 @@ test('debt payment UI supports editing records and prevents deleting debts with 
   assert.match(source, /applyDebtPaymentChange\(debts, existingPayment, payment\)/);
   assert.match(source, /This debt has payment history/);
   assert.match(source, /handleEditPayment\(p\)/);
+});
+
+
+test('recurring posting contract prevents duplicate entries and respects inactive rules and selected period', () => {
+  const rules: RecurringTransaction[] = [
+    { id: 'rent', type: 'expense', description: 'Rent', amount: 900, category: 'Housing', dayOfMonth: 1, frequency: 'monthly', isActive: true },
+    { id: 'salary', type: 'income', description: 'Salary', amount: 2500, category: 'Salary', dayOfMonth: 15, frequency: 'monthly', isActive: true },
+    { id: 'inactive', type: 'expense', description: 'Inactive', amount: 25, category: 'Other', dayOfMonth: 3, frequency: 'monthly', isActive: false },
+  ];
+  const existingExpenses = [
+    { id: 'existing-rent', date: '2026-10-01', category: 'Housing', description: 'Rent', paymentMethod: 'Bank', amount: 900, recurringId: 'rent', isRecurring: true },
+  ];
+  const shouldGenerate = (rule: RecurringTransaction, year: number, month: number, existingDates: string[]) =>
+    rule.isActive
+      ? generateRecurringDates(year, month, rule).filter((date) => !existingDates.includes(date))
+      : [];
+
+  assert.deepEqual(shouldGenerate(rules[0], 2026, 10, existingExpenses.map((t) => t.date)), []);
+  assert.deepEqual(shouldGenerate(rules[0], 2026, 11, existingExpenses.map((t) => t.date)), ['2026-11-01']);
+  assert.deepEqual(shouldGenerate(rules[2], 2026, 10, []), []);
+  assert.deepEqual(shouldGenerate(rules[1], 2027, 1, []), ['2027-01-15']);
 });
