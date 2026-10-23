@@ -27,7 +27,8 @@ import {
   Scale,
   Calendar,
   PiggyBank,
-  Check
+  Check,
+  Pencil
 } from 'lucide-react';
 
 interface DebtPayoffSheetProps {
@@ -73,6 +74,7 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
   const [paymentInterest, setPaymentInterest] = useState('');
   const [paymentFees, setPaymentFees] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [showPaymentHistory, setShowPaymentHistory] = useState(true);
   const [paymentDate, setPaymentDate] = useState(`${settings.year}-${String(['January','February','March','April','May','June','July','August','September','October','November','December'].indexOf(settings.month) + 1).padStart(2, '0')}-01`);
 
@@ -154,6 +156,10 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
   };
 
   const handleDeleteDebt = (id: string) => {
+    if (debtPayments.some((payment) => payment.debtId === id)) {
+      alert('This debt has payment history. Delete its payment records first before deleting the debt, so the ledger and cash-flow history remain consistent.');
+      return;
+    }
     if (confirm('Are you sure you want to delete this debt? This resets its payoff schedule calculations.')) {
       onUpdateDebts(debts.filter((d) => d.id !== id));
       if (editingId === id) {
@@ -378,14 +384,39 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
     };
   }, [debts, additionalPayment, strategy, settings.currency]);
 
+  const resetPaymentForm = () => {
+    setEditingPaymentId(null);
+    setPaymentAmount('');
+    setPaymentInterest('');
+    setPaymentFees('');
+    setPaymentNotes('');
+  };
+
+  const handleEditPayment = (payment: DebtPayment) => {
+    setEditingPaymentId(payment.id);
+    setPaymentDebtId(payment.debtId);
+    setPaymentAccountId(payment.accountId || '');
+    setPaymentAmount(String(payment.amount));
+    setPaymentInterest(String(payment.interest));
+    setPaymentFees(String(payment.fees || 0));
+    setPaymentNotes(payment.notes || '');
+    setPaymentDate(payment.date);
+  };
+
   const handleRecordDebtPayment = (e: React.FormEvent) => {
     e.preventDefault();
     const debt = debts.find((item) => item.id === paymentDebtId);
+    const existingPayment = editingPaymentId ? debtPayments.find((item) => item.id === editingPaymentId) : undefined;
+    if (editingPaymentId && !existingPayment) {
+      alert('The payment being edited no longer exists. Refresh the payment history and try again.');
+      resetPaymentForm();
+      return;
+    }
     const amount = parseFloat(paymentAmount);
     const interest = parseFloat(paymentInterest || '0');
     const fees = parseFloat(paymentFees || '0');
-    if (!debt || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(interest) || interest < 0 || !Number.isFinite(fees) || fees < 0) {
-      alert('Enter valid debt payment, interest, and fee amounts.');
+    if (!debt || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(interest) || interest < 0 || !Number.isFinite(fees) || fees < 0 || !/^\\d{4}-\\d{2}-\\d{2}$/.test(paymentDate) || Number.isNaN(Date.parse(paymentDate))) {
+      alert('Enter valid debt payment, date, interest, and fee amounts.');
       return;
     }
     if (interest + fees > amount) {
@@ -393,12 +424,13 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
       return;
     }
     const principal = amount - interest - fees;
-    if (principal > debt.balance + 0.01) {
-      alert('Principal reduction cannot exceed the outstanding debt balance.');
+    const availableBalance = debt.balance + (existingPayment?.debtId === debt.id ? existingPayment.principal : 0);
+    if (principal > availableBalance + 0.01) {
+      alert('Principal reduction cannot exceed the outstanding debt balance after reversing the payment being edited.');
       return;
     }
     const payment: DebtPayment = {
-      id: `debt_payment_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: existingPayment?.id || `debt_payment_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       date: paymentDate,
       debtId: debt.id,
       accountId: paymentAccountId || undefined,
@@ -408,12 +440,18 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
       fees: fees > 0 ? fees : undefined,
       notes: paymentNotes.trim() || undefined,
     };
-    onUpdateDebtPayments([...debtPayments, payment]);
-    onUpdateDebts(debts.map((item) => item.id === debt.id ? { ...item, balance: Math.max(0, item.balance - principal) } : item));
-    setPaymentAmount('');
-    setPaymentInterest('');
-    setPaymentFees('');
-    setPaymentNotes('');
+    const nextPayments = existingPayment
+      ? debtPayments.map((item) => item.id === existingPayment.id ? payment : item)
+      : [...debtPayments, payment];
+    const nextDebts = debts.map((item) => {
+      let balance = item.balance;
+      if (existingPayment?.debtId === item.id) balance += existingPayment.principal;
+      if (item.id === debt.id) balance -= principal;
+      return balance === item.balance ? item : { ...item, balance: Math.max(0, balance) };
+    });
+    onUpdateDebtPayments(nextPayments);
+    onUpdateDebts(nextDebts);
+    resetPaymentForm();
   };
 
   const handleDeletePayment = (paymentId: string) => {
@@ -422,6 +460,7 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
     if (!window.confirm('Are you sure you want to delete this payment record? The principal amount will be restored to the debt liability.')) return;
     onUpdateDebtPayments(debtPayments.filter((p) => p.id !== paymentId));
     onUpdateDebts(debts.map((d) => d.id === payment.debtId ? { ...d, balance: d.balance + payment.principal } : d));
+    if (editingPaymentId === paymentId) resetPaymentForm();
   };
 
   // Convert month number to a real calendar month string
@@ -694,7 +733,15 @@ export const DebtPayoffSheet: React.FC<DebtPayoffSheetProps> = ({
                           <td className="px-3 py-2 text-right">
                             <button
                               type="button"
-                              onClick={() => handleDeletePayment(p.id)}
+                              onClick={() => handleEditPayment(p)}
+                              className="rounded p-1 text-slate-400 hover:bg-sky-50 hover:text-sky-600 transition-colors cursor-pointer"
+                              title="Edit payment"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePayment(p.id)
                               className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
                               title="Delete payment"
                             >
