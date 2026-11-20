@@ -22,7 +22,7 @@ import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
 import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
 import { isValidWorkbookData, normalizeWorkbookData } from '../src/utils/workbookValidation.ts';
 import { buildAnnualSummary, calculateBudgetItem, calculateBudgetStatus, sumExpensesByCategory, sumIncomeByCategory, sumExpenseTransactions, sumIncomeTransactions } from '../src/utils/formulas.ts';
-import { applyDebtPaymentChange, removeSavingsGoalAndContributions, calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates, normalizeSavingsGoalDraft, validateDebtDraftValues, normalizeRecurringRuleValues, reconcileGoalBalance, validateSavingsContributionDraft, isValidCalendarDate } from '../src/utils/financialPlanning.ts';
+import { applyDebtPaymentChange, removeSavingsGoalAndContributions, calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates, calculateMonthlyRecurringAmount, normalizeSavingsGoalDraft, validateDebtDraftValues, normalizeRecurringRuleValues, reconcileGoalBalance, validateSavingsContributionDraft, isValidCalendarDate } from '../src/utils/financialPlanning.ts';
 import { calculateFinancialSnapshot } from '../src/utils/financialModel.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 import { getCurrentCalendarPeriod, syncSettingsToCurrentPeriod } from '../src/utils/calendarPeriod.ts';
@@ -505,6 +505,15 @@ test('debt calculations handle interest, payment shortfalls, and payoff edge cas
   assert.equal(calculateDebtPayoffMonths(debt), 13);
   assert.equal(calculateDebtPayoffMonths({ ...debt, minimumPayment: 5 }), null);
   assert.equal(calculateDebtPayoffMonths({ ...debt, balance: 0 }), 0);
+});
+
+
+test('recurring rule summaries normalize weekly, bi-weekly, monthly, and yearly amounts to monthly equivalents', () => {
+  assert.equal(calculateMonthlyRecurringAmount({ amount: 120, frequency: 'monthly' }), 120);
+  assert.equal(calculateMonthlyRecurringAmount({ amount: 100, frequency: 'weekly' }), 100 * 52 / 12);
+  assert.equal(calculateMonthlyRecurringAmount({ amount: 100, frequency: 'bi-weekly' }), 100 * 26 / 12);
+  assert.equal(calculateMonthlyRecurringAmount({ amount: 1200, frequency: 'yearly' }), 100);
+  assert.equal(calculateMonthlyRecurringAmount({ amount: Number.NaN, frequency: 'monthly' }), 0);
 });
 
 test('recurring date generation respects frequency and month length', () => {
