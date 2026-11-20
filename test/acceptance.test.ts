@@ -74,7 +74,11 @@ test('local workbook repository round-trips account-scoped workbook data', () =>
     recurringTransactions: [], userEmail: '', activeTab: 'start_here' as const, sheetConfig: null,
   };
   const repository = createLocalWorkbookRepository('user-a', defaults);
-  const data = { ...defaults, userEmail: 'a@example.com', activeTab: 'dashboard' as const };
+  const recurringRule: RecurringTransaction = {
+    id: 'weekly-pay', type: 'income', description: 'Weekly Pay', amount: 500,
+    category: 'Salary', dayOfMonth: 1, frequency: 'weekly', anchorDate: '2026-01-28', isActive: true,
+  };
+  const data = { ...defaults, recurringTransactions: [recurringRule], userEmail: 'a@example.com', activeTab: 'dashboard' as const };
   repository.save(data);
   assert.deepEqual(repository.load(), data);
   const otherRepository = createLocalWorkbookRepository('user-b', defaults);
@@ -310,6 +314,9 @@ test('workbook schema validation rejects malformed ledger and settings values', 
     userEmail: 'user@example.com', activeTab: 'dashboard' as const, sheetConfig: null,
   };
   assert.equal(isValidWorkbookData(valid), true);
+  assert.equal(isValidWorkbookData({ ...valid, recurringTransactions: [{ id: 'weekly', type: 'income', description: 'Pay', amount: 100, category: 'Salary', dayOfMonth: 1, frequency: 'weekly', anchorDate: '2026-02-30', isActive: true }] }), false);
+  assert.equal(isValidWorkbookData({ ...valid, recurringTransactions: [{ id: 'annual', type: 'expense', description: 'Tax', amount: 100, category: 'Other', dayOfMonth: 1, frequency: 'yearly', annualMonth: 13, isActive: true }] }), false);
+  assert.equal(isValidWorkbookData({ ...valid, recurringTransactions: [{ id: 'annual', type: 'expense', description: 'Tax', amount: 100, category: 'Other', dayOfMonth: 1, frequency: 'yearly', annualMonth: 4, isActive: true }] }), true);
   assert.equal(isValidWorkbookData({
     ...valid,
     expenseTransactions: [{ ...valid.expenseTransactions[0], amount: -1 }],
