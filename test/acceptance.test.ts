@@ -22,7 +22,7 @@ import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
 import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
 import { isValidWorkbookData, normalizeWorkbookData } from '../src/utils/workbookValidation.ts';
 import { buildAnnualSummary, calculateBudgetItem, calculateBudgetStatus, sumExpensesByCategory, sumIncomeByCategory, sumExpenseTransactions, sumIncomeTransactions } from '../src/utils/formulas.ts';
-import { applyDebtPaymentChange, removeSavingsGoalAndContributions, calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates, normalizeSavingsGoalDraft, validateDebtDraftValues, normalizeRecurringRuleValues, reconcileGoalBalance, validateSavingsContributionDraft } from '../src/utils/financialPlanning.ts';
+import { applyDebtPaymentChange, removeSavingsGoalAndContributions, calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates, normalizeSavingsGoalDraft, validateDebtDraftValues, normalizeRecurringRuleValues, reconcileGoalBalance, validateSavingsContributionDraft, isValidCalendarDate } from '../src/utils/financialPlanning.ts';
 import { calculateFinancialSnapshot } from '../src/utils/financialModel.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 import { getCurrentCalendarPeriod, syncSettingsToCurrentPeriod } from '../src/utils/calendarPeriod.ts';
@@ -1079,6 +1079,15 @@ test('Product 2 remains disabled during the merge without deleting legacy source
   assert.match(serverSource, /row\.app_id !== 'product2'/);
   assert.match(serverSource, /Product 2 is disabled and cannot be enabled or overridden/);
   assert.equal(rootPackage.scripts.build, 'vite build');
+});
+
+test('strict calendar date validation rejects impossible debt payment dates', () => {
+  assert.equal(isValidCalendarDate('2026-02-28'), true);
+  assert.equal(isValidCalendarDate('2024-02-29'), true);
+  assert.equal(isValidCalendarDate('2026-02-29'), false);
+  assert.equal(isValidCalendarDate('2026-02-30'), false);
+  assert.equal(isValidCalendarDate('2026-13-01'), false);
+  assert.equal(isValidCalendarDate('2026-1-01'), false);
 });
 
 test('savings contribution validation enforces positive finite amount, valid date, and goal id', () => {
