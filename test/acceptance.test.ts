@@ -508,6 +508,15 @@ test('recurring date generation respects frequency and month length', () => {
   assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 1, frequency: 'bi-weekly' }), [
     '2026-02-01', '2026-02-15',
   ]);
+  assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 1, frequency: 'weekly', anchorDate: '2026-01-28' }), [
+    '2026-02-04', '2026-02-11', '2026-02-18', '2026-02-25',
+  ]);
+  assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 1, frequency: 'bi-weekly', anchorDate: '2026-01-28' }), [
+    '2026-02-11', '2026-02-25',
+  ]);
+  assert.deepEqual(generateRecurringDates(2026, 1, { dayOfMonth: 1, frequency: 'weekly', anchorDate: '2026-01-28' }), [
+    '2026-01-07', '2026-01-14', '2026-01-21', '2026-01-28',
+  ]);
   assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 31, frequency: 'yearly' }), []);
   assert.deepEqual(generateRecurringDates(2026, 1, { dayOfMonth: 31, frequency: 'yearly' }), ['2026-01-31']);
   assert.deepEqual(generateRecurringDates(2026, 2, { dayOfMonth: 0, frequency: 'monthly' }), []);
