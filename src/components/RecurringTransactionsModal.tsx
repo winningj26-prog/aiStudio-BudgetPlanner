@@ -7,7 +7,7 @@ import {
   SettingsState,
 } from '../types/budget';
 import { formatCurrency } from '../utils/formatters';
-import { generateRecurringDates, normalizeRecurringRuleValues } from '../utils/financialPlanning';
+import { generateRecurringDates, normalizeRecurringRuleValues, isValidCalendarDate } from '../utils/financialPlanning';
 import {
   AlertCircle,
   Calendar,
@@ -128,6 +128,8 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
     setFormPaymentMethod(paymentMethods[0] || 'Bank');
     setFormDayOfMonth(1);
     setFormFrequency('monthly');
+    setFormAnnualMonth(1);
+    setFormAnchorDate(`${settings.year}-${MONTH_MAP[settings.month] || '01'}-01`);
     setFormIsActive(true);
     setFormNotes('');
     setIsFormOpen(true);
@@ -144,7 +146,7 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
     setFormDayOfMonth(rule.dayOfMonth);
     setFormFrequency(rule.frequency);
     setFormAnnualMonth(rule.annualMonth || 1);
-    setFormAnchorDate(rule.anchorDate || `${settings.year}-${MONTH_MAP[settings.month] || '01'}-${String(rule.dayOfMonth).padStart(2, '0')}`);
+    setFormAnchorDate(rule.anchorDate || `${settings.year}-${MONTH_MAP[settings.month] || '01'}-01`);
     setFormIsActive(rule.isActive);
     setFormNotes(rule.notes || '');
     setIsFormOpen(true);
@@ -155,6 +157,7 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
     e.preventDefault();
     const normalized = normalizeRecurringRuleValues(formAmount, formDayOfMonth);
     if (!formDescription.trim() || !normalized) return;
+    if ((formFrequency === 'weekly' || formFrequency === 'bi-weekly') && !isValidCalendarDate(formAnchorDate)) return;
     const { amount: amountVal, dayOfMonth } = normalized;
 
     if (editingRule) {
