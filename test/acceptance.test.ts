@@ -22,7 +22,7 @@ import { isAiInsightsUiEnabled } from '../src/utils/aiInsights.ts';
 import { isValidCloudWorkbookPayload } from '../src/utils/cloudWorkbook.ts';
 import { isValidWorkbookData, normalizeWorkbookData } from '../src/utils/workbookValidation.ts';
 import { buildAnnualSummary, calculateBudgetItem, calculateBudgetStatus, sumExpensesByCategory, sumIncomeByCategory, sumExpenseTransactions, sumIncomeTransactions } from '../src/utils/formulas.ts';
-import { applyDebtPaymentChange, calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates, normalizeSavingsGoalDraft, validateDebtDraftValues, normalizeRecurringRuleValues, reconcileGoalBalance, validateSavingsContributionDraft } from '../src/utils/financialPlanning.ts';
+import { applyDebtPaymentChange, removeSavingsGoalAndContributions, calculateDebtMinimumPaymentShortfall, calculateDebtMonthlyInterest, calculateDebtPayoffMonths, calculateSavingsGoalProgress, generateRecurringDates, normalizeSavingsGoalDraft, validateDebtDraftValues, normalizeRecurringRuleValues, reconcileGoalBalance, validateSavingsContributionDraft } from '../src/utils/financialPlanning.ts';
 import { calculateFinancialSnapshot } from '../src/utils/financialModel.ts';
 import { isValidBillingAmount, isValidBillingPlanId, normalizeOptionalText, normalizeTransactionId } from '../src/utils/billing.ts';
 import { getCurrentCalendarPeriod, syncSettingsToCurrentPeriod } from '../src/utils/calendarPeriod.ts';
@@ -1175,6 +1175,24 @@ test('moving an edited savings contribution reconciles both source and destinati
   });
   assert.equal(editedContributions[0].id, originalContributions[0].id);
   assert.equal(editedContributions[0].createdAt, originalContributions[0].createdAt);
+});
+
+test('deleting a savings goal also removes its contribution ledger rows without affecting other goals', () => {
+  const goals = [
+    { id: 'goal-a', name: 'Emergency', targetAmount: 5000, currentAmount: 1500, openingBalance: 1000 },
+    { id: 'goal-b', name: 'Travel', targetAmount: 2000, currentAmount: 300, openingBalance: 100 },
+  ] as SavingsGoal[];
+  const contributions = [
+    { id: 'c-a1', goalId: 'goal-a', amount: 500, date: '2026-10-01' },
+    { id: 'c-a2', goalId: 'goal-a', amount: 0, date: '2026-10-02' },
+    { id: 'c-b1', goalId: 'goal-b', amount: 200, date: '2026-10-03' },
+  ];
+  const next = removeSavingsGoalAndContributions(goals, contributions, 'goal-a');
+  assert.deepEqual(next.goals.map((goal) => goal.id), ['goal-b']);
+  assert.deepEqual(next.contributions.map((contribution) => contribution.id), ['c-b1']);
+  assert.equal(reconcileGoalBalance(next.goals[0], next.contributions).currentAmount, 300);
+  assert.equal(goals.length, 2);
+  assert.equal(contributions.length, 3);
 });
 
 test('savings goal reconciliation recalculates after contribution edit or deletion', () => {
