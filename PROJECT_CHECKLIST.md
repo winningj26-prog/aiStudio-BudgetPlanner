@@ -202,6 +202,7 @@ Updated after each completed implementation/verification task.
 - [x] Recurring rules support weekly, bi-weekly, monthly, and yearly frequency for both income and expenses; yearly rules configure annual month and clamp month-end dates.
 - [x] Weekly/bi-weekly rules support an explicit cadence anchor date and generate true 7/14-day occurrences across calendar-month boundaries; legacy unanchored rules preserve month-local behavior.
 - [x] Recurring cadence anchor defaults and strict date validation are covered; workbook validation rejects invalid annual months and impossible anchor dates; local workbook round-trip preserves recurrence configuration.
+- [x] Recurring summary cards normalize weekly, bi-weekly, and yearly rules to monthly equivalents instead of summing raw schedule amounts.
 - [x] Yearly recurring rules no longer generate every month; legacy schema treats them as January anniversaries until annual anchor-date support is added
 - [x] Recurring transaction date generation clamps day-of-month safely to shorter months
 - [x] Module 4 savings goals, debts, and recurring transaction acceptance tests added
