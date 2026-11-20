@@ -263,11 +263,11 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
     e.preventDefault();
     const targetGoal = contributeGoal || savingsGoals.find((g) => g.id === selectedContributionGoalId);
     if (!targetGoal) return;
-    const added = parseFloat(contributionAmount) || 0;
-    if (!Number.isFinite(added) || added <= 0) {
-      alert('Please enter a valid positive contribution amount.');
+    if (!validateSavingsContributionDraft(targetGoal.id, contributionAmount, contributionDate)) {
+      alert('Please enter a valid positive contribution amount and a valid contribution date.');
       return;
     }
+    const added = Number(contributionAmount);
 
     const newContribution: SavingsContribution = {
       ...(editingContribution || {}),
