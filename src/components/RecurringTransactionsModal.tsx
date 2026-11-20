@@ -75,6 +75,7 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
   const [formPaymentMethod, setFormPaymentMethod] = useState(paymentMethods[0] || 'Bank');
   const [formDayOfMonth, setFormDayOfMonth] = useState<number>(1);
   const [formFrequency, setFormFrequency] = useState<'monthly' | 'bi-weekly' | 'weekly' | 'yearly'>('monthly');
+  const [formAnnualMonth, setFormAnnualMonth] = useState<number>(1);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formNotes, setFormNotes] = useState('');
 
@@ -141,6 +142,7 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
     setFormPaymentMethod(rule.paymentMethod || paymentMethods[0] || 'Bank');
     setFormDayOfMonth(rule.dayOfMonth);
     setFormFrequency(rule.frequency);
+    setFormAnnualMonth(rule.annualMonth || 1);
     setFormIsActive(rule.isActive);
     setFormNotes(rule.notes || '');
     setIsFormOpen(true);
@@ -165,6 +167,8 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
               paymentMethod: formType === 'expense' ? formPaymentMethod : undefined,
               dayOfMonth,
               frequency: formFrequency,
+        annualMonth: formFrequency === 'yearly' ? formAnnualMonth : undefined,
+              annualMonth: formFrequency === 'yearly' ? formAnnualMonth : undefined,
               isActive: formIsActive,
               notes: formNotes.trim() || undefined,
             }
@@ -711,52 +715,35 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
                   </div>
                 </div>
 
-                {/* Payment Method (if expense) & Day of Month */}
-                <div className="grid grid-cols-2 gap-3">
-                  {formType === 'expense' ? (
+                {/* Payment Method, Frequency, and Date */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {formType === 'expense' && (
                     <div>
                       <label className="block font-bold text-slate-700 mb-1">Payment Method</label>
-                      <select
-                        value={formPaymentMethod}
-                        onChange={(e) => setFormPaymentMethod(e.target.value)}
-                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-blue-500 focus:outline-hidden cursor-pointer"
-                      >
-                        {paymentMethods.map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">Frequency</label>
-                      <select
-                        value={formFrequency}
-                        onChange={(e) => setFormFrequency(e.target.value as any)}
-                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-blue-500 focus:outline-hidden cursor-pointer"
-                      >
-                        <option value="monthly">Monthly</option>
-                        <option value="bi-weekly">Bi-weekly</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="yearly">Yearly</option>
+                      <select value={formPaymentMethod} onChange={(e) => setFormPaymentMethod(e.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-blue-500 focus:outline-hidden cursor-pointer">
+                        {paymentMethods.map((m) => <option key={m} value={m}>{m}</option>)}
                       </select>
                     </div>
                   )}
-
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Frequency</label>
+                    <select value={formFrequency} onChange={(e) => setFormFrequency(e.target.value as any)} className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-blue-500 focus:outline-hidden cursor-pointer">
+                      <option value="monthly">Monthly</option><option value="bi-weekly">Bi-weekly</option><option value="weekly">Weekly</option><option value="yearly">Yearly</option>
+                    </select>
+                  </div>
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Day of Month (1 - 31)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="31"
-                      required
-                      value={formDayOfMonth}
-                      onChange={(e) => setFormDayOfMonth(parseInt(e.target.value, 10) || 1)}
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-hidden"
-                    />
+                    <input type="number" min="1" max="31" required value={formDayOfMonth} onChange={(e) => setFormDayOfMonth(parseInt(e.target.value, 10) || 1)} className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-hidden" />
                   </div>
                 </div>
+                {formFrequency === 'yearly' && (
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Annual Month</label>
+                    <select value={formAnnualMonth} onChange={(e) => setFormAnnualMonth(Number(e.target.value))} className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-blue-500 focus:outline-hidden cursor-pointer">
+                      {MONTH_MAP && Object.entries(MONTH_MAP).map(([name, value]) => <option key={name} value={Number(value)}>{name}</option>)}
+                    </select>
+                  </div>
+                )}
 
                 {/* Active Switch */}
                 <div className="flex items-center gap-2 pt-1">
