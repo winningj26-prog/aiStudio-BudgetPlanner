@@ -215,7 +215,7 @@ export function normalizeRecurringRuleValues(
 export function generateRecurringDates(
   year: number,
   month: number,
-  rule: Pick<RecurringTransaction, 'dayOfMonth' | 'frequency'>,
+  rule: Pick<RecurringTransaction, 'dayOfMonth' | 'frequency' | 'annualMonth'>,
 ): string[] {
   if (!Number.isInteger(year) || year < 1900 || year > 2200 || !Number.isInteger(month) || month < 1 || month > 12) {
     return [];
@@ -235,11 +235,11 @@ export function generateRecurringDates(
     return dates;
   }
 
-  // The legacy rule schema has no month-of-year field. Treat yearly rules as
-  // January anniversaries until a dedicated annual anchor date is configured.
-  // This prevents the previous bug where a "yearly" rule posted every month.
   if (rule.frequency === 'yearly') {
-    if (month === 1) add(firstDay);
+    const annualMonth = rule.annualMonth ?? 1;
+    if (!Number.isInteger(annualMonth) || annualMonth < 1 || annualMonth > 12 || month !== annualMonth) return dates;
+    const annualDay = Math.min(rule.dayOfMonth, daysInMonth(year, annualMonth));
+    add(annualDay);
     return dates;
   }
 
