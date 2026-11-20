@@ -215,7 +215,7 @@ export function normalizeRecurringRuleValues(
 export function generateRecurringDates(
   year: number,
   month: number,
-  rule: Pick<RecurringTransaction, 'dayOfMonth' | 'frequency' | 'annualMonth'>,
+  rule: Pick<RecurringTransaction, 'dayOfMonth' | 'frequency' | 'annualMonth' | 'anchorDate'>,
 ): string[] {
   if (!Number.isInteger(year) || year < 1900 || year > 2200 || !Number.isInteger(month) || month < 1 || month > 12) {
     return [];
@@ -246,8 +246,26 @@ export function generateRecurringDates(
   const interval = rule.frequency === 'bi-weekly' ? 14 : rule.frequency === 'weekly' ? 7 : 0;
   if (interval === 0) return [];
 
-  for (let day = firstDay; day <= lastDay; day += interval) {
-    add(day);
+  if (rule.anchorDate && isValidCalendarDate(rule.anchorDate)) {
+    const [anchorYear, anchorMonth, anchorDay] = rule.anchorDate.split('-').map(Number);
+    const anchor = Date.UTC(anchorYear, anchorMonth - 1, anchorDay);
+    const monthStart = Date.UTC(year, month - 1, 1);
+    const monthEnd = Date.UTC(year, month - 1, lastDay);
+    const dayMs = 24 * 60 * 60 * 1000;
+    const offset = Math.ceil((monthStart - anchor) / dayMs);
+    const firstInterval = Math.ceil(offset / interval);
+    for (let n = firstInterval; ; n += 1) {
+      const occurrence = anchor + n * interval * dayMs;
+      if (occurrence > monthEnd) break;
+      if (occurrence >= monthStart) {
+        const day = new Date(occurrence).getUTCDate();
+        add(day);
+      }
+    }
+    return dates;
   }
+
+  // Legacy rules without an anchor retain month-local scheduling behavior.
+  for (let day = firstDay; day <= lastDay; day += interval) add(day);
   return dates;
 }
