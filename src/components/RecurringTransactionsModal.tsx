@@ -167,7 +167,6 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
               paymentMethod: formType === 'expense' ? formPaymentMethod : undefined,
               dayOfMonth,
               frequency: formFrequency,
-        annualMonth: formFrequency === 'yearly' ? formAnnualMonth : undefined,
               annualMonth: formFrequency === 'yearly' ? formAnnualMonth : undefined,
               isActive: formIsActive,
               notes: formNotes.trim() || undefined,
@@ -185,6 +184,7 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
         paymentMethod: formType === 'expense' ? formPaymentMethod : undefined,
         dayOfMonth: Math.min(31, Math.max(1, formDayOfMonth)),
         frequency: formFrequency,
+        annualMonth: formFrequency === 'yearly' ? formAnnualMonth : undefined,
         isActive: formIsActive,
         notes: formNotes.trim() || undefined,
       };
