@@ -109,6 +109,8 @@ const isRecurring = (value: unknown): value is RecurringTransaction => {
   if (!isFiniteNumber(dayOfMonth) || !Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31
     || (value.paymentMethod != null && typeof value.paymentMethod !== 'string')
     || !['monthly','bi-weekly','weekly','yearly'].includes(String(value.frequency))
+    || (value.annualMonth != null && (!isFiniteNumber(value.annualMonth) || !Number.isInteger(value.annualMonth) || value.annualMonth < 1 || value.annualMonth > 12))
+    || (value.anchorDate != null && !isDate(value.anchorDate))
     || typeof value.isActive !== 'boolean'
     || (value.notes != null && typeof value.notes !== 'string')) return false;
   return true;
