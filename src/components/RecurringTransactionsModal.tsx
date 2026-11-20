@@ -7,7 +7,7 @@ import {
   SettingsState,
 } from '../types/budget';
 import { formatCurrency } from '../utils/formatters';
-import { generateRecurringDates, normalizeRecurringRuleValues, isValidCalendarDate } from '../utils/financialPlanning';
+import { generateRecurringDates, normalizeRecurringRuleValues, isValidCalendarDate, calculateMonthlyRecurringAmount } from '../utils/financialPlanning';
 import {
   AlertCircle,
   Calendar,
@@ -103,8 +103,8 @@ export const RecurringTransactionsModal: React.FC<RecurringTransactionsModalProp
   // Monthly sums
   const activeIncomeRules = recurringTransactions.filter((r) => r.type === 'income' && r.isActive);
   const activeExpenseRules = recurringTransactions.filter((r) => r.type === 'expense' && r.isActive);
-  const monthlyRecurringIncome = activeIncomeRules.reduce((sum, r) => sum + r.amount, 0);
-  const monthlyRecurringExpense = activeExpenseRules.reduce((sum, r) => sum + r.amount, 0);
+  const monthlyRecurringIncome = activeIncomeRules.reduce((sum, r) => sum + calculateMonthlyRecurringAmount(r), 0;
+  const monthlyRecurringExpense = activeExpenseRules.reduce((sum, r) => sum + calculateMonthlyRecurringAmount(r), 0;
   const netMonthlyRecurring = monthlyRecurringIncome - monthlyRecurringExpense;
 
   // Filtered rules
