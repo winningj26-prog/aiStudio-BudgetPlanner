@@ -122,6 +122,7 @@ export interface RecurringTransaction {
   dayOfMonth: number; // 1 - 31
   frequency: 'monthly' | 'bi-weekly' | 'weekly' | 'yearly';
   annualMonth?: number; // 1 - 12, used for yearly rules
+  anchorDate?: string; // recurrence anchor for weekly and bi-weekly rules
   isActive: boolean;
   notes?: string;
 }
