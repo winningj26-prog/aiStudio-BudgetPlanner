@@ -12,6 +12,7 @@ import {
   normalizeSavingsGoalDraft,
   reconcileGoalBalance,
   validateSavingsContributionDraft,
+  removeSavingsGoalAndContributions,
 } from '../utils/financialPlanning';
 import {
   Award,
@@ -237,8 +238,14 @@ export const SavingsGoalsTracker: React.FC<SavingsGoalsTrackerProps> = ({
 
   // Delete goal
   const handleDeleteGoal = (goalId: string, goalName: string) => {
-    if (window.confirm(`Are you sure you want to delete the savings goal "${goalName}"?`)) {
-      onUpdateSavingsGoals(savingsGoals.filter((g) => g.id !== goalId));
+    const linkedContributions = savingsContributions.filter((contribution) => contribution.goalId === goalId);
+    const warning = linkedContributions.length > 0
+      ? ` This will also permanently remove ${linkedContributions.length} linked contribution record(s) from the ledger.`
+      : '';
+    if (window.confirm(`Are you sure you want to delete the savings goal "${goalName}"?${warning}`)) {
+      const next = removeSavingsGoalAndContributions(savingsGoals, savingsContributions, goalId);
+      onUpdateSavingsGoals(next.goals);
+      onUpdateSavingsContributions?.(next.contributions);
     }
   };
 
