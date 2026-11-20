@@ -1416,6 +1416,15 @@ test('debt payment UI supports editing records and prevents deleting debts with 
 });
 
 
+test('yearly recurring rules post in their configured month and clamp month-end dates', () => {
+  const rule = { dayOfMonth: 31, frequency: 'yearly' as const, annualMonth: 4 };
+  assert.deepEqual(generateRecurringDates(2026, 4, rule), ['2026-04-30']);
+  assert.deepEqual(generateRecurringDates(2026, 1, rule), []);
+  assert.deepEqual(generateRecurringDates(2026, 12, rule), []);
+  assert.deepEqual(generateRecurringDates(2024, 2, { dayOfMonth: 29, frequency: 'yearly', annualMonth: 2 }), ['2024-02-29']);
+  assert.deepEqual(generateRecurringDates(2025, 2, { dayOfMonth: 29, frequency: 'yearly', annualMonth: 2 }), ['2025-02-28']);
+});
+
 test('recurring posting contract prevents duplicate entries and respects inactive rules and selected period', () => {
   const rules: RecurringTransaction[] = [
     { id: 'rent', type: 'expense', description: 'Rent', amount: 900, category: 'Housing', dayOfMonth: 1, frequency: 'monthly', isActive: true },
