@@ -21,6 +21,18 @@ export function applyDebtPaymentChange(
   });
 }
 
+
+export function removeSavingsGoalAndContributions(
+  goals: SavingsGoal[],
+  contributions: SavingsContribution[],
+  goalId: string,
+): { goals: SavingsGoal[]; contributions: SavingsContribution[] } {
+  return {
+    goals: goals.filter((goal) => goal.id !== goalId),
+    contributions: contributions.filter((contribution) => contribution.goalId !== goalId),
+  };
+}
+
 export interface SavingsGoalProgress {
   targetAmount: number;
   currentAmount: number;
