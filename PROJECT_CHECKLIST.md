@@ -352,6 +352,7 @@ Implementation plan: [PRODUCT_MERGE_PLAN.md](./PRODUCT_MERGE_PLAN.md). Product 2
 - [x] Added acceptance coverage proving debt-payment cash movement affects only the selected funding account while principal, interest, current liabilities, opening liabilities, and expenses remain distinct.
 - [x] Added contribution-ledger edit action and reused the contribution form to update amount, date, funding account, and notes while preserving contribution ID/creation timestamp and reconciling the goal balance.
 - [x] Contribution edits now reconcile both the source and destination goals when an entry is reassigned; acceptance coverage verifies both balances and preserved contribution identity.
+- [x] Deleting a savings goal removes its associated contribution ledger records with an explicit confirmation warning; acceptance coverage verifies unrelated goals and ledger entries are preserved.
 - [x] Corrected debt-payment snapshot fixture so current liability is post-principal-payment ($900) while opening liability remains $1,000; net worth decreases only by the $50 interest expense.
 - [ ] Run the new acceptance coverage in GitHub Actions and resolve any failures.
 - [x] Added debt-payment edit workflow that preserves payment identity and reconciles principal against the old and new debt balances; invalid overpayment is rejected by a tested pure helper.
