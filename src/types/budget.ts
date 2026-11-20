@@ -121,6 +121,7 @@ export interface RecurringTransaction {
   paymentMethod?: string;
   dayOfMonth: number; // 1 - 31
   frequency: 'monthly' | 'bi-weekly' | 'weekly' | 'yearly';
+  annualMonth?: number; // 1 - 12, used for yearly rules
   isActive: boolean;
   notes?: string;
 }
