@@ -212,6 +212,16 @@ export function normalizeRecurringRuleValues(
   return { amount: normalizedAmount, dayOfMonth: normalizedDay };
 }
 
+export function calculateMonthlyRecurringAmount(rule: Pick<RecurringTransaction, 'amount' | 'frequency'>): number {
+  if (!Number.isFinite(rule.amount) || rule.amount < 0) return 0;
+  switch (rule.frequency) {
+    case 'weekly': return rule.amount * 52 / 12;
+    case 'bi-weekly': return rule.amount * 26 / 12;
+    case 'yearly': return rule.amount / 12;
+    default: return rule.amount;
+  }
+}
+
 export function generateRecurringDates(
   year: number,
   month: number,
