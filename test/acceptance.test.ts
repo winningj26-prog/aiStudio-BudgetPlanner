@@ -1515,3 +1515,39 @@ test('recurring posting contract prevents duplicate entries and respects inactiv
   assert.deepEqual(shouldGenerate(rules[2], 2026, 10, []), []);
   assert.deepEqual(shouldGenerate(rules[1], 2027, 1, []), ['2027-01-15']);
 });
+
+
+test('debt payment UI reconciles ledger edits, restores principal on deletion, and validates payment breakdowns', () => {
+  const source = readFileSync(new URL('../src/components/worksheets/DebtPayoffSheet.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const handleEditPayment = \(payment: DebtPayment\)/);
+  assert.match(source, /const principal = amount - interest - fees/);
+  assert.match(source, /interest \+ fees > amount/);
+  assert.match(source, /!isValidCalendarDate\(paymentDate\)/);
+  assert.match(source, /applyDebtPaymentChange\(debts, existingPayment, payment\)/);
+  assert.match(source, /onUpdateDebtPayments\(nextPayments\)/);
+  assert.match(source, /onUpdateDebts\(nextDebts\)/);
+  assert.match(source, /balance: d\.balance \+ payment\.principal/);
+  assert.match(source, /This debt has payment history/);
+  assert.match(source, /paymentAccountId/);
+});
+
+test('recurring posting is limited to active rules and prevents duplicate rule-date transactions', () => {
+  const source = readFileSync(new URL('../src/components/RecurringTransactionsModal.tsx', import.meta.url), 'utf8');
+  assert.match(source, /if \(!r\.isActive\) return false/);
+  assert.match(source, /t\.recurringId === rule\.id && t\.date === targetDate/);
+  assert.match(source, /recurringId: rule\.id/);
+  assert.match(source, /isRecurring: true/);
+  assert.match(source, /onAddIncomeTransactions\(\[\.\.\.incomeTransactions, \.\.\.newIncomes\]\)/);
+  assert.match(source, /onAddExpenseTransactions\(\[\.\.\.expenseTransactions, \.\.\.newExpenses\]\)/);
+});
+
+test('workbook repository persists savings, debt, and recurrence ledgers under account-scoped keys', () => {
+  const source = readFileSync(new URL('../src/services/workbookRepository.ts', import.meta.url), 'utf8');
+  for (const key of ['SAVINGS_GOALS', 'SAVINGS_CONTRIBUTIONS', 'DEBTS', 'DEBT_PAYMENTS', 'RECURRING_TRANSACTIONS']) {
+    assert.match(source, new RegExp('STORAGE_KEYS\\.' + key));
+  }
+  assert.match(source, /loadFromAccountStorage\(STORAGE_KEYS\.SAVINGS_CONTRIBUTIONS, userId/);
+  assert.match(source, /saveToAccountStorage\(STORAGE_KEYS\.SAVINGS_CONTRIBUTIONS, userId/);
+  assert.match(source, /saveToAccountStorage\(STORAGE_KEYS\.DEBT_PAYMENTS, userId/);
+  assert.match(source, /saveToAccountStorage\(STORAGE_KEYS\.RECURRING_TRANSACTIONS, userId/);
+});
