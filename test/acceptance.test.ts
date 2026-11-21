@@ -85,6 +85,52 @@ test('local workbook repository round-trips account-scoped workbook data', () =>
   assert.equal(otherRepository.load().userEmail, '');
 });
 
+test('local workbook repository round-trips savings goals, contributions, debts, payments, and recurring rules', () => {
+  installStorage();
+  const defaults = {
+    settings: { currency: 'USD', month: 'January', year: 2026, dateFormat: 'MM/DD/YYYY' as const },
+    incomeCategories: [], expenseCategories: [], paymentMethods: [], incomeTransactions: [],
+    expenseTransactions: [], plannedIncome: {}, plannedExpenses: {}, savingsGoals: [], savingsContributions: [],
+    debts: [], debtPayments: [], financialAssets: [], openingCashBalance: 0,
+    recurringTransactions: [], userEmail: '', activeTab: 'start_here' as const, sheetConfig: null,
+  };
+  const workbook = {
+    ...defaults,
+    savingsGoals: [{ id: 'goal-1', name: 'Emergency Fund', targetAmount: 5000, currentAmount: 1200, openingBalance: 1000, accountId: 'bank-1' }],
+    savingsContributions: [{ id: 'contrib-1', goalId: 'goal-1', amount: 200, date: '2026-01-15', accountId: 'bank-1' }],
+    debts: [{ id: 'debt-1', name: 'Car Loan', balance: 4800, openingBalance: 5000, interestRate: 8, minimumPayment: 250 }],
+    debtPayments: [{ id: 'payment-1', debtId: 'debt-1', amount: 250, principal: 200, interest: 50, fees: 0, date: '2026-01-20', accountId: 'bank-1' }],
+    recurringTransactions: [{ id: 'rent', type: 'expense' as const, description: 'Rent', amount: 900, category: 'Housing', dayOfMonth: 1, frequency: 'monthly' as const, isActive: true }],
+  };
+  const repository = createLocalWorkbookRepository('user-financial-data', defaults);
+  repository.save(workbook);
+  assert.deepEqual(repository.load(), workbook);
+  assert.deepEqual(createLocalWorkbookRepository('another-user', defaults).load(), defaults);
+});
+
+test('savings goal UI wires contribution editing, validation, and deletion to reconciled ledgers', () => {
+  const source = readFileSync(new URL('../src/components/SavingsGoalsTracker.tsx', import.meta.url), 'utf8');
+  assert.match(source, /validateSavingsContributionDraft\(targetGoal\.id, contributionAmount, contributionDate\)/);
+  assert.match(source, /reconcileGoalBalance\(goal, nextContributions\)/);
+  assert.match(source, /editingContribution\?\.id/);
+  assert.match(source, /removeSavingsGoalAndContributions\(savingsGoals, savingsContributions, goalId\)/);
+  assert.match(source, /onUpdateSavingsContributions\?\.\(nextContributions\)/);
+  assert.match(source, /permanently remove .* linked contribution record/);
+});
+
+test('recurring transactions UI wires create/edit/delete, activation, and posting deduplication', () => {
+  const source = readFileSync(new URL('../src/components/RecurringTransactionsModal.tsx', import.meta.url), 'utf8');
+  assert.match(source, /handleSaveRule/);
+  assert.match(source, /handleOpenEdit/);
+  assert.match(source, /handleDeleteRule/);
+  assert.match(source, /handleToggleActive/);
+  assert.match(source, /generateRecurringDates/);
+  assert.match(source, /recurringId/);
+  assert.match(source, /isRecurring/);
+  assert.match(source, /onAddIncomeTransactions/);
+  assert.match(source, /onAddExpenseTransactions/);
+});
+
 test('frontend entitlement helpers fail closed when access is absent', () => {
   const free = { apps: { 'budget-planner': true }, features: { 'budget.core': true, 'budget.localPersistence': true } };
   assert.equal(hasToolkitAppAccess(free, 'budget-planner'), true);
