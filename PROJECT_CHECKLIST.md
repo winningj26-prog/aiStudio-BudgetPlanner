@@ -124,6 +124,7 @@ Updated after each completed implementation/verification task.
 
 ## Latest verification
 - V1 validation pipeline #200: passed (user-reported).
+- V1 validation pipeline #612: passed after correcting the multiline recurring-transaction persistence assertion; TypeScript, acceptance tests, production build, production smoke, Docker build, and Docker smoke all passed.
 - AI production hardening merged to main as `5ff118ac6389a88fb93a09af21b2e350a2dfec21`.
 - Render deploy `dep-dav7nvfpn0mc73aitk00` reached `live` for the merged main commit; post-deploy log query was attempted but Render's log backend returned a temporary 503.
 - Supabase project status: ACTIVE_HEALTHY
@@ -359,9 +360,9 @@ Implementation plan: [PRODUCT_MERGE_PLAN.md](./PRODUCT_MERGE_PLAN.md). Product 2
 - [x] Deleting a savings goal removes its associated contribution ledger records with an explicit confirmation warning; acceptance coverage verifies unrelated goals and ledger entries are preserved.
 - [x] Savings contribution form now validates both positive amount and a real calendar date before writing to the ledger (uses the tested validation helper).
 - [x] Corrected debt-payment snapshot fixture so current liability is post-principal-payment ($900) while opening liability remains $1,000; net worth decreases only by the $50 interest expense.
-- [ ] Run the new acceptance coverage in GitHub Actions and resolve any failures.
+- [x] Run the new acceptance coverage in GitHub Actions and resolve any failures (V1 validation #612 passed).
 - [x] Added debt-payment edit workflow that preserves payment identity and reconciles principal against the old and new debt balances; invalid overpayment is rejected by a tested pure helper.
 - [x] Debt payment dates reject impossible calendar dates (e.g. February 30); strict calendar validation acceptance coverage added.
 - [x] Debt accounts with payment history cannot be deleted until their payment records are removed, preventing orphaned financial history.
 - [ ] Perform live authenticated UI acceptance for savings-goal contribution CRUD, debt-payment CRUD, and workbook persistence; automated tests do not substitute for this.
-- [ ] Complete recurring-transaction create/edit/delete and month-generation acceptance pass.
+- [ ] Complete recurring-transaction create/edit/delete and month-generation acceptance pass (automated contract coverage passed in V1 validation #612; authenticated live UI acceptance remains pending).
