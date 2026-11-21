@@ -1549,5 +1549,5 @@ test('workbook repository persists savings, debt, and recurrence ledgers under a
   assert.match(source, /loadFromAccountStorage\(STORAGE_KEYS\.SAVINGS_CONTRIBUTIONS, userId/);
   assert.match(source, /saveToAccountStorage\(STORAGE_KEYS\.SAVINGS_CONTRIBUTIONS, userId/);
   assert.match(source, /saveToAccountStorage\(STORAGE_KEYS\.DEBT_PAYMENTS, userId/);
-  assert.match(source, /saveToAccountStorage\(STORAGE_KEYS\.RECURRING_TRANSACTIONS, userId/);
+  assert.match(source, /saveToAccountStorage\(\s*STORAGE_KEYS\.RECURRING_TRANSACTIONS,\s*userId,\s*data\.recurringTransactions/);
 });
